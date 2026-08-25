@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy riêng file project trước để layer restore được cache lại khi chỉ code thay đổi.
+COPY Massage.sln ./
+COPY src/Massage.Api/Massage.Api.csproj src/Massage.Api/
+COPY tests/Massage.Api.Tests/Massage.Api.Tests.csproj tests/Massage.Api.Tests/
+RUN dotnet restore Massage.sln
+
+COPY . .
+RUN dotnet publish src/Massage.Api/Massage.Api.csproj -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+# Chạy bằng user không phải root: nếu ứng dụng bị chiếm quyền, kẻ tấn công không
+# có sẵn quyền root trong container.
+RUN adduser --system --group --uid 1001 appuser
+COPY --from=build /app ./
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+USER appuser
+
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "Massage.Api.dll"]

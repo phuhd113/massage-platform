@@ -30,6 +30,28 @@ services:
       timeout: 3s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: src/Massage.Api/Dockerfile
+    container_name: massage_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Trong mạng compose, Postgres nghe ở cổng nội bộ 5432 chứ không phải cổng
+      # đã ánh xạ ra host.
+      ConnectionStrings__Default: 'Host=postgres;Port=5432;Database=massage_platform;Username=massage;Password=massage_dev_pw'
+      Jwt__Secret: 'dev-only-secret-do-not-use-in-production-min-32-chars'
+      Redis__Host: redis
+      Redis__Port: '6379'
+    ports:
+      - '5080:8080'
+    volumes:
+      - uploads:/app/uploads
+
 volumes:
   pgdata:
   redisdata:
+  uploads:

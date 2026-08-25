@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{AB33733C-210E-4E47-B0C9-C2A1B302E3FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Massage.Api", "src\Massage.Api\Massage.Api.csproj", "{C500DA22-319D-4980-8BA1-AA63CABA124F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{DF702A4B-7137-4E78-A827-5931FB00BF16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Massage.Api.Tests", "tests\Massage.Api.Tests\Massage.Api.Tests.csproj", "{1972919A-F18F-4004-AC5D-B1DB51714215}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C500DA22-319D-4980-8BA1-AA63CABA124F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C500DA22-319D-4980-8BA1-AA63CABA124F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C500DA22-319D-4980-8BA1-AA63CABA124F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C500DA22-319D-4980-8BA1-AA63CABA124F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1972919A-F18F-4004-AC5D-B1DB51714215}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1972919A-F18F-4004-AC5D-B1DB51714215}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1972919A-F18F-4004-AC5D-B1DB51714215}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1972919A-F18F-4004-AC5D-B1DB51714215}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C500DA22-319D-4980-8BA1-AA63CABA124F} = {AB33733C-210E-4E47-B0C9-C2A1B302E3FA}
+		{1972919A-F18F-4004-AC5D-B1DB51714215} = {DF702A4B-7137-4E78-A827-5931FB00BF16}
+	EndGlobalSection
+EndGlobal

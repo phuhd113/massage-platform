@@ -1,19 +1,31 @@
-node_modules/
-dist/
-build/
+# .NET
+bin/
+obj/
+*.user
+*.suo
+[Bb]uild/
+artifacts/
+TestResults/
+*.trx
+*.coverage
 coverage/
 
+# Secrets & cấu hình cục bộ
 .env
 .env.local
 .env.*.local
 !.env.example
+appsettings.Local.json
+appsettings.*.Local.json
 
+# File KTV upload — không bao giờ commit dữ liệu người dùng
 uploads/
 *.log
-npm-debug.log*
 
+# Editor / OS
 .DS_Store
 Thumbs.db
 .idea/
+.vs/
 .vscode/*
 !.vscode/extensions.json

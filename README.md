@@ -1,75 +1,114 @@
-# Massage Platform — Nền tảng kết nối massage trị liệu tại nhà
+# Massage Platform
 
-Two-sided marketplace theo mô hình Listing & Bidding: KTV tạo hồ sơ, khách tìm theo khu vực,
-KTV trả phí để đẩy tin lên top.
+Two-sided marketplace kết nối khách với kỹ thuật viên (KTV) massage trị liệu tại nhà, theo mô hình
+Listing & Bidding. Doanh thu đến từ việc KTV trả phí đẩy tin lên top kết quả tìm kiếm.
 
-Kiến trúc chi tiết: xem [bản blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0).
+Kiến trúc chi tiết: [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0).
 
-## Trạng thái: Phase 0 — Foundation
+## Yêu cầu
 
-| Hạng mục | Trạng thái |
-|---|---|
-| Repo, CI, lint, test | Xong |
-| Docker (Postgres+PostGIS, Redis) | Xong |
-| Schema nền + migration | Xong |
-| Auth qua OTP điện thoại (stub) + JWT | Xong |
-| Hồ sơ KTV + upload chứng chỉ | Xong |
-| Admin duyệt hồ sơ / chứng chỉ | Xong |
-| Geo-search, ví, quảng cáo | Phase 1–3 |
+- .NET 8 SDK
+- Docker Desktop (Postgres + PostGIS, Redis)
 
-## Chạy local
+## Chạy dự án
 
 ```bash
-docker compose up -d
+docker compose up -d                  # Postgres 16 + PostGIS 3.4, Redis 7, API
+curl http://localhost:5080/api/v1/health
 ```
+
+Lần đầu chạy cần áp migration và seed danh mục khu vực:
 
 ```bash
-cd apps/api && npm install && cp .env.example .env
+docker compose exec api dotnet Massage.Api.dll migrate
+docker compose exec api dotnet Massage.Api.dll seed-areas
 ```
+
+### Chạy API ngoài Docker
 
 ```bash
-cd apps/api && npm run migration:run && npm run seed:areas
+docker compose up -d postgres redis   # chỉ hạ tầng
+cd src/Massage.Api
+dotnet run                            # http://localhost:5277/api/v1
 ```
+
+> **Lưu ý trên máy bật Smart App Control**: Windows sẽ chặn binary .NET build tại chỗ với lỗi
+> `An Application Control policy has blocked this file`. Khi đó dùng đường Docker ở trên.
+> Tắt Smart App Control là thao tác **không thể hoàn tác** (muốn bật lại phải cài lại Windows),
+> nên hãy cân nhắc kỹ trước khi chọn cách đó.
+
+## Lệnh thường dùng
 
 ```bash
-cd apps/api && npm run start:dev
+dotnet build Massage.sln              # build
+dotnet test Massage.sln               # toàn bộ test (cần Postgres đang chạy)
+dotnet test --filter "FullyQualifiedName~OtpService"   # một nhóm test
+dotnet test --filter "DisplayName~hết_hạn"             # một test theo tên
+dotnet format Massage.sln             # format code (CI kiểm tra bằng --verify-no-changes)
 ```
 
-API chạy tại `http://localhost:3000/api/v1`. Kiểm tra: `GET /api/v1/health`.
+Migration (từ `src/Massage.Api`):
 
-## API Phase 0
+```bash
+dotnet ef migrations add <Tên>        # tạo migration mới
+dotnet ef database update             # áp migration
+dotnet ef database update 0           # rollback toàn bộ
+```
+
+Nếu Smart App Control chặn, chạy các lệnh trên trong container:
+
+```bash
+docker run --rm --network massage-platform_default \
+  -v "$(pwd):/src" -w /src \
+  -e TEST_DB_CONNECTION="Host=postgres;Port=5432;Database=postgres;Username=massage;Password=massage_dev_pw" \
+  mcr.microsoft.com/dotnet/sdk:8.0 dotnet test Massage.sln
+```
+
+## API endpoints (Phase 0)
 
 | Method | Endpoint | Quyền | Mô tả |
 |---|---|---|---|
-| POST | `/auth/otp/request` | công khai | Gửi OTP (chế độ stub trả mã trong response) |
-| POST | `/auth/otp/verify` | công khai | Đổi OTP lấy JWT, tạo tài khoản nếu chưa có |
-| GET | `/auth/me` | đã đăng nhập | Thông tin tài khoản hiện tại |
-| POST | `/ktv/profile` | KTV | Tạo hồ sơ KTV |
-| GET | `/ktv/profile/me` | KTV | Xem hồ sơ của mình |
-| PATCH | `/ktv/profile` | KTV | Sửa hồ sơ (chuyển lại trạng thái chờ duyệt) |
-| POST | `/ktv/certifications` | KTV | Upload chứng chỉ (multipart, trường `file`) |
-| GET | `/ktv/:id` | công khai | Xem hồ sơ KTV |
-| GET | `/admin/ktv` | ADMIN | Danh sách hồ sơ theo trạng thái |
-| PATCH | `/admin/ktv/:id/verify` | ADMIN | Duyệt / từ chối hồ sơ |
-| PATCH | `/admin/certifications/:id/verify` | ADMIN | Duyệt / từ chối chứng chỉ |
+| GET | `/api/v1/health` | công khai | Trạng thái API + phiên bản PostGIS |
+| POST | `/api/v1/auth/otp/request` | công khai | Gửi mã OTP |
+| POST | `/api/v1/auth/otp/verify` | công khai | Đổi OTP lấy JWT |
+| GET | `/api/v1/auth/me` | đã đăng nhập | Thông tin tài khoản |
+| POST | `/api/v1/ktv/profile` | KTV | Tạo hồ sơ |
+| GET | `/api/v1/ktv/profile/me` | KTV | Xem hồ sơ của mình |
+| PATCH | `/api/v1/ktv/profile` | KTV | Sửa hồ sơ |
+| POST | `/api/v1/ktv/certifications` | KTV | Upload chứng chỉ |
+| GET | `/api/v1/ktv/{id}` | công khai | Hồ sơ công khai |
+| GET | `/api/v1/admin/ktv` | ADMIN | Danh sách hồ sơ theo trạng thái |
+| PATCH | `/api/v1/admin/ktv/{id}/verify` | ADMIN | Duyệt / từ chối hồ sơ |
+| PATCH | `/api/v1/admin/certifications/{id}/verify` | ADMIN | Duyệt / từ chối chứng chỉ |
 
-## Lưu ý vận hành Phase 0
+Swagger UI có ở `/swagger` khi chạy môi trường Development.
 
-- **OTP đang ở chế độ stub**: mã được ghi log và trả trong response. Trước khi lên production phải
-  đặt `OTP_STUB_ENABLED=false` và cắm adapter SMS thật — hiện tại code sẽ ném lỗi rõ ràng thay vì
-  âm thầm không gửi gì.
-- **Tài khoản ADMIN đầu tiên** phải tạo thủ công: đăng nhập bằng OTP như user thường rồi
-  `UPDATE users SET role='ADMIN' WHERE phone='...'`. Không mở endpoint tự phong quyền admin.
-- **File chứng chỉ lưu trên đĩa local** (`apps/api/uploads/`). Chuyển sang S3/R2 ở Phase 1 —
-  chỉ cần đổi `storage` trong `upload.config.ts`.
+## Lưu ý vận hành
 
-## Quy ước phát triển
+- **OTP đang ở chế độ stub** (`Otp:StubEnabled=true`): mã trả thẳng trong response và ghi log.
+  Tắt stub mà chưa cắm SMS thì code báo lỗi rõ ràng thay vì âm thầm không gửi gì.
+- **Tài khoản ADMIN đầu tiên tạo thủ công** — không có endpoint tự phong quyền:
 
-Repo có sẵn 5 skill trong `.claude/skills/` mã hoá các quy ước bắt buộc — Claude Code sẽ tự áp dụng
-khi làm việc đúng ngữ cảnh:
+  ```bash
+  docker compose exec postgres psql -U massage -d massage_platform \
+    -c "UPDATE users SET role='ADMIN' WHERE phone='0987654321'"
+  ```
 
-- `new-feature-module` — scaffold module mới
-- `db-migration` — convention migration
-- `wallet-tx-review` — checklist cho code chạm ví/slot quảng cáo
-- `seo-page-check` — audit SEO trang public
-- `ranking-algo-change` — guardrail sửa thuật toán xếp hạng
+  Sau đó đăng nhập lại để lấy JWT mới mang role ADMIN.
+- **`Jwt:Secret` phải đặt qua biến môi trường ở production** (tối thiểu 32 ký tự). App từ chối
+  khởi động nếu thiếu.
+- **File chứng chỉ lưu trên đĩa local**. Chuyển sang S3/R2 bằng cách sửa `CertificationUpload`.
+
+## Cấu trúc
+
+```
+src/Massage.Api/
+├── Common/           # cross-cutting: options, exception handler, route prefix
+├── Data/             # DbContext, migrations, seeder
+└── Modules/          # vertical slice theo nghiệp vụ
+    ├── Auth/
+    ├── KtvProfiles/
+    ├── Admin/
+    └── Health/
+tests/Massage.Api.Tests/
+```

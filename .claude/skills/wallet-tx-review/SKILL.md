@@ -14,7 +14,7 @@ Cổng thanh toán **sẽ** gọi webhook trùng (retry khi timeout, khi nhận 
 - [ ] Mọi bản ghi vào `wallet_transactions` có `idempotency_key` được truyền vào từ bên ngoài, **không phải tự sinh trong hàm** (tự sinh thì mỗi lần gọi lại ra key khác → vô nghĩa)
 - [ ] Với nạp tiền: dùng chính `transactionId` của cổng thanh toán làm key
 - [ ] Với trừ tiền do người dùng thao tác: dùng key do client gửi lên (header `Idempotency-Key`) hoặc `campaign_id` của bản nháp
-- [ ] Xử lý trùng bằng `ON CONFLICT (idempotency_key) DO NOTHING` rồi kiểm tra `rowCount`, **không** dùng `SELECT trước rồi INSERT sau` (có khe hở giữa hai câu lệnh)
+- [ ] Xử lý trùng bằng `ON CONFLICT (idempotency_key) DO NOTHING` rồi kiểm tra số dòng ảnh hưởng, **không** dùng `SELECT trước rồi INSERT sau` (có khe hở giữa hai câu lệnh)
 - [ ] Trả về thành công (không phải lỗi) khi phát hiện trùng — cổng thanh toán cần 200 để ngừng retry
 
 ## 2. Không bao giờ trừ tiền trước khi chắc chắn có slot
@@ -41,7 +41,24 @@ Hold(số tiền)  →  xác nhận slot TRONG cùng transaction  →  Capture (
 
 Lý do: Redis lock có thể hết hạn giữa chừng khi transaction DB chạy lâu hơn dự kiến. Lúc đó hai request cùng tin mình đang giữ lock. Chỉ ràng buộc DB mới chặn được.
 
-## 4. Test đồng thời — không tin vào code đọc bằng mắt
+## 4. Cạm bẫy riêng của EF Core ở vùng code này
+
+EF Core được thiết kế cho CRUD, không cho giao dịch tài chính. Bốn chỗ nó sẽ phản bội bạn nếu dùng theo thói quen:
+
+- [ ] **Không có upsert.** EF không sinh được `ON CONFLICT`. Bản ghi idempotent phải viết bằng `db.Database.ExecuteSqlInterpolatedAsync($"INSERT ... ON CONFLICT (idempotency_key) DO NOTHING")` và kiểm tra giá trị trả về (số dòng). Đừng thay bằng `AnyAsync()` rồi `Add()` — đó chính là khe hở đã nói ở mục 1.
+- [ ] **Không có `SELECT ... FOR UPDATE`.** `FirstOrDefaultAsync()` không khoá dòng. Muốn khoá phải dùng `FromSqlInterpolated($"SELECT * FROM wallets WHERE id = {id} FOR UPDATE")`. Đọc bằng LINQ thường rồi `SaveChanges` chỉ cho *optimistic* concurrency — phải có cột `version` với `.IsRowVersion()` / `.IsConcurrencyToken()` và **phải bắt `DbUpdateConcurrencyException`**, nếu không xung đột sẽ trôi qua im lặng.
+- [ ] **`ExecuteUpdate`/`ExecuteDelete` bỏ qua change tracker và chạy ngoài `SaveChanges`.** Nếu đang trong transaction thủ công thì vẫn nằm trong transaction đó, nhưng entity đang được track sẽ giữ giá trị cũ. Sau khi gọi, đừng đọc lại qua cùng context và tin vào kết quả.
+- [ ] **Kiểu tiền phải là `decimal`**, không bao giờ `double`/`float`. Cấu hình `.HasPrecision(14, 0)` cho khớp `NUMERIC(14,0)`; để EF tự suy sẽ ra kiểu sai và làm tròn âm thầm.
+
+Nhận diện lỗi unique violation của Postgres:
+
+```csharp
+catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
+```
+
+Bắt `DbUpdateException` trần rồi coi mọi lỗi là "hết slot" sẽ nuốt luôn lỗi thật (mất kết nối, sai kiểu dữ liệu) và trả 409 sai sự thật.
+
+## 5. Test đồng thời — không tin vào code đọc bằng mắt
 
 Race condition không xuất hiện trong test tuần tự. Bắt buộc có test:
 
@@ -50,7 +67,7 @@ Race condition không xuất hiện trong test tuần tự. Bắt buộc có tes
 - [ ] Test **số dư không đủ** → không tạo campaign, không tạo hold treo
 - [ ] Sau mỗi test, khẳng định bất biến: `SUM(wallet_transactions.amount theo dấu) == wallets.balance`
 
-## 5. Quan sát & đối soát
+## 6. Quan sát & đối soát
 
 - [ ] Mọi thay đổi số dư đều có bản ghi tương ứng trong `wallet_transactions` với `balance_after` — không có đường nào sửa `balance` mà không ghi sổ
 - [ ] Job đối soát hằng đêm vẫn chạy đúng sau thay đổi này

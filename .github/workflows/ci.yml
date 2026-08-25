@@ -2,56 +2,61 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
 
 jobs:
-  api:
-    name: API — lint, test, migration
+  build-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
 
     services:
       postgres:
+        # Dùng đúng image PostGIS như dev để test chạy trên cùng phiên bản extension,
+        # thay vì postgres thuần rồi phát hiện lệch lúc deploy.
         image: postgis/postgis:16-3.4
         env:
           POSTGRES_USER: massage
-          POSTGRES_PASSWORD: massage_ci_pw
-          POSTGRES_DB: massage_platform_test
-        ports: ['5432:5432']
+          POSTGRES_PASSWORD: massage_dev_pw
+          POSTGRES_DB: massage_platform
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U massage -d massage_platform_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U massage"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     env:
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_USER: massage
-      DB_PASSWORD: massage_ci_pw
-      DB_NAME: massage_platform_test
-      JWT_SECRET: ci-only-secret
-      OTP_STUB_ENABLED: 'true'
+      ConnectionStrings__Default: 'Host=localhost;Port=5432;Database=massage_platform;Username=massage;Password=massage_dev_pw'
+      TEST_DB_CONNECTION: 'Host=localhost;Port=5432;Database=postgres;Username=massage;Password=massage_dev_pw'
+      Jwt__Secret: 'ci-only-secret-not-used-anywhere-else-32ch'
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/api/package-lock.json
+          dotnet-version: '8.0.x'
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - run: dotnet restore Massage.sln
 
-      # Migration phải chạy được cả hai chiều: nếu down() hỏng, một lần deploy lỗi
-      # sẽ không rollback được và phải sửa schema bằng tay trên production.
-      - name: Migration up rồi down rồi up lại
+      # Cảnh báo build là lỗi trong CI: nullable warning ở tầng entity thường là
+      # dấu hiệu của null reference chờ nổ lúc chạy.
+      - run: dotnet build Massage.sln --no-restore -warnaserror
+
+      - name: Kiểm tra format code
+        run: dotnet format Massage.sln --verify-no-changes --no-restore
+
+      - run: dotnet test Massage.sln --no-build --verbosity normal
+
+      - name: Migration phải rollback được (up → down → up)
         run: |
-          npm run migration:run
-          npm run migration:revert
-          npm run migration:run
+          dotnet tool install --global dotnet-ef --version 8.0.11
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          cd src/Massage.Api
+          dotnet ef database update --no-build
+          dotnet ef database update 0 --no-build
+          dotnet ef database update --no-build
+
+      - name: Docker image build được
+        run: docker build -f src/Massage.Api/Dockerfile -t massage-api:ci .
