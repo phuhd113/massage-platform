@@ -6,8 +6,9 @@ services:
       POSTGRES_USER: massage
       POSTGRES_PASSWORD: massage_dev_pw
       POSTGRES_DB: massage_platform
+    # Cổng host lệch mặc định để chạy song song với các dự án khác trên cùng máy.
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +21,7 @@ services:
     image: redis:7-alpine
     container_name: massage_redis
     ports:
-      - '6379:6379'
+      - '6380:6379'
     volumes:
       - redisdata:/data
     healthcheck:
