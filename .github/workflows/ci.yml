@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API — lint, test, migration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: massage
+          POSTGRES_PASSWORD: massage_ci_pw
+          POSTGRES_DB: massage_platform_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U massage -d massage_platform_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: massage
+      DB_PASSWORD: massage_ci_pw
+      DB_NAME: massage_platform_test
+      JWT_SECRET: ci-only-secret
+      OTP_STUB_ENABLED: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      # Migration phải chạy được cả hai chiều: nếu down() hỏng, một lần deploy lỗi
+      # sẽ không rollback được và phải sửa schema bằng tay trên production.
+      - name: Migration up rồi down rồi up lại
+        run: |
+          npm run migration:run
+          npm run migration:revert
+          npm run migration:run
