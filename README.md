@@ -142,6 +142,7 @@ Số điện thoại KTV không nằm trong HTML — nút liên hệ gọi `POST
 |---|---|
 | `/dang-nhap` | Đăng nhập bằng OTP; `noindex, nofollow` |
 | `/dashboard` | Tổng quan: trạng thái hồ sơ, số dư, chiến dịch đang chạy |
+| `/dashboard/ho-so` | Hồ sơ, vị trí, khu vực phục vụ, chứng chỉ, bảng giá |
 | `/dashboard/vi` | Số dư, sổ giao dịch, nạp tiền |
 | `/dashboard/goi` | Catalog gói kèm số chỗ còn trống theo khu vực |
 | `/dashboard/chien-dich` | Danh sách chiến dịch, huỷ và hoàn tiền |
