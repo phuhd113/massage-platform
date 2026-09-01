@@ -11,8 +11,8 @@ sơ đồ luồng và quyết định stack. Bản web dễ đọc: [artifact l�
 | Phase | Nội dung | Thời lượng |
 |---|---|---|
 | 0 | Foundation | **xong** |
-| 1 | MVP Core Marketplace | 4–6 tuần |
-| 2 | Ví & gói đẩy tin | 4–6 tuần |
+| 1 | MVP Core Marketplace | **xong** |
+| 2 | Ví & gói đẩy tin | **xong** |
 | 3 | Realtime & quy mô | 3–4 tuần |
 | 4 | Hardening trước khi mở rộng | 3–4 tuần |
 
@@ -28,7 +28,7 @@ nhưng chưa một dòng code nào dùng), background worker.
 
 ---
 
-## Phase 1 — MVP Core Marketplace (4–6 tuần)
+## Phase 1 — MVP Core Marketplace ✅ đã xong
 
 **Mục tiêu**: khách tìm được KTV theo GPS và bấm gọi được. Kết thúc phase này sản phẩm đã có giá trị sử
 dụng thật, và Google bắt đầu index — đó là lý do SEO kỹ thuật nằm ở đây chứ không phải Phase 4.
@@ -133,7 +133,7 @@ HTML thô — DevTools Elements hiển thị DOM sau khi JS chạy nên lúc nà
 
 ---
 
-## Phase 2 — Ví & gói đẩy tin (4–6 tuần)
+## Phase 2 — Ví & gói đẩy tin ✅ đã xong
 
 **Mục tiêu**: bật doanh thu. Đây là vùng code duy nhất mà một lỗi im lặng biến thành mất tiền thật của
 KTV hoặc bán trùng một slot cho hai người — cả hai đều không tự phục hồi.
@@ -155,7 +155,7 @@ Thêm một bước CI khẳng định hai project domain không có package ref
 | Bảng | Ràng buộc đáng chú ý |
 |---|---|
 | `wallets` | `UNIQUE (user_id)`; `balance NUMERIC(14,0)` (VND không có phần lẻ); `version INT` cho optimistic concurrency; `CHECK (balance >= 0)` |
-| `wallet_transactions` | **`UNIQUE (idempotency_key)`** — trái tim của cả phase; `type CHECK IN ('TOPUP','HOLD','CAPTURE','RELEASE','REFUND','ADJUST')`; `amount` có dấu; `balance_after` để đối soát |
+| `wallet_transactions` | **`UNIQUE (idempotency_key)`** — trái tim của cả phase; `type CHECK IN ('TOPUP','CAPTURE','REFUND','ADJUST')` (khác kế hoạch ban đầu: HOLD/RELEASE không đổi số dư nên có vòng đời riêng ở `wallet_holds`, nhờ vậy bất biến `SUM(amount) = balance` đúng theo nghĩa đen); `amount` có dấu; `balance_after` để đối soát |
 | `wallet_holds` | `expires_at` bắt buộc — process chết giữa chừng thì tiền KTV không treo vĩnh viễn |
 | `promotion_packages` | `type CHECK IN ('VIP_PIN','FEATURED_BADGE','INSTANT_BOOST')`; `boost_points INT`; `price NUMERIC(12,0)` |
 | `campaigns` | `status CHECK`; `start_at`/`end_at TIMESTAMPTZ`; index cho truy vấn campaign ACTIVE theo khu vực |

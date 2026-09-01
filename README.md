@@ -96,6 +96,30 @@ docker run --rm --network massage-platform_default \
 | GET/POST | `/api/v1/ktv/{id}/reviews` | công khai / đã đăng nhập | Đánh giá |
 | GET | `/api/v1/public/sitemap` | công khai | URL được phép index, cho `sitemap.xml` |
 
+
+### Phase 2 — ví và gói đẩy tin
+
+| Method | Endpoint | Quyền | Mô tả |
+|---|---|---|---|
+| GET | `/api/v1/wallet/balance` | KTV | Số dư, phần đang giữ, phần khả dụng |
+| GET | `/api/v1/wallet/transactions` | KTV | Sổ giao dịch, mỗi dòng có `balanceAfter` |
+| POST | `/api/v1/wallet/topup` | KTV | Mở phiên nạp tiền, trả URL cổng thanh toán |
+| GET/POST | `/api/v1/wallet/topup/callback` | công khai | IPN của cổng — verify chữ ký, idempotent |
+| GET | `/api/v1/promotions/packages` | công khai | Catalog gói (`?areaId=` để xem slot còn trống) |
+| POST | `/api/v1/campaigns` | KTV | Mua gói. **Bắt buộc header `Idempotency-Key`** |
+| DELETE | `/api/v1/campaigns/{id}` | KTV | Huỷ, hoàn tiền theo ngày trọn vẹn còn lại |
+| GET | `/api/v1/ktv/campaigns` | KTV | Campaign của mình |
+| GET | `/api/v1/admin/revenue` | ADMIN | Doanh thu ròng theo khu vực và loại gói |
+
+Cấu hình cổng thanh toán qua biến môi trường, **không commit vào repo**:
+
+```bash
+VnPay__TmnCode=...      # mã website do VNPay cấp
+VnPay__HashSecret=...   # bí mật ký HMAC-SHA512
+```
+
+Thiếu hai giá trị này thì app vẫn chạy bình thường và chỉ báo lỗi rõ ràng khi có người bấm nạp tiền.
+
 ## Frontend (apps/web)
 
 Next.js 14 App Router, chạy ở <http://localhost:3000>. Mọi trang public render ở server (SSR/ISR).

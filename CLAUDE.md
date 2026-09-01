@@ -19,7 +19,12 @@ docker compose up -d                              # Postgres 16 + PostGIS 3.4, R
 docker compose exec api dotnet Massage.Api.dll migrate      # áp migration
 docker compose exec api dotnet Massage.Api.dll seed-areas   # seed quận/huyện (idempotent)
 docker compose exec api dotnet Massage.Api.dll seed-services # seed danh mục dịch vụ (idempotent)
+docker compose exec api dotnet Massage.Api.dll seed-packages # seed catalog gói đẩy tin (idempotent)
+docker compose exec api dotnet Massage.Api.dll maintenance   # nhả hold quá hạn, đóng campaign hết hạn, đối soát ví
 ```
+
+`maintenance` thoát với mã khác 0 khi phát hiện ví lệch sổ — chạy nó theo cron và
+coi mã thoát là cảnh báo, đừng chỉ đọc log.
 
 Frontend Next.js ở `apps/web` (chạy cùng `docker compose up -d`, cổng 3000):
 
@@ -77,7 +82,10 @@ Hai hệ quả chi phối gần như mọi quyết định kỹ thuật:
 | Loại | Ví dụ | Kiến trúc |
 |---|---|---|
 | Chạm tiền / cấp phát slot | Wallet, Promotion, Campaign, SlotAllocation | Hexagonal — tách thành **class library riêng** (`Massage.Wallet.Domain`) không tham chiếu ASP.NET/EF |
-| Còn lại | Auth, KtvProfiles, Admin, Listing, Review | Phẳng — controller / service / EF trực tiếp |
+| Còn lại | Auth, KtvProfiles, Admin, Search, ServiceCatalog, Areas, Leads, Review | Phẳng — controller / service / EF trực tiếp |
+
+Hai module Hexagonal đầu tiên đã có từ Phase 2 (`Massage.Wallet.Domain`, `Massage.Promotion.Domain`)
+— dùng chúng làm mẫu thay vì dựng lại từ đầu.
 
 Lý do: module CRUD có logic mỏng, bọc thêm ba lớp chỉ tạo ma sát. Module tiền bạc thì ngược lại —
 cần test được 100% business rule mà không đụng DB, vì một lỗi im lặng ở đó thành mất tiền thật
@@ -132,10 +140,18 @@ mỗi HTTP request có `DbContext` riêng — test phải mô phỏng đúng nh�
 FinalScore = BoostPoints (rời rạc theo hạng gói)  +  BaseScore (liên tục, 0–100)
 ```
 
-Hai phần **cố ý tách biệt**: khoảng cách giữa các mức BoostPoints (VIP +500, Instant +300, Badge
-+50) luôn lớn hơn dải BaseScore tối đa, nên KTV trả phí luôn thắng hạng — đó là cam kết thương mại.
-BaseScore (rating 0.40 + khoảng cách 0.35 + tỉ lệ phản hồi 0.15 + độ mới 0.10) chỉ quyết định thứ
-tự *bên trong* cùng một hạng. Đừng làm mờ ranh giới giữa hai thành phần này.
+Hai phần **cố ý tách biệt**: BaseScore (rating 0.40 + khoảng cách 0.35 + tỉ lệ phản hồi 0.15 + độ
+mới 0.10) chỉ quyết định thứ tự *bên trong* cùng một hạng. Đừng làm mờ ranh giới giữa hai thành
+phần này. BoostPoints lấy **MAX** các gói đang chạy, không cộng dồn — cộng dồn thì hai gói rẻ vượt
+được gói đắt nhất.
+
+⚠️ **Cam kết "trả phí luôn thắng hạng" chỉ đúng với hai trong ba hạng.** VIP Pin (+500) và Instant
+Boost (+300) lớn hơn dải BaseScore tối đa (100) nên đảm bảo thật. **Featured Badge (+50) thì không**
+— một KTV miễn phí điểm nền cao vẫn vượt được, và điều đó có test canh
+(`SearchBoostTests.Featured_Badge_KHÔNG_đảm_bảo…`). Đây là mâu thuẫn có sẵn giữa hai câu trong tài
+liệu gốc, chưa được xử lý: hoặc nâng Badge lên trên 100 điểm, hoặc bán nó như huy hiệu hiển thị chứ
+không phải gói đảm bảo vị trí. Skill `ranking-algo-change` vẫn đang ghi theo cách hiểu cũ.
+API `GET /promotions/packages` trả cờ `guaranteesTopPlacement` để mô tả gói nói đúng sự thật.
 
 ## Skills bắt buộc tham khảo
 
@@ -155,12 +171,28 @@ không có skill.
 
 ## Trạng thái dự án
 
-**Phase 1 (MVP Core Marketplace) đã xong** (2026-09-01). Trước đó Phase 0 đã có repo/CI, Docker,
-schema nền, auth OTP + JWT, hồ sơ KTV + upload chứng chỉ, admin duyệt hồ sơ.
+**Phase 2 (Ví & gói đẩy tin) đã xong** (2026-09-01). Trước đó: Phase 0 foundation, Phase 1 geo-search
++ frontend Next.js. Chi tiết phần còn lại: [docs/roadmap-phase-1-4.md](docs/roadmap-phase-1-4.md).
 
-Phase 1 bổ sung: module `Search` (PostGIS + BaseScore), `ServiceCatalog`, `Areas`, `Leads`,
-`Reviews`, `PublicSite`; và frontend Next.js 14 tại `apps/web` (App Router, SSR/ISR, structured
-data, sitemap động). Chi tiết từng phase còn lại: [docs/roadmap-phase-1-4.md](docs/roadmap-phase-1-4.md).
+Phase 2 thêm hai class library **không tham chiếu EF/ASP.NET** — `Massage.Wallet.Domain` và
+`Massage.Promotion.Domain` — cùng adapter, use case và controller trong `Modules/Wallets` và
+`Modules/Promotions`. Test nghiệp vụ tiền bạc nằm ở `tests/Massage.Wallet.Domain.Tests`, chạy trong
+mili giây mà không cần Postgres; có test canh chính ranh giới đó, nếu ai thêm EF vào domain thì nó đỏ.
+
+Bốn quyết định của Phase 2:
+
+- **Ví có hai cột tiền**: `balance` (tổng sở hữu) và `held` (đang giữ cho lần mua chưa chốt).
+  Khả dụng = hiệu hai cột. Giữ tiền **không** giảm `balance` — chỉ Capture, sau khi slot đã chắc
+  chắn, mới trừ. Đảo lại thì KTV thua tranh slot thấy tiền biến mất trước khi được hoàn.
+- **Sổ cái chỉ chứa dòng làm đổi số dư** (TOPUP/CAPTURE/REFUND/ADJUST), nên bất biến
+  `SUM(amount) = balance` đúng theo nghĩa đen và kiểm được bằng một câu SQL. Vòng đời giữ/nhả tiền
+  nằm ở `wallet_holds` chứ không chen vào sổ thành những dòng 0 đồng.
+- **Campaign chạy đúng bằng các khung ngày nó chiếm slot**, cắt theo giờ Việt Nam. Một campaign
+  7 ngày sinh 7 dòng `slot_allocations` — `UNIQUE` chặn được trùng giá trị rời rạc, không diễn đạt
+  được "hai khoảng thời gian giao nhau".
+- **Boost chỉ tính cho khu vực đã mua** khi tìm theo `areaSlug`. Tìm theo toạ độ thì chưa xác định
+  được khu vực hành chính của khách (chưa có polygon ranh giới quận), nên mọi gói đang chạy đều được
+  tính — còn khe mua gói ở quận rẻ để hưởng hạng ở quận bên cạnh.
 
 Ba quyết định của Phase 1 dễ bị vô tình đảo ngược khi sửa sau này:
 
@@ -174,7 +206,7 @@ Ba quyết định của Phase 1 dễ bị vô tình đảo ngược khi sửa s
 Backend **đã chuyển từ NestJS sang .NET 8** (2026-08-26). Schema DB giữ nguyên; lịch sử NestJS còn
 ở commit trước đó nếu cần đối chiếu.
 
-Roadmap còn lại: Phase 2 ví & gói quảng cáo → Phase 3 Redis
+Roadmap còn lại: Phase 3 Redis
 ranking + Instant Boost + background worker → Phase 4 hardening. Kiến trúc chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
