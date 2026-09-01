@@ -51,6 +51,23 @@ services:
     volumes:
       - uploads:/app/uploads
 
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: massage_web
+    depends_on:
+      - api
+    environment:
+      # Server component gọi API qua mạng nội bộ compose.
+      API_BASE_URL: "http://api:8080/api/v1"
+      # Trình duyệt gọi thẳng API khi ghi lead, để backend thấy đúng IP khách
+      # thay vì IP của Next.
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:5080/api/v1"
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:
   redisdata:
