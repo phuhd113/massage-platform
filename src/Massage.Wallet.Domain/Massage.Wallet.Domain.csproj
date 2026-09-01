@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    KHÔNG thêm PackageReference tới EF Core, Npgsql hay ASP.NET vào đây.
+
+    Đây là chỗ duy nhất trong dự án mà ranh giới kiến trúc được *trình biên dịch*
+    ép buộc thay vì dựa vào kỷ luật con người: không có tham chiếu thì không ai
+    vô tình `using Microsoft.EntityFrameworkCore` vào domain được, build sẽ đỏ.
+    Có một test trong Massage.Wallet.Domain.Tests canh đúng điều này.
+  -->
+
+</Project>
