@@ -137,6 +137,23 @@ public class KtvProfileService(AppDbContext db)
     }
 
     /// <summary>
+    /// Khu vực KTV nhận phục vụ, kèm tên để hiển thị.
+    ///
+    /// Tách riêng khỏi <see cref="GetByUserIdAsync"/> vì nav property
+    /// <c>CoverageAreas</c> chỉ có cặp id — form sửa hồ sơ cần biết KTV đang chọn
+    /// những quận nào, không thể để họ chọn lại từ đầu mỗi lần sửa một dòng bio.
+    /// </summary>
+    public async Task<List<PublicAreaDto>> ListCoverageAreasAsync(
+        Guid ktvId, CancellationToken ct = default) =>
+        await db.CoverageAreas
+            .Where(c => c.KtvId == ktvId)
+            .Join(db.AdministrativeAreas, c => c.AreaId, a => a.Id, (_, a) => a)
+            .OrderBy(a => a.Name)
+            .Select(a => new PublicAreaDto(a.Id, a.Name, a.Slug, a.Level,
+                a.Parent != null ? a.Parent.Slug : null))
+            .ToListAsync(ct);
+
+    /// <summary>
     /// Dữ liệu sinh <c>sitemap.xml</c>: chỉ hồ sơ đã duyệt, kèm mốc cập nhật để
     /// Google biết trang nào cần crawl lại.
     /// </summary>

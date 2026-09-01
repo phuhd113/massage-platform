@@ -22,11 +22,14 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
         return CreatedAtAction(nameof(GetPublicProfile), new { id = profile.Id }, ToDto(profile));
     }
 
-    /// <summary>Xem hồ sơ KTV của chính mình.</summary>
+    /// <summary>Xem hồ sơ KTV của chính mình, kèm khu vực đang nhận phục vụ.</summary>
     [HttpGet("profile/me")]
     [Authorize(Roles = UserRoles.Ktv)]
-    public async Task<IActionResult> MyProfile(CancellationToken ct) =>
-        Ok(ToDto(await service.GetByUserIdAsync(User.GetUserId(), ct)));
+    public async Task<IActionResult> MyProfile(CancellationToken ct)
+    {
+        var profile = await service.GetByUserIdAsync(User.GetUserId(), ct);
+        return Ok(ToDto(profile, await service.ListCoverageAreasAsync(profile.Id, ct)));
+    }
 
     /// <summary>Cập nhật hồ sơ KTV của chính mình.</summary>
     [HttpPatch("profile")]
@@ -72,14 +75,20 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
     public async Task<IActionResult> GetPublicProfileBySlug(string slug, CancellationToken ct) =>
         Ok(await service.GetPublicAsync(null, slug, ct));
 
-    private static object ToDto(KtvProfile p) => new
+    /// <param name="coverageAreas">
+    /// Chỉ truyền ở đường "hồ sơ của tôi". Với hồ sơ vừa tạo hoặc vừa sửa thì để
+    /// null — client vừa gửi lên danh sách đó nên không cần nhận lại.
+    /// </param>
+    private static object ToDto(KtvProfile p, List<PublicAreaDto>? coverageAreas = null) => new
     {
         p.Id,
         p.FullName,
         p.Slug,
         p.Bio,
         p.YearsExperience,
-        // Trả GeoJSON để client web dùng trực tiếp mà không phải parse WKT.
+        // Toạ độ đầy đủ, không làm tròn: đây là hồ sơ của chính chủ, và form sửa
+        // cần đúng điểm đã lưu để không dịch vị trí mỗi lần bấm lưu.
+        // Bản làm tròn dành cho đường công khai, xem PublicKtvProfileDto.
         BasePoint = new { type = "Point", coordinates = new[] { p.BasePoint.X, p.BasePoint.Y } },
         p.BaseAddress,
         p.ServiceRadiusKm,
@@ -90,6 +99,7 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
         p.IsOnline,
         p.CreatedAt,
         Certifications = p.Certifications.Select(ToDto),
+        CoverageAreas = coverageAreas,
     };
 
     private static object ToDto(Certification c) => new

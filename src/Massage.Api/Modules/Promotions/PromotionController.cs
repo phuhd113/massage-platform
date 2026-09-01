@@ -108,7 +108,11 @@ public class PromotionController(
         var ktvId = await db.KtvProfiles.Where(k => k.UserId == userId).Select(k => k.Id)
             .FirstOrDefaultAsync(ct);
 
-        if (ktvId == Guid.Empty) throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+        // Tài khoản chưa có hồ sơ thì danh sách chiến dịch là rỗng, không phải
+        // "không tìm thấy": tài nguyên ở đây là danh sách của chính người gọi, và
+        // nó luôn tồn tại. Trả 404 khiến mọi client phải phân biệt hai loại 404
+        // khác nhau, và dashboard của KTV mới đăng ký thì hỏng cả trang.
+        if (ktvId == Guid.Empty) return Ok(Array.Empty<object>());
 
         var now = clock.UtcNow;
         var items = (await campaigns.ListForKtvAsync(ktvId, ct)).Select(c => new
