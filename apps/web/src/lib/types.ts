@@ -102,3 +102,71 @@ export interface Sitemap {
   services: { path: string }[];
   minKtvForIndex: number;
 }
+
+export interface WalletBalance {
+  balance: number;
+  /** Đang bị giữ cho lần mua chưa chốt — nằm trong `balance`, không cộng thêm. */
+  held: number;
+  available: number;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: 'TOPUP' | 'CAPTURE' | 'REFUND' | 'ADJUST';
+  /** Có dấu: dương là tiền vào, âm là tiền ra. */
+  amount: number;
+  balanceAfter: number;
+  campaignId: string | null;
+  createdAt: string;
+}
+
+export interface WalletTransactionList {
+  items: WalletTransaction[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export type PackageType = 'VIP_PIN' | 'FEATURED_BADGE' | 'INSTANT_BOOST';
+
+export interface PromotionPackage {
+  id: string;
+  code: string;
+  name: string;
+  type: PackageType;
+  price: number;
+  durationDays: number;
+  maxSlotsPerArea: number;
+  boostPoints: number;
+  /**
+   * Gói này có thật sự đảm bảo đứng trên KTV miễn phí hay không. Backend tính,
+   * frontend hiển thị nguyên trạng — bán kèm một lời hứa hệ thống không giữ được
+   * là cách mất niềm tin nhanh nhất.
+   */
+  guaranteesTopPlacement: boolean;
+  /** Null khi không truyền areaId. */
+  freeSlots: number | null;
+}
+
+export interface Campaign {
+  id: string;
+  areaId: string;
+  packageType: PackageType;
+  boostPoints: number;
+  pricePaid: number;
+  startAt: string;
+  endAt: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+  refundedAmount: number;
+  isRunning: boolean;
+}
+
+export interface MyKtvProfile {
+  id: string;
+  fullName: string;
+  slug: string;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+}

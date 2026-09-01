@@ -39,6 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/massage-tai-nha/ha-noi" className="hover:text-brand-600">
                 Hà Nội
               </Link>
+              <Link href="/dashboard" className="font-medium text-brand-600 hover:text-brand-700">
+                Dành cho KTV
+              </Link>
             </nav>
           </div>
         </header>

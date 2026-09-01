@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       // Dashboard KTV và admin không có nội dung cho khách; /tim-kiem là công cụ
       // sinh vô số biến thể tham số, để trang khu vực lo phần index.
-      disallow: ['/dashboard', '/admin', '/api', '/tim-kiem'],
+      disallow: ['/dashboard', '/admin', '/api', '/tim-kiem', '/dang-nhap', '/nap-tien'],
     },
     sitemap: absolute('/sitemap.xml'),
   };
