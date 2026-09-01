@@ -48,7 +48,19 @@ public class PostgresFixture : IAsyncLifetime
         // chưa có kiểu geography, và mọi lệnh ghi toạ độ sau đó fail với
         // "NpgsqlDbType 'Geography' isn't present in your database" — migration vẫn
         // xanh nên lỗi chỉ lộ ra ở test đầu tiên chạm toạ độ.
-        await using (var bootstrap = new NpgsqlConnection(ConnectionString))
+        // ApplicationName riêng để chuỗi kết nối này KHÁC chuỗi mà ứng dụng dùng.
+        //
+        // Npgsql tra data source theo chuỗi kết nối trong một cache dùng chung cả
+        // process. Nếu bootstrap mở đúng chuỗi của ứng dụng, nó chiếm chỗ bằng một
+        // data source *không* có plugin NetTopologySuite — và ứng dụng dựng sau
+        // (WebApplicationFactory) nhận lại bản đó, rồi fail khi đọc cột geography.
+        // Đúng lỗi này đã làm đỏ test upload chứng chỉ.
+        var bootstrapConnectionString = new NpgsqlConnectionStringBuilder(ConnectionString)
+        {
+            ApplicationName = "massage-tests-bootstrap",
+        }.ConnectionString;
+
+        await using (var bootstrap = new NpgsqlConnection(bootstrapConnectionString))
         {
             await bootstrap.OpenAsync();
             await using (var ext = new NpgsqlCommand(
