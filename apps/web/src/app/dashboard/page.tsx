@@ -103,7 +103,8 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
     return (
       <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
         Tài khoản chưa có hồ sơ kỹ thuật viên. Hồ sơ phải được tạo và duyệt trước khi hiển thị
-        trong tìm kiếm và trước khi mua được gói đẩy tin.
+        trong tìm kiếm và trước khi mua được gói đẩy tin.{' '}
+        <Link href="/dashboard/ho-so" className="font-medium underline">Tạo hồ sơ ngay</Link>.
       </p>
     );
   }

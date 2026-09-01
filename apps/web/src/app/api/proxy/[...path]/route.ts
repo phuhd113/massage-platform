@@ -33,11 +33,16 @@ async function forward(request: Request, path: string[]) {
     Accept: 'application/json',
   };
 
+  // Chuyển tiếp body nguyên trạng dưới dạng nhị phân và giữ nguyên Content-Type
+  // của request gốc. Không ép thành JSON: upload chứng chỉ là multipart, và
+  // boundary của nó nằm chính trong header Content-Type — viết đè header đó sẽ
+  // khiến backend không tách được file khỏi các trường văn bản.
   const body = request.method === 'GET' || request.method === 'DELETE'
     ? undefined
-    : await request.text();
+    : await request.arrayBuffer();
 
-  if (body) headers['Content-Type'] = 'application/json';
+  const contentType = request.headers.get('Content-Type');
+  if (body && body.byteLength > 0 && contentType) headers['Content-Type'] = contentType;
 
   // Idempotency-Key phải đi nguyên vẹn tới backend: nó do client sinh và là thứ
   // chặn double-click thành hai lần trừ tiền. Nuốt header này ở proxy là bịt mất
@@ -45,11 +50,11 @@ async function forward(request: Request, path: string[]) {
   const idempotencyKey = request.headers.get('Idempotency-Key');
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
-  const res = await fetch(`${API_BASE}/${path.join('/')}${query}`, {
+  const res = await fetch(`${API_BASE}/${path.join("/")}${query}`, {
     method: request.method,
     headers,
-    body,
-    cache: 'no-store',
+    body: body && body.byteLength > 0 ? body : undefined,
+    cache: "no-store",
   });
 
   const text = await res.text();

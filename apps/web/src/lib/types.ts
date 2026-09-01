@@ -161,12 +161,40 @@ export interface Campaign {
   isRunning: boolean;
 }
 
+
+export interface MyCertification {
+  id: string;
+  name: string;
+  issuingOrg: string | null;
+  issuedAt: string | null;
+  fileUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+/**
+ * Hồ sơ nhìn từ phía chủ tài khoản.
+ *
+ * Khác bản công khai ở ba chỗ: có lý do bị từ chối (ghi chú giữa admin và KTV),
+ * có mọi chứng chỉ kể cả chưa duyệt, và toạ độ **không** làm tròn — form sửa cần
+ * đúng điểm đã lưu, nếu không mỗi lần bấm lưu vị trí lại dịch đi một chút.
+ */
 export interface MyKtvProfile {
   id: string;
   fullName: string;
   slug: string;
+  bio: string | null;
+  yearsExperience: number;
+  basePoint: { type: 'Point'; coordinates: [number, number] };
+  baseAddress: string | null;
+  serviceRadiusKm: number;
   verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
   rejectionReason: string | null;
   ratingAvg: number;
   ratingCount: number;
+  isOnline: boolean;
+  createdAt: string;
+  certifications: MyCertification[];
+  coverageAreas: { id: string; name: string; slug: string; level: AreaLevel }[] | null;
 }

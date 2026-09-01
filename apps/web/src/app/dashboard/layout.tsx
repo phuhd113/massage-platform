@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 
 const nav = [
   { href: '/dashboard', label: 'Tổng quan' },
+  { href: '/dashboard/ho-so', label: 'Hồ sơ' },
   { href: '/dashboard/vi', label: 'Ví' },
   { href: '/dashboard/goi', label: 'Mua gói' },
   { href: '/dashboard/chien-dich', label: 'Chiến dịch' },
