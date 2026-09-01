@@ -36,6 +36,18 @@ export function SearchFilters({
     apply(next);
   }
 
+  /**
+   * Đổi cách nhìn, không đổi tập kết quả — nên cố ý không dùng `setParam`: hàm đó
+   * xoá `page`, mà chuyển từ danh sách sang bản đồ thì phải thấy đúng những KTV
+   * vừa nãy còn ở trên màn hình.
+   */
+  function setView(view: 'list' | 'map') {
+    const next = new URLSearchParams(params.toString());
+    if (view === 'map') next.set('view', 'map');
+    else next.delete('view');
+    apply(next);
+  }
+
   function useMyLocation() {
     if (!navigator.geolocation) {
       setGeoError('Trình duyệt không hỗ trợ định vị.');
@@ -67,6 +79,8 @@ export function SearchFilters({
   const districts = areas.flatMap((p) =>
     p.children.map((d) => ({ ...d, provinceName: p.name })),
   );
+
+  const isMap = params.get('view') === 'map';
 
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-4">
@@ -130,6 +144,33 @@ export function SearchFilters({
             </select>
           </label>
         )}
+
+        <div
+          role="group"
+          aria-label="Cách hiển thị kết quả"
+          className="ml-auto flex rounded-md border border-stone-300 p-0.5 text-sm"
+        >
+          <button
+            type="button"
+            aria-pressed={!isMap}
+            onClick={() => setView('list')}
+            className={`rounded px-3 py-1.5 font-medium ${
+              isMap ? 'text-stone-600 hover:bg-stone-100' : 'bg-stone-900 text-white'
+            }`}
+          >
+            Danh sách
+          </button>
+          <button
+            type="button"
+            aria-pressed={isMap}
+            onClick={() => setView('map')}
+            className={`rounded px-3 py-1.5 font-medium ${
+              isMap ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            Bản đồ
+          </button>
+        </div>
       </div>
 
       {geoError && (

@@ -255,3 +255,7 @@ Lưu ý vận hành hiện tại:
   khiến mọi token đều giả mạo được mà không lộ ra cho tới khi bị khai thác.
 - **File chứng chỉ lưu trên đĩa local**. Chuyển sang S3/R2 bằng cách sửa `CertificationUpload`,
   phần còn lại của luồng upload không phụ thuộc nơi file nằm.
+- **Tile bản đồ đang dùng OSM công cộng** (`apps/web/src/lib/map.ts`). Không cần khoá nên chạy
+  được ngay, nhưng OSM Tile Usage Policy không cho phép ứng dụng thương mại lưu lượng cao —
+  phải đổi sang nhà cung cấp có hợp đồng trước khi mở traffic thật. Đổi ở đúng hai hằng số
+  `TILE_URL`/`TILE_ATTRIBUTION`, không rải ra chỗ khác.
