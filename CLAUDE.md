@@ -30,7 +30,7 @@ Frontend Next.js ở `apps/web` (chạy cùng `docker compose up -d`, cổng 300
 
 ```bash
 docker compose build web && docker compose up -d web
-# typecheck/build không cần cài Node trên host:
+# typecheck/lint/build không cần cài Node trên host:
 docker run --rm --network massage-platform_default -v "C:/Startup/massage-platform/apps/web:/app" \
   -w /app -e API_BASE_URL="http://api:8080/api/v1" node:20-alpine npm run build
 ```

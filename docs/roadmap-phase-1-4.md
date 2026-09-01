@@ -206,8 +206,9 @@ mua gói, không phải tham số để tinh chỉnh. Chạy skill `ranking-algo
 | DELETE | `/api/v1/campaigns/{id}` | Huỷ + hoàn tiền theo tỉ lệ; chốt chính sách hoàn tiền *trước* khi code |
 | GET | `/api/v1/admin/revenue` | Doanh thu theo ngày / khu vực / gói |
 
-Frontend phase này là dashboard KTV (ví, mua gói, danh sách campaign) — nằm sau đăng nhập, `robots.txt`
-chặn, không cần SEO.
+Frontend phase này là dashboard KTV (ví, mua gói, danh sách campaign) — nằm sau đăng nhập,
+`robots.txt` chặn, không cần SEO. Đã làm: `/dang-nhap`, `/dashboard`, `/dashboard/vi`,
+`/dashboard/goi`, `/dashboard/chien-dich`. JWT giữ trong cookie httpOnly, không phải localStorage.
 
 ### 2.6 Test đồng thời — không đọc bằng mắt
 

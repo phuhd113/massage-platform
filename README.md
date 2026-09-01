@@ -136,6 +136,22 @@ Next.js 14 App Router, chạy ở <http://localhost:3000>. Mọi trang public re
 
 Số điện thoại KTV không nằm trong HTML — nút liên hệ gọi `POST /leads` rồi mới nhận số.
 
+### Dashboard KTV
+
+| Route | Ghi chú |
+|---|---|
+| `/dang-nhap` | Đăng nhập bằng OTP; `noindex, nofollow` |
+| `/dashboard` | Tổng quan: trạng thái hồ sơ, số dư, chiến dịch đang chạy |
+| `/dashboard/vi` | Số dư, sổ giao dịch, nạp tiền |
+| `/dashboard/goi` | Catalog gói kèm số chỗ còn trống theo khu vực |
+| `/dashboard/chien-dich` | Danh sách chiến dịch, huỷ và hoàn tiền |
+| `/nap-tien/ket-qua` | Trang cổng thanh toán trả về — chỉ hiển thị, không cộng tiền |
+
+JWT nằm trong **cookie httpOnly**, không phải `localStorage`: đây là khu vực chạm tiền, và một lỗ
+XSS ở bất kỳ đâu trong site cũng đọc được `localStorage`. Hệ quả là mọi lời gọi API có xác thực đi
+qua server — server component đọc cookie trực tiếp, còn thao tác từ client đi qua route handler
+`/api/proxy/*`. Token không bao giờ xuất hiện trong HTML gửi về trình duyệt.
+
 ## Swagger UI
 
 Chạy ở môi trường Development, mở <http://localhost:5080> (truy cập `/` sẽ tự chuyển sang
