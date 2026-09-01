@@ -6,7 +6,10 @@ WORKDIR /src
 # Copy riêng file project trước để layer restore được cache lại khi chỉ code thay đổi.
 COPY Massage.sln ./
 COPY src/Massage.Api/Massage.Api.csproj src/Massage.Api/
+COPY src/Massage.Wallet.Domain/Massage.Wallet.Domain.csproj src/Massage.Wallet.Domain/
+COPY src/Massage.Promotion.Domain/Massage.Promotion.Domain.csproj src/Massage.Promotion.Domain/
 COPY tests/Massage.Api.Tests/Massage.Api.Tests.csproj tests/Massage.Api.Tests/
+COPY tests/Massage.Wallet.Domain.Tests/Massage.Wallet.Domain.Tests.csproj tests/Massage.Wallet.Domain.Tests/
 RUN dotnet restore Massage.sln
 
 COPY . .

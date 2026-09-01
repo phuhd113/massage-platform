@@ -24,6 +24,18 @@ public class AppExceptionHandler(ILogger<AppExceptionHandler> logger) : IExcepti
             BadRequestException => HttpStatusCode.BadRequest,
             Modules.Auth.TooManyAttemptsException => HttpStatusCode.BadRequest,
             Modules.Auth.InvalidOtpException => HttpStatusCode.Unauthorized,
+
+            // Hết slot là kết quả bình thường của việc bán hàng có giới hạn, không
+            // phải sự cố hệ thống — 409 để client biết thử khu vực hoặc khung khác.
+            global::Massage.Promotion.Domain.SlotExhaustedException => HttpStatusCode.Conflict,
+            global::Massage.Promotion.Domain.InvalidCampaignTransitionException => HttpStatusCode.Conflict,
+            Modules.Wallets.Infrastructure.WalletConcurrencyException => HttpStatusCode.Conflict,
+
+            // Lỗi nghiệp vụ của ví (không đủ số dư, số tiền không hợp lệ, hold hết
+            // hạn) đều là thứ người dùng sửa được, nên 400 kèm thông điệp thật.
+            global::Massage.Wallet.Domain.WalletDomainException => HttpStatusCode.BadRequest,
+            global::Massage.Promotion.Domain.PromotionDomainException => HttpStatusCode.BadRequest,
+
             _ => HttpStatusCode.InternalServerError,
         };
 

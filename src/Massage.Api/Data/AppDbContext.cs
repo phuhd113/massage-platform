@@ -1,8 +1,10 @@
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Leads.Entities;
+using Massage.Api.Modules.Promotions.Entities;
 using Massage.Api.Modules.Reviews.Entities;
 using Massage.Api.Modules.ServiceCatalog.Entities;
+using Massage.Api.Modules.Wallets.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Data;
@@ -19,6 +21,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<KtvService> KtvServices => Set<KtvService>();
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<WalletRow> Wallets => Set<WalletRow>();
+    public DbSet<WalletTransactionRow> WalletTransactions => Set<WalletTransactionRow>();
+    public DbSet<WalletHoldRow> WalletHolds => Set<WalletHoldRow>();
+    public DbSet<PaymentIntentRow> PaymentIntents => Set<PaymentIntentRow>();
+    public DbSet<PromotionPackageRow> PromotionPackages => Set<PromotionPackageRow>();
+    public DbSet<CampaignRow> Campaigns => Set<CampaignRow>();
+    public DbSet<SlotAllocationRow> SlotAllocations => Set<SlotAllocationRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -203,6 +212,144 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne<User>().WithMany().HasForeignKey(x => x.AuthorUserId);
             e.HasIndex(x => new { x.KtvId, x.AuthorUserId }).IsUnique().HasDatabaseName("uq_review_ktv_author");
             e.HasIndex(x => new { x.KtvId, x.Status }).HasDatabaseName("idx_review_ktv_status");
+        });
+
+        ConfigureMoney(b);
+    }
+
+    /// <summary>
+    /// Cấu hình các bảng chạm tiền.
+    ///
+    /// Mọi cột tiền khai báo <c>HasPrecision</c> tường minh: để EF tự suy từ
+    /// <c>decimal</c> sẽ ra <c>numeric</c> không giới hạn ở chỗ này và
+    /// <c>numeric(18,2)</c> ở chỗ khác, rồi làm tròn âm thầm khi ghi.
+    /// </summary>
+    private static void ConfigureMoney(ModelBuilder b)
+    {
+        b.Entity<WalletRow>(e =>
+        {
+            e.ToTable("wallets");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.Balance).HasColumnName("balance").HasPrecision(14, 0);
+            e.Property(x => x.Held).HasColumnName("held").HasPrecision(14, 0);
+            // Concurrency token: hai request cùng ghi một ví thì request thứ hai
+            // ném DbUpdateConcurrencyException thay vì ghi đè im lặng.
+            e.Property(x => x.Version).HasColumnName("version").IsConcurrencyToken();
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+        });
+
+        b.Entity<WalletTransactionRow>(e =>
+        {
+            e.ToTable("wallet_transactions");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.WalletId).HasColumnName("wallet_id");
+            e.Property(x => x.Type).HasColumnName("type").HasMaxLength(20).IsRequired();
+            e.Property(x => x.Amount).HasColumnName("amount").HasPrecision(14, 0);
+            e.Property(x => x.BalanceAfter).HasColumnName("balance_after").HasPrecision(14, 0);
+            e.Property(x => x.IdempotencyKey).HasColumnName("idempotency_key").HasMaxLength(120).IsRequired();
+            e.Property(x => x.CampaignId).HasColumnName("campaign_id");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.HasIndex(x => x.IdempotencyKey).IsUnique().HasDatabaseName("uq_wallet_txn_idem");
+            e.HasIndex(x => new { x.WalletId, x.CreatedAt }).HasDatabaseName("idx_wallet_txn_wallet");
+            e.HasOne<WalletRow>().WithMany().HasForeignKey(x => x.WalletId);
+        });
+
+        b.Entity<WalletHoldRow>(e =>
+        {
+            e.ToTable("wallet_holds");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.WalletId).HasColumnName("wallet_id");
+            e.Property(x => x.Amount).HasColumnName("amount").HasPrecision(14, 0);
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            e.HasIndex(x => new { x.Status, x.ExpiresAt }).HasDatabaseName("idx_hold_expiry");
+            e.HasOne<WalletRow>().WithMany().HasForeignKey(x => x.WalletId);
+        });
+
+        b.Entity<PaymentIntentRow>(e =>
+        {
+            e.ToTable("payment_intents");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.Amount).HasColumnName("amount").HasPrecision(14, 0);
+            e.Property(x => x.Provider).HasColumnName("provider").HasMaxLength(20).IsRequired();
+            e.Property(x => x.ProviderRef).HasColumnName("provider_ref").HasMaxLength(64).IsRequired();
+            e.Property(x => x.ProviderTxnId).HasColumnName("provider_txn_id").HasMaxLength(64);
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.RawCallback).HasColumnName("raw_callback");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.Property(x => x.CompletedAt).HasColumnName("completed_at");
+            e.HasIndex(x => new { x.Provider, x.ProviderRef }).IsUnique().HasDatabaseName("uq_payment_intent_ref");
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+        });
+
+        b.Entity<PromotionPackageRow>(e =>
+        {
+            e.ToTable("promotion_packages");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.Code).HasColumnName("code").HasMaxLength(40).IsRequired();
+            e.Property(x => x.Name).HasColumnName("name").HasMaxLength(120).IsRequired();
+            e.Property(x => x.Type).HasColumnName("type").HasMaxLength(20).IsRequired();
+            e.Property(x => x.Description).HasColumnName("description");
+            e.Property(x => x.Price).HasColumnName("price").HasPrecision(12, 0);
+            e.Property(x => x.DurationDays).HasColumnName("duration_days");
+            e.Property(x => x.MaxSlotsPerArea).HasColumnName("max_slots_per_area");
+            e.Property(x => x.IsActive).HasColumnName("is_active");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        b.Entity<CampaignRow>(e =>
+        {
+            e.ToTable("campaigns");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.KtvId).HasColumnName("ktv_id");
+            e.Property(x => x.PackageId).HasColumnName("package_id");
+            e.Property(x => x.AreaId).HasColumnName("area_id");
+            e.Property(x => x.PackageType).HasColumnName("package_type").HasMaxLength(20).IsRequired();
+            e.Property(x => x.BoostPoints).HasColumnName("boost_points");
+            e.Property(x => x.PricePaid).HasColumnName("price_paid").HasPrecision(12, 0);
+            e.Property(x => x.StartAt).HasColumnName("start_at");
+            e.Property(x => x.EndAt).HasColumnName("end_at");
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.CancelledAt).HasColumnName("cancelled_at");
+            e.Property(x => x.RefundedAmount).HasColumnName("refunded_amount").HasPrecision(12, 0);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // Hot path của search: campaign đang chạy theo khu vực.
+            e.HasIndex(x => new { x.AreaId, x.Status, x.EndAt }).HasDatabaseName("idx_campaign_active_window");
+            e.HasIndex(x => new { x.KtvId, x.Status }).HasDatabaseName("idx_campaign_ktv");
+            e.HasOne<KtvProfile>().WithMany().HasForeignKey(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<AdministrativeArea>().WithMany().HasForeignKey(x => x.AreaId);
+            e.HasOne<PromotionPackageRow>().WithMany().HasForeignKey(x => x.PackageId);
+        });
+
+        b.Entity<SlotAllocationRow>(e =>
+        {
+            e.ToTable("slot_allocations");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CampaignId).HasColumnName("campaign_id");
+            e.Property(x => x.AreaId).HasColumnName("area_id");
+            e.Property(x => x.PackageType).HasColumnName("package_type").HasMaxLength(20).IsRequired();
+            e.Property(x => x.WindowStart).HasColumnName("window_start");
+            e.Property(x => x.SlotIndex).HasColumnName("slot_index");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.HasIndex(x => new { x.AreaId, x.PackageType, x.WindowStart, x.SlotIndex })
+                .IsUnique().HasDatabaseName("uq_slot");
+            e.HasIndex(x => x.CampaignId).HasDatabaseName("idx_slot_campaign");
+            e.HasOne<CampaignRow>().WithMany().HasForeignKey(x => x.CampaignId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

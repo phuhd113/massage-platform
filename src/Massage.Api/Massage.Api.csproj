@@ -24,4 +24,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Massage.Wallet.Domain\Massage.Wallet.Domain.csproj" />
+    <ProjectReference Include="..\Massage.Promotion.Domain\Massage.Promotion.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

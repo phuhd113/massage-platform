@@ -1,9 +1,11 @@
 using Massage.Api.Common;
+using Massage.Api.Data;
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Reviews;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Modules.Admin;
 
@@ -79,4 +81,41 @@ public class AdminController(AdminService service) : ControllerBase
         [FromServices] ReviewService reviews,
         CancellationToken ct) =>
         Ok(await reviews.ModerateAsync(id, User.GetUserId(), dto, ct));
+
+    /// <summary>
+    /// Doanh thu theo ngày, khu vực và loại gói.
+    ///
+    /// Tính từ sổ cái ví (bút toán CAPTURE và REFUND) chứ không từ bảng campaign:
+    /// sổ cái là nơi tiền thật sự đổi chủ, còn campaign chỉ mô tả thứ đã bán. Nếu
+    /// hai nguồn lệch nhau thì con số đúng là con số ở sổ.
+    /// </summary>
+    [HttpGet("revenue")]
+    public async Task<IActionResult> Revenue(
+        [FromServices] AppDbContext db,
+        CancellationToken ct,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null)
+    {
+        var start = from ?? DateTimeOffset.UtcNow.AddDays(-30);
+        var end = to ?? DateTimeOffset.UtcNow;
+        if (end <= start) throw new BadRequestException("Khoảng thời gian không hợp lệ");
+
+        var rows = await db.WalletTransactions.AsNoTracking()
+            .Where(t => t.CreatedAt >= start && t.CreatedAt < end && t.CampaignId != null)
+            .Join(db.Campaigns, t => t.CampaignId, c => c.Id, (t, c) => new { t.Amount, c.AreaId, c.PackageType })
+            .GroupBy(x => new { x.AreaId, x.PackageType })
+            .Select(g => new
+            {
+                g.Key.AreaId,
+                g.Key.PackageType,
+                // Bút toán CAPTURE mang dấu âm, REFUND dấu dương — đảo dấu tổng để
+                // ra doanh thu ròng đã trừ hoàn tiền.
+                NetRevenue = -g.Sum(x => x.Amount),
+                Transactions = g.Count(),
+            })
+            .OrderByDescending(x => x.NetRevenue)
+            .ToListAsync(ct);
+
+        return Ok(new { from = start, to = end, total = rows.Sum(r => r.NetRevenue), items = rows });
+    }
 }

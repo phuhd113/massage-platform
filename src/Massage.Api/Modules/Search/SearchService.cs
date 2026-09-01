@@ -24,11 +24,26 @@ public class SearchService(AppDbContext db)
     /// <summary>
     /// Điểm cuối = BoostPoints + BaseScore, và hai phần cố ý tách rời nhau.
     ///
-    /// Phase 1 chưa bán gói nào nên BoostPoints luôn bằng 0, nhưng nó vẫn xuất hiện
-    /// thành một cột riêng trong truy vấn: tới Phase 2 chỉ cần thay hằng số 0 bằng
-    /// join sang campaign đang ACTIVE, không phải viết lại phần xếp hạng — chỗ dễ
-    /// làm sai nhất là khi Boost bị trộn vào BaseScore và ranh giới giữa hai thành
-    /// phần biến mất.
+    /// BoostPoints lấy <c>MAX</c> chứ không <c>SUM</c> các gói đang chạy: cộng dồn
+    /// thì mua Featured Badge kèm Instant Boost sẽ vượt VIP Pin, và thứ tự giữa các
+    /// hạng — thứ KTV trả tiền để mua — bị quyết định bởi phép cộng thay vì bởi
+    /// bảng giá.
+    ///
+    /// Hai giới hạn đã biết của cách gắn boost hiện tại:
+    /// <list type="number">
+    /// <item>
+    /// Tìm theo toạ độ không xác định được khu vực hành chính của khách, vì
+    /// <c>administrative_areas</c> chưa có ranh giới dạng polygon. Ở chế độ đó mọi
+    /// gói đang chạy của KTV đều được tính. Phạm vi ảnh hưởng bị giới hạn bởi bán
+    /// kính tìm kiếm, nhưng vẫn còn khe: mua gói ở quận ít cạnh tranh rồi hưởng thứ
+    /// hạng ở quận bên cạnh. Bịt hẳn cần polygon ranh giới quận.
+    /// </item>
+    /// <item>
+    /// Featured Badge chỉ +50, nhỏ hơn dải BaseScore (0–100), nên KTV mua Badge
+    /// <b>không</b> chắc chắn đứng trên KTV miễn phí điểm nền cao. VIP Pin (+500)
+    /// và Instant Boost (+300) thì có. Con số giữ đúng như tài liệu dự án đã ghi.
+    /// </item>
+    /// </list>
     ///
     /// Trọng số BaseScore cộng lại đúng 1.0 và mọi thành phần đã chuẩn hoá về 0–1.
     /// Khi tìm theo khu vực (không có toạ độ), thành phần khoảng cách bằng 0 cho
@@ -83,7 +98,7 @@ public class SearchService(AppDbContext db)
         ),
         scored AS (
             SELECT c.*,
-                   0::float8 AS boost_points,
+                   COALESCE(b.boost_points, 0)::float8 AS boost_points,
                    100.0 * (
                        0.40 * (((c.rating_count * c.rating_avg + {RatingSmoothing} * g.avg_rating)
                                 / (c.rating_count + {RatingSmoothing})) / 5.0)
@@ -95,7 +110,25 @@ public class SearchService(AppDbContext db)
                            EXTRACT(EPOCH FROM (now() - COALESCE(c.last_active_at, c.created_at)))
                            / {RecencyWindowDays * 86400}.0)
                    )::float8 AS base_score
-            FROM candidates c CROSS JOIN global g
+            FROM candidates c
+            CROSS JOIN global g
+            -- Điểm boost của gói đang chạy. LEFT JOIN LATERAL để KTV không mua gói
+            -- vẫn có mặt trong kết quả với 0 điểm, thay vì bị loại khỏi danh sách.
+            LEFT JOIN LATERAL (
+                SELECT MAX(cp.boost_points) AS boost_points
+                FROM campaigns cp
+                WHERE cp.ktv_id = c.id
+                  AND cp.status = 'ACTIVE'
+                  AND cp.start_at <= now()
+                  AND cp.end_at > now()
+                  -- Tìm theo khu vực thì chỉ gói mua cho đúng khu vực đó mới tính:
+                  -- VIP Pin là ghim theo khu vực, mua ở Quận 7 không được ghim ở
+                  -- Hà Nội. Tìm theo toạ độ thì không có khu vực để so — xem ghi
+                  -- chú giới hạn ở đầu class.
+                  AND (@areaSlug IS NULL OR cp.area_id IN (
+                        SELECT aa.id FROM administrative_areas aa WHERE aa.slug = @areaSlug
+                  ))
+            ) b ON true
         )
         SELECT id            AS "Id",
                full_name     AS "FullName",
