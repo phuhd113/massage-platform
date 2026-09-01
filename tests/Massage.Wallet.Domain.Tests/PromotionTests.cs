@@ -8,30 +8,46 @@ public class PackageTypeTests
     [Theory]
     [InlineData(PackageTypes.VipPin, 500)]
     [InlineData(PackageTypes.InstantBoost, 300)]
-    [InlineData(PackageTypes.FeaturedBadge, 50)]
-    public void Điểm_boost_đúng_như_tài_liệu_dự_án(string type, int expected) =>
+    [InlineData(PackageTypes.FeaturedBadge, 150)]
+    public void Điểm_boost_đúng_như_bảng_giá_đang_bán(string type, int expected) =>
         PackageTypes.BoostPointsFor(type).Should().Be(expected);
 
     [Theory]
     [InlineData(PackageTypes.VipPin)]
     [InlineData(PackageTypes.InstantBoost)]
-    public void VIP_và_Instant_đảm_bảo_đứng_trên_mọi_KTV_miễn_phí(string type) =>
+    [InlineData(PackageTypes.FeaturedBadge)]
+    public void Cả_ba_hạng_đều_đảm_bảo_đứng_trên_KTV_miễn_phí(string type) =>
         PackageTypes.GuaranteesTopPlacement(type).Should().BeTrue(
             "điểm boost phải lớn hơn BaseScore tối đa (100) thì cam kết bán hàng mới giữ được");
 
     [Fact]
-    public void Featured_Badge_KHÔNG_đảm_bảo_thứ_hạng_và_đó_là_điều_phải_nói_rõ()
+    public void Khoảng_cách_giữa_mọi_hạng_liền_kề_lớn_hơn_dải_BaseScore()
     {
-        // Đây không phải lỗi cài đặt mà là mâu thuẫn có sẵn giữa hai câu trong tài
-        // liệu: cùng chỗ ghi "khoảng cách giữa các mức boost lớn hơn dải BaseScore"
-        // lại đặt Badge ở +50, nhỏ hơn dải BaseScore (0–100).
+        // Bất biến thật sự của mô hình doanh thu, và là thứ dễ phá nhất khi ai đó
+        // chỉnh giá một gói: chỉ cần một khoảng cách tụt xuống ≤ 100 là một KTV mua
+        // gói đắt hơn có thể đứng dưới người mua gói rẻ hơn.
         //
-        // Test này khoá hành vi thật lại để nó không bị hiểu nhầm thành đảm bảo, và
-        // để nếu ai đó đổi số thì phải đổi cả test — tức phải quyết định có ý thức.
-        PackageTypes.BoostPointsFor(PackageTypes.FeaturedBadge)
-            .Should().BeLessThan(PackageTypes.MaxBaseScore);
+        // Kiểm cả chuỗi chứ không chỉ hạng vừa đổi — đó chính là chỗ lần trước bị
+        // bỏ sót: Badge +50 lọt qua vì không ai kiểm bậc từ hạng thấp nhất xuống 0.
+        PackageTypes.TierGapsAreValid().Should().BeTrue();
+    }
 
-        PackageTypes.GuaranteesTopPlacement(PackageTypes.FeaturedBadge).Should().BeFalse();
+    [Fact]
+    public void Nâng_Badge_lên_200_sẽ_phá_khoảng_cách_với_Instant()
+    {
+        // Ghi lại vì sao chọn 150 chứ không phải một số tròn hơn: với 200 thì
+        // khoảng cách Badge→Instant còn đúng 100, tức bằng chứ không lớn hơn dải
+        // BaseScore, và một Badge điểm nền tối đa sẽ hoà với một Instant điểm nền 0.
+        const int badgeAt200 = 200;
+        var instant = PackageTypes.BoostPointsFor(PackageTypes.InstantBoost);
+
+        // Khoảng cách phải LỚN HƠN 100, không phải bằng.
+        (instant - badgeAt200).Should().Be(PackageTypes.MaxBaseScore);
+
+        // Còn 150 thì thoả: dư ra đúng nửa dải BaseScore ở cả hai bậc.
+        var badge = PackageTypes.BoostPointsFor(PackageTypes.FeaturedBadge);
+        (instant - badge).Should().BeGreaterThan(PackageTypes.MaxBaseScore);
+        badge.Should().BeGreaterThan(PackageTypes.MaxBaseScore);
     }
 
     [Fact]

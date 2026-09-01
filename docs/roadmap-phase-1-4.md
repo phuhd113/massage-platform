@@ -187,12 +187,18 @@ FinalScore = BoostPoints + BaseScore
 
     VIP Pin         +500
     Instant Boost   +300     (gói bán từ Phase 3, điểm định nghĩa từ bây giờ)
-    Featured Badge   +50
+    Featured Badge  +150
     BaseScore       0–100
 ```
 
-Khoảng cách giữa các mức Boost **luôn lớn hơn dải BaseScore tối đa** — đó là cam kết thương mại với người
-mua gói, không phải tham số để tinh chỉnh. Chạy skill `ranking-algo-change`.
+Khoảng cách giữa **mọi cặp hạng liền kề** phải lớn hơn dải BaseScore tối đa, tính cả bậc từ hạng thấp
+nhất xuống KTV không mua gói — đó là cam kết thương mại với người mua, không phải tham số để tinh chỉnh.
+Chạy skill `ranking-algo-change`.
+
+> Badge ban đầu đặt +50 theo tài liệu gốc, và con số đó **phá** chính cam kết trên: nhỏ hơn dải
+> BaseScore nên KTV miễn phí điểm nền cao vẫn vượt được người đang trả tiền. Nâng lên 150 ngày
+> 2026-09-01, kèm migration backfill campaign còn ACTIVE. Không chọn 200 vì khi đó khoảng cách
+> Badge→Instant còn đúng 100, tức bằng chứ không lớn hơn.
 
 ### 2.5 API
 

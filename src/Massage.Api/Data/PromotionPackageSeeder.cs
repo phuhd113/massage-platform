@@ -41,10 +41,11 @@ public static class PromotionPackageSeeder
         {
             Code = "featured-badge-30d",
             Name = "Huy hiệu nổi bật 30 ngày",
-            // Badge cộng 50 điểm, nhỏ hơn dải BaseScore (0–100), nên nó KHÔNG đảm
-            // bảo đứng trên KTV miễn phí. Mô tả nói đúng như vậy: bán kèm một lời
-            // hứa mà hệ thống không giữ được là cách mất niềm tin nhanh nhất.
-            Description = "Gắn huy hiệu nổi bật và cộng điểm hiển thị. Không đảm bảo vị trí đầu trang.",
+            // Từ 2026-09-01 Badge là 150 điểm, lớn hơn dải BaseScore (0–100), nên
+            // nó đảm bảo đứng trên KTV không mua gói. Mô tả phải đi theo con số:
+            // bán kèm một lời hứa hệ thống không giữ được — hoặc giấu một lời hứa
+            // hệ thống có giữ — đều làm KTV hiểu sai thứ mình đang mua.
+            Description = "Gắn huy hiệu nổi bật và đảm bảo đứng trên các KTV không mua gói trong khu vực đã chọn.",
             Type = PackageTypes.FeaturedBadge,
             Price = 300_000m,
             DurationDays = 30,

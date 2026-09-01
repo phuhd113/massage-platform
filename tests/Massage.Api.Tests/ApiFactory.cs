@@ -106,10 +106,13 @@ public static class ApiClient
         return doc.TryGetProperty("title", out var title) ? title.GetString() ?? "" : "";
     }
 
-    private static int _phoneCounter;
-
-    public static string UniquePhone() =>
-        $"09{Random.Shared.Next(10, 99)}{Interlocked.Increment(ref _phoneCounter):D6}"[..10];
+    /// <summary>
+    /// Uỷ quyền cho <see cref="TestData.UniquePhone"/> chứ không tự sinh.
+    ///
+    /// Hai bộ đếm độc lập cùng định dạng là cách chắc chắn tạo ra trùng khoá, và
+    /// khi trùng thì test đỏ là một test ngẫu nhiên chứ không phải test có lỗi.
+    /// </summary>
+    public static string UniquePhone() => TestData.UniquePhone();
 
     /// <summary>
     /// Đăng ký/đăng nhập qua đúng luồng OTP thật và trả về client đã gắn token.

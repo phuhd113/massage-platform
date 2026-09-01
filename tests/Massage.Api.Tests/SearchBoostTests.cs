@@ -112,16 +112,21 @@ public class SearchBoostTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Featured_Badge_KHÔNG_đảm_bảo_đứng_trên_KTV_miễn_phí_điểm_cao()
+    public async Task Featured_Badge_đứng_trên_cả_KTV_miễn_phí_hoàn_hảo_nhất()
     {
         await using var setup = fixture.CreateContext();
         var area = await TestData.CreateAreaAsync(setup, AreaLevels.District);
         var badge = await WalletTestData.SeedPackageAsync(
             setup, PackageTypes.FeaturedBadge, price: 300_000, maxSlots: 20);
 
-        // Tình huống thật đáng lo: một KTV chất lượng trung bình bỏ tiền mua Badge,
-        // ở xa khách; còn một KTV miễn phí xuất sắc ngay cạnh khách. Đây chính là
-        // trường hợp lời hứa "trả phí thì đứng trên" bị phá.
+        // Dựng đúng tình huống bất lợi nhất cho người trả tiền: KTV mua Badge có
+        // chất lượng trung bình và ở rìa bán kính; KTV miễn phí thì gần như tối đa
+        // mọi thành phần BaseScore — ngay cạnh khách, 5 sao, phản hồi tuyệt đối.
+        //
+        // Trước ngày 2026-09-01, đúng cấu hình này khiến KTV miễn phí vượt lên và
+        // lời hứa "trả phí thì đứng trên" bị phá. Badge nay là 150, lớn hơn dải
+        // BaseScore, nên nó không thể xảy ra nữa — và test giữ nguyên cấu hình khắc
+        // nghiệt đó để nếu ai hạ Badge xuống dưới 100 thì nó đỏ ngay.
         var (lat, lon) = TestData.RandomOrigin();
 
         var paidKtv = await TestData.CreateKtvAsync(
@@ -146,16 +151,16 @@ public class SearchBoostTests(PostgresFixture fixture)
         var paidItem = result.Items.Single(i => i.Id == paidKtv.Id);
         var organicItem = result.Items.Single(i => i.Id == organicKtv.Id);
 
-        paidItem.BoostPoints.Should().Be(50);
+        paidItem.BoostPoints.Should().Be(150);
 
-        // Hành vi thật của hệ thống, không phải hành vi mong muốn: Badge +50 nhỏ hơn
-        // dải BaseScore (0–100) nên KTV miễn phí điểm nền cao vẫn vượt lên được.
-        //
-        // Test khoá điều này lại vì hai lý do: để không ai bán Badge kèm lời hứa
-        // "luôn đứng đầu", và để nếu ai đó đổi con số 50 thì phải sửa cả test —
-        // tức phải quyết định có ý thức thay vì đổi một hằng số cho tiện.
-        organicItem.Score.Should().BeGreaterThan(paidItem.Score);
-        PackageTypes.GuaranteesTopPlacement(PackageTypes.FeaturedBadge).Should().BeFalse();
+        paidItem.Score.Should().BeGreaterThan(organicItem.Score,
+            "Badge 150 lớn hơn dải BaseScore nên không điểm nền nào bù lại được");
+        PackageTypes.GuaranteesTopPlacement(PackageTypes.FeaturedBadge).Should().BeTrue();
+
+        // Nêu luôn lý do bằng số để nó nằm ngay trong test, không phải suy ra từ
+        // hai con số rời rạc: điểm nền của KTV miễn phí, dù tối đa hoá mọi thành
+        // phần, vẫn nằm dưới ngưỡng 100.
+        organicItem.BaseScore.Should().BeLessThan(PackageTypes.MaxBaseScore);
     }
 
     [Fact]

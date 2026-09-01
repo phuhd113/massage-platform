@@ -15,12 +15,15 @@ FinalScore = BoostPoints (rời rạc, theo hạng gói)  +  BaseScore (liên t�
 
 Hai thành phần này **cố ý tách biệt** và không được trộn lẫn:
 
-- **BoostPoints** rời rạc và cách nhau đủ xa (VIP Pin +500, Instant Boost +300, Featured Badge +50) để một KTV trả phí luôn đứng trên toàn bộ KTV không trả phí. Đây là lời hứa thương mại với người mua gói.
+- **BoostPoints** rời rạc và cách nhau đủ xa (VIP Pin +500, Instant Boost +300, Featured Badge +150) để một KTV trả phí luôn đứng trên toàn bộ KTV không trả phí. Đây là lời hứa thương mại với người mua gói.
+
+  > Featured Badge từng là +50 và **không** giữ được lời hứa đó — nhỏ hơn dải BaseScore nên KTV miễn phí điểm nền cao vẫn vượt lên. Nâng lên 150 ngày 2026-09-01. Bài học: khi kiểm khoảng cách, phải kiểm **cả bậc từ hạng thấp nhất xuống 0**, không chỉ khoảng cách giữa các hạng trả phí với nhau. Đó là bậc bị bỏ sót.
 - **BaseScore** liên tục (rating 0.40 + khoảng cách 0.35 + tỉ lệ phản hồi 0.15 + độ mới hoạt động 0.10) và chỉ quyết định thứ tự **bên trong cùng một hạng** — VIP so với VIP, organic so với organic.
 
 Khi cần chỉnh, hãy chỉnh **trong** một trong hai thành phần, đừng làm mờ ranh giới giữa chúng:
 
-- [ ] Khoảng cách giữa các mức BoostPoints vẫn lớn hơn dải giá trị tối đa của BaseScore (100) — nếu không, một KTV organic điểm cao có thể vượt KTV trả phí, phá vỡ cam kết bán hàng
+- [ ] Khoảng cách giữa **mọi cặp hạng liền kề** vẫn lớn hơn dải giá trị tối đa của BaseScore (100), **tính cả bậc từ hạng thấp nhất xuống 0** (KTV không mua gói) — nếu không, một KTV organic điểm cao có thể vượt KTV trả phí, phá vỡ cam kết bán hàng. Chạy `PackageTypes.TierGapsAreValid()`, đừng nhẩm bằng mắt
+- [ ] Nếu đổi điểm của một hạng theo hướng **có lợi** cho người mua, cân nhắc backfill `campaigns.boost_points` cho campaign còn ACTIVE — cột đó sao chép lúc mua, không backfill thì hai KTV cùng giữ một gói giống hệt nhau lại xếp hạng khác nhau
 - [ ] Trọng số BaseScore vẫn cộng lại bằng 1.0
 - [ ] Mọi thành phần vẫn được chuẩn hoá về 0–1 trước khi nhân trọng số (rating chia 5, khoảng cách chia bán kính tìm kiếm)
 - [ ] Rating dùng làm mượt kiểu Bayesian khi `rating_count` thấp — nếu không, một KTV có đúng 1 review 5 sao sẽ vượt KTV có 200 review 4.8 sao

@@ -53,10 +53,10 @@ export default async function PackagesPage() {
           khoảng cách tới khách, tỉ lệ phản hồi và mức độ hoạt động gần đây.
         </p>
         <p className="mt-2">
-          VIP Pin cộng 500 và Instant Boost cộng 300 — đều lớn hơn toàn bộ dải điểm hồ sơ, nên hai
-          gói này đảm bảo bạn đứng trên mọi KTV không mua gói trong khu vực đã chọn. Huy hiệu nổi
-          bật cộng 50, nhỏ hơn dải đó, nên nó tăng khả năng hiển thị nhưng{' '}
-          <strong>không đảm bảo vị trí đầu trang</strong>.
+          Điểm của mọi gói đều lớn hơn toàn bộ dải điểm hồ sơ (VIP Pin 500, Instant Boost 300, Huy
+          hiệu nổi bật 150), nên <strong>mua gói nào cũng đảm bảo</strong> bạn đứng trên các KTV
+          không mua gói trong khu vực đã chọn. Khác nhau là thứ tự giữa những người cùng mua: gói
+          cao hơn luôn đứng trên gói thấp hơn.
         </p>
         <p className="mt-2">
           Mua nhiều gói cùng lúc không cộng dồn điểm — hệ thống lấy gói cao nhất.

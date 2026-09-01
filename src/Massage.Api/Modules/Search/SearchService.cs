@@ -29,21 +29,15 @@ public class SearchService(AppDbContext db)
     /// hạng — thứ KTV trả tiền để mua — bị quyết định bởi phép cộng thay vì bởi
     /// bảng giá.
     ///
-    /// Hai giới hạn đã biết của cách gắn boost hiện tại:
-    /// <list type="number">
-    /// <item>
-    /// Tìm theo toạ độ không xác định được khu vực hành chính của khách, vì
-    /// <c>administrative_areas</c> chưa có ranh giới dạng polygon. Ở chế độ đó mọi
-    /// gói đang chạy của KTV đều được tính. Phạm vi ảnh hưởng bị giới hạn bởi bán
-    /// kính tìm kiếm, nhưng vẫn còn khe: mua gói ở quận ít cạnh tranh rồi hưởng thứ
-    /// hạng ở quận bên cạnh. Bịt hẳn cần polygon ranh giới quận.
-    /// </item>
-    /// <item>
-    /// Featured Badge chỉ +50, nhỏ hơn dải BaseScore (0–100), nên KTV mua Badge
-    /// <b>không</b> chắc chắn đứng trên KTV miễn phí điểm nền cao. VIP Pin (+500)
-    /// và Instant Boost (+300) thì có. Con số giữ đúng như tài liệu dự án đã ghi.
-    /// </item>
-    /// </list>
+    /// Giới hạn đã biết: tìm theo toạ độ không xác định được khu vực hành chính của
+    /// khách, vì <c>administrative_areas</c> chưa có ranh giới dạng polygon. Ở chế
+    /// độ đó mọi gói đang chạy của KTV đều được tính. Phạm vi ảnh hưởng bị giới hạn
+    /// bởi bán kính tìm kiếm, nhưng vẫn còn khe: mua gói ở quận ít cạnh tranh rồi
+    /// hưởng thứ hạng ở quận bên cạnh. Bịt hẳn cần polygon ranh giới quận.
+    ///
+    /// Từ 2026-09-01 cả ba hạng gói đều có điểm lớn hơn dải BaseScore, nên KTV trả
+    /// phí luôn đứng trên KTV không trả phí trong khu vực đã mua — không còn ngoại
+    /// lệ nào. Xem <c>PackageTypes.TierGapsAreValid</c>.
     ///
     /// Trọng số BaseScore cộng lại đúng 1.0 và mọi thành phần đã chuẩn hoá về 0–1.
     /// Khi tìm theo khu vực (không có toạ độ), thành phần khoảng cách bằng 0 cho

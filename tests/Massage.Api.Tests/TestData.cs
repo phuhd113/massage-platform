@@ -17,8 +17,24 @@ public static class TestData
 {
     private static int _counter;
 
+    /// <summary>
+    /// Mốc bắt đầu ngẫu nhiên cho mỗi lần chạy, để hai lần chạy nối tiếp nhau trên
+    /// cùng một database không đụng số của nhau.
+    /// </summary>
+    private static readonly int PhoneSeed = Random.Shared.Next(0, 90_000_000);
+
+    /// <summary>
+    /// Số điện thoại duy nhất trong cả process.
+    ///
+    /// <b>Nguồn duy nhất</b> — mọi test dùng chung hàm này. Trước đây tầng HTTP có
+    /// bộ sinh riêng với cùng định dạng và cũng đếm từ 0, nên hai bộ đụng nhau và
+    /// làm đỏ một test ngẫu nhiên nào đó với lỗi trùng khoá users.phone: triệu
+    /// chứng hiện ra ở test rate limit trong khi nguyên nhân nằm ở chỗ khác hẳn.
+    ///
+    /// Khớp <c>^(0|\+84)(3|5|7|8|9)\d{8}$</c>: "09" cộng 8 chữ số.
+    /// </summary>
     public static string UniquePhone() =>
-        $"09{Random.Shared.Next(10, 99)}{Interlocked.Increment(ref _counter):D6}"[..10];
+        $"09{(PhoneSeed + Interlocked.Increment(ref _counter)) % 100_000_000:D8}";
 
     public static async Task<User> CreateUserAsync(
         AppDbContext db, string role = UserRoles.Ktv, CancellationToken ct = default)

@@ -171,13 +171,21 @@ mới 0.10) chỉ quyết định thứ tự *bên trong* cùng một hạng. Đ
 phần này. BoostPoints lấy **MAX** các gói đang chạy, không cộng dồn — cộng dồn thì hai gói rẻ vượt
 được gói đắt nhất.
 
-⚠️ **Cam kết "trả phí luôn thắng hạng" chỉ đúng với hai trong ba hạng.** VIP Pin (+500) và Instant
-Boost (+300) lớn hơn dải BaseScore tối đa (100) nên đảm bảo thật. **Featured Badge (+50) thì không**
-— một KTV miễn phí điểm nền cao vẫn vượt được, và điều đó có test canh
-(`SearchBoostTests.Featured_Badge_KHÔNG_đảm_bảo…`). Đây là mâu thuẫn có sẵn giữa hai câu trong tài
-liệu gốc, chưa được xử lý: hoặc nâng Badge lên trên 100 điểm, hoặc bán nó như huy hiệu hiển thị chứ
-không phải gói đảm bảo vị trí. Skill `ranking-algo-change` vẫn đang ghi theo cách hiểu cũ.
-API `GET /promotions/packages` trả cờ `guaranteesTopPlacement` để mô tả gói nói đúng sự thật.
+Ràng buộc phải giữ: **mọi khoảng cách giữa hai hạng liền kề lớn hơn 100**, tính cả bậc từ hạng thấp
+nhất xuống KTV không trả phí:
+
+```
+organic(0) →150→ Badge(150) →150→ Instant(300) →200→ VIP(500)
+```
+
+Kiểm cả chuỗi chứ không chỉ hạng vừa sửa — `PackageTypes.TierGapsAreValid()` làm đúng việc đó và có
+test canh. Đây chính là chỗ từng bị bỏ sót: Badge ban đầu là +50, nhỏ hơn dải BaseScore, nên KTV
+miễn phí điểm nền cao vẫn vượt được người đang trả tiền. **Nâng lên 150 ngày 2026-09-01** theo quyết
+định kinh doanh, kèm migration backfill các campaign Badge còn ACTIVE. Không chọn 200 vì khi đó
+khoảng cách Badge→Instant tụt xuống đúng 100, tức bằng chứ không lớn hơn dải BaseScore.
+
+API `GET /promotions/packages` trả cờ `guaranteesTopPlacement` để mô tả gói bán ra luôn khớp với
+hành vi thật của công thức.
 
 ## Skills bắt buộc tham khảo
 
