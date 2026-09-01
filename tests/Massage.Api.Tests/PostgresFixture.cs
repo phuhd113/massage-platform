@@ -16,6 +16,8 @@ public class PostgresFixture : IAsyncLifetime
 {
     private const string TestDbName = "massage_platform_test";
 
+    private NpgsqlDataSource _dataSource = null!;
+
     public string ConnectionString { get; private set; } = null!;
 
     private static string AdminConnectionString =>
@@ -39,16 +41,46 @@ public class PostgresFixture : IAsyncLifetime
         builder.Database = TestDbName;
         ConnectionString = builder.ConnectionString;
 
+        // Tạo extension trước, bằng một data source dùng một lần rồi bỏ.
+        //
+        // Npgsql đọc danh mục kiểu của database ngay khi mở kết nối đầu tiên rồi
+        // cache lại. Nếu để chính migration tạo postgis thì bản cache đã chụp lúc
+        // chưa có kiểu geography, và mọi lệnh ghi toạ độ sau đó fail với
+        // "NpgsqlDbType 'Geography' isn't present in your database" — migration vẫn
+        // xanh nên lỗi chỉ lộ ra ở test đầu tiên chạm toạ độ.
+        await using (var bootstrap = new NpgsqlConnection(ConnectionString))
+        {
+            await bootstrap.OpenAsync();
+            await using (var ext = new NpgsqlCommand(
+                "CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pgcrypto;", bootstrap))
+            {
+                await ext.ExecuteNonQueryAsync();
+            }
+            // Kết nối này đã đọc danh mục kiểu *trước* khi extension tồn tại; nạp
+            // lại để bản cache dùng chung không giữ lại trạng thái thiếu geography.
+            bootstrap.ReloadTypes();
+        }
+        NpgsqlConnection.ClearAllPools();
+
+        // Data source tường minh, không để EF tự dựng từ chuỗi kết nối: khi dựng
+        // ngầm, Npgsql tra data source theo chuỗi kết nối trong một cache dùng
+        // chung — và một kết nối thường mở trước đó sẽ chiếm chỗ bằng bản *không*
+        // có plugin NetTopologySuite, khiến lệnh ghi Point báo
+        // "Writing values of 'Point' is not supported for parameters having NpgsqlDbType 'Geography'".
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(ConnectionString);
+        dataSourceBuilder.UseNetTopologySuite();
+        _dataSource = dataSourceBuilder.Build();
+
         await using var db = CreateContext();
         await db.Database.MigrateAsync();
     }
 
     public AppDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(ConnectionString, o => o.UseNetTopologySuite())
+            .UseNpgsql(_dataSource, o => o.UseNetTopologySuite())
             .Options);
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync() => await _dataSource.DisposeAsync();
 }
 
 [CollectionDefinition(Name)]

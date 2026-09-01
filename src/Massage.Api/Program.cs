@@ -5,7 +5,12 @@ using Massage.Api.Common;
 using Massage.Api.Data;
 using Massage.Api.Modules.Admin;
 using Massage.Api.Modules.Auth;
+using Massage.Api.Modules.Areas;
 using Massage.Api.Modules.KtvProfiles;
+using Massage.Api.Modules.Leads;
+using Massage.Api.Modules.Reviews;
+using Massage.Api.Modules.Search;
+using Massage.Api.Modules.ServiceCatalog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -58,33 +63,42 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RequestOtpDtoValidator>();
 builder.Services.AddExceptionHandler<AppExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddAppSwagger();
+builder.Services.AddAppRateLimiter();
 
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<KtvProfileService>();
 builder.Services.AddScoped<CertificationUpload>();
 builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<ServiceCatalogService>();
+builder.Services.AddScoped<AreaService>();
+builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<LeadService>();
+builder.Services.AddScoped<ReviewService>();
 
 var app = builder.Build();
 
 // Tác vụ vận hành chạy trong cùng process để dùng lại đúng cấu hình và
 // connection string của app, thay vì phải khai báo lại ở một script riêng.
-if (args.Length > 0 && args[0] is "migrate" or "seed-areas")
+if (args.Length > 0 && args[0] is "migrate" or "seed-areas" or "seed-services")
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    if (args[0] == "migrate")
+    switch (args[0])
     {
-        await db.Database.MigrateAsync();
-        logger.LogInformation("Đã áp dụng migration");
-    }
-    else
-    {
-        await AreaSeeder.SeedAsync(db, logger);
+        case "migrate":
+            await db.Database.MigrateAsync();
+            logger.LogInformation("Đã áp dụng migration");
+            break;
+        case "seed-areas":
+            await AreaSeeder.SeedAsync(db, logger);
+            break;
+        default:
+            await ServiceSeeder.SeedAsync(db, logger);
+            break;
     }
     return;
 }
@@ -94,7 +108,16 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(opt =>
+    {
+        opt.SwaggerEndpoint("/swagger/v1/swagger.json", "Massage Platform API v1");
+        opt.DocumentTitle = "Massage Platform API";
+        // Giữ token sau khi reload trang, đỡ phải xin OTP lại mỗi lần F5.
+        opt.EnablePersistAuthorization();
+    });
+
+    // Mở thẳng http://localhost:5080 ra tài liệu thay vì trả 404 khó hiểu.
+    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 }
 
 var uploadDir = Path.Combine(app.Environment.ContentRootPath,
@@ -108,6 +131,9 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseAuthentication();
 app.UseAuthorization();
+// Sau xác thực để phân vùng giới hạn theo user khi đã đăng nhập; đặt trước đó thì
+// ctx.User còn rỗng và mọi request đều rơi chung một phân vùng theo IP.
+app.UseRateLimiter();
 
 app.MapControllers();
 

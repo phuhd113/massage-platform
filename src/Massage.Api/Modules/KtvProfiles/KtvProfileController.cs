@@ -7,10 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Massage.Api.Modules.KtvProfiles;
 
+/// <summary>Hồ sơ kỹ thuật viên và chứng chỉ hành nghề.</summary>
 [ApiController]
 [Route("ktv")]
+[Tags("KTV Profiles")]
 public class KtvProfileController(KtvProfileService service, CertificationUpload upload) : ControllerBase
 {
+    /// <summary>Tạo hồ sơ KTV cho tài khoản đang đăng nhập.</summary>
     [HttpPost("profile")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> Create(CreateKtvProfileDto dto, CancellationToken ct)
@@ -19,16 +22,19 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
         return CreatedAtAction(nameof(GetPublicProfile), new { id = profile.Id }, ToDto(profile));
     }
 
+    /// <summary>Xem hồ sơ KTV của chính mình.</summary>
     [HttpGet("profile/me")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> MyProfile(CancellationToken ct) =>
         Ok(ToDto(await service.GetByUserIdAsync(User.GetUserId(), ct)));
 
+    /// <summary>Cập nhật hồ sơ KTV của chính mình.</summary>
     [HttpPatch("profile")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> Update(UpdateKtvProfileDto dto, CancellationToken ct) =>
         Ok(ToDto(await service.UpdateAsync(User.GetUserId(), dto, ct)));
 
+    /// <summary>Tải lên chứng chỉ hành nghề (multipart: ảnh hoặc PDF ở trường <c>file</c>).</summary>
     [HttpPost("certifications")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> AddCertification(
@@ -52,10 +58,19 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
         return Created($"/uploads/{Path.GetFileName(fileUrl)}", ToDto(cert));
     }
 
+    /// <summary>Xem hồ sơ KTV công khai theo id (không cần đăng nhập).</summary>
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetPublicProfile(Guid id, CancellationToken ct) =>
-        Ok(ToDto(await service.GetByIdAsync(id, ct)));
+        Ok(await service.GetPublicAsync(id, null, ct));
+
+    /// <summary>
+    /// Xem hồ sơ KTV công khai theo slug — dạng dùng cho URL <c>/ktv/{slug}-{id}</c>.
+    /// </summary>
+    [HttpGet("by-slug/{slug}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPublicProfileBySlug(string slug, CancellationToken ct) =>
+        Ok(await service.GetPublicAsync(null, slug, ct));
 
     private static object ToDto(KtvProfile p) => new
     {

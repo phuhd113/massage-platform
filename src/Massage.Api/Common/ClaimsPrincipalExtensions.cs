@@ -16,4 +16,17 @@ public static class ClaimsPrincipalExtensions
             ? id
             : throw new InvalidOperationException("Token thiếu định danh người dùng hợp lệ");
     }
+
+    /// <summary>
+    /// Dùng cho endpoint công khai mà người dùng <em>có thể</em> đã đăng nhập
+    /// (ghi nhận lead chẳng hạn) — trả về null thay vì ném lỗi, vì phần lớn khách
+    /// bấm gọi khi chưa có tài khoản.
+    /// </summary>
+    public static Guid? TryGetUserId(this ClaimsPrincipal principal)
+    {
+        var raw = principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                  ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        return Guid.TryParse(raw, out var id) ? id : null;
+    }
 }

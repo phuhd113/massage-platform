@@ -36,6 +36,16 @@ public class KtvProfile
     public decimal RatingAvg { get; set; }
     public int RatingCount { get; set; }
 
+    /// <summary>
+    /// Tỉ lệ 0–1, thành phần chiếm 0.15 trong BaseScore. Phase 1 chưa có luồng đo
+    /// phản hồi thật nên giá trị còn là 0 cho mọi hồ sơ — nó nằm sẵn trong công
+    /// thức để khi có dữ liệu chỉ cần backfill, không phải sửa lại xếp hạng.
+    /// </summary>
+    public decimal ResponseRate { get; set; }
+
+    public int ResponseCount { get; set; }
+    public int LeadCount { get; set; }
+
     public bool IsOnline { get; set; }
     public DateTimeOffset? LastActiveAt { get; set; }
 

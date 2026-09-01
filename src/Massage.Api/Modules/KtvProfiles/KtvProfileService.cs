@@ -79,6 +79,75 @@ public class KtvProfileService(AppDbContext db)
         await db.KtvProfiles.Include(p => p.Certifications).FirstOrDefaultAsync(p => p.Id == id, ct)
         ?? throw new NotFoundException("Không tìm thấy hồ sơ KTV");
 
+    /// <summary>
+    /// Hồ sơ công khai, tra theo id hoặc theo slug (URL công khai là
+    /// <c>/ktv/{slug}-{id}</c> nên frontend có sẵn cả hai).
+    ///
+    /// Chỉ trả hồ sơ đã duyệt: hồ sơ PENDING không xuất hiện trong kết quả tìm
+    /// kiếm, nên nếu endpoint này vẫn trả về thì chỉ cần đoán id là xem được hồ sơ
+    /// chưa qua kiểm duyệt — và trang đó có thể bị Google index trước khi ai kịp
+    /// nhìn vào nội dung.
+    /// </summary>
+    public async Task<PublicKtvProfileDto> GetPublicAsync(
+        Guid? id, string? slug, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles
+            .AsNoTracking()
+            .Include(p => p.Certifications)
+            .FirstOrDefaultAsync(p =>
+                p.VerificationStatus == VerificationStatuses.Verified &&
+                (id != null ? p.Id == id : p.Slug == slug), ct)
+            ?? throw new NotFoundException("Không tìm thấy hồ sơ KTV");
+
+        var areas = await db.CoverageAreas
+            .Where(c => c.KtvId == profile.Id)
+            .Join(db.AdministrativeAreas, c => c.AreaId, a => a.Id, (_, a) => a)
+            .OrderBy(a => a.Name)
+            .Select(a => new PublicAreaDto(a.Id, a.Name, a.Slug, a.Level,
+                a.Parent != null ? a.Parent.Slug : null))
+            .ToListAsync(ct);
+
+        var services = await db.KtvServices
+            .Where(s => s.KtvId == profile.Id && s.Service!.IsActive)
+            .OrderBy(s => s.Service!.SortOrder)
+            .Select(s => new PublicKtvServiceDto(
+                s.ServiceId, s.Service!.Name, s.Service.Slug, s.PriceFrom, s.DurationMin))
+            .ToListAsync(ct);
+
+        return new PublicKtvProfileDto(
+            profile.Id,
+            profile.FullName,
+            profile.Slug,
+            profile.Bio,
+            profile.YearsExperience,
+            Math.Round(profile.BasePoint.Y, 3),
+            Math.Round(profile.BasePoint.X, 3),
+            profile.ServiceRadiusKm,
+            profile.RatingAvg,
+            profile.RatingCount,
+            profile.IsOnline,
+            profile.CreatedAt,
+            profile.Certifications
+                .Where(c => c.VerifyStatus == VerificationStatuses.Verified)
+                .OrderBy(c => c.Name)
+                .Select(c => new PublicCertificationDto(c.Id, c.Name, c.IssuingOrg, c.IssuedAt))
+                .ToList(),
+            areas,
+            services);
+    }
+
+    /// <summary>
+    /// Dữ liệu sinh <c>sitemap.xml</c>: chỉ hồ sơ đã duyệt, kèm mốc cập nhật để
+    /// Google biết trang nào cần crawl lại.
+    /// </summary>
+    public async Task<List<SitemapEntryDto>> GetSitemapEntriesAsync(CancellationToken ct = default) =>
+        await db.KtvProfiles
+            .AsNoTracking()
+            .Where(p => p.VerificationStatus == VerificationStatuses.Verified)
+            .OrderByDescending(p => p.UpdatedAt)
+            .Select(p => new SitemapEntryDto(p.Id, p.Slug, p.UpdatedAt))
+            .ToListAsync(ct);
+
     public async Task<Certification> AddCertificationAsync(
         Guid userId, CreateCertificationDto dto, string fileUrl, CancellationToken ct = default)
     {

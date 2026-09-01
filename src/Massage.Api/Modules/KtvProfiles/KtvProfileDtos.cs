@@ -24,6 +24,40 @@ public record UpdateKtvProfileDto(
 
 public record CreateCertificationDto(string Name, string? IssuingOrg, DateOnly? IssuedAt);
 
+public record SitemapEntryDto(Guid Id, string Slug, DateTimeOffset LastModified);
+
+public record PublicCertificationDto(Guid Id, string Name, string? IssuingOrg, DateOnly? IssuedAt);
+
+public record PublicAreaDto(Guid Id, string Name, string Slug, string Level, string? ProvinceSlug);
+
+public record PublicKtvServiceDto(Guid ServiceId, string Name, string Slug, decimal PriceFrom, short DurationMin);
+
+/// <summary>
+/// Hồ sơ hiển thị cho khách và cho Googlebot.
+///
+/// Khác với DTO nội bộ ở ba điểm, cả ba đều có chủ ý:
+/// không có <c>RejectionReason</c> (ghi chú nội bộ giữa admin và KTV),
+/// chỉ chứng chỉ đã duyệt, và không có địa chỉ nhà — thay vào đó là danh sách
+/// khu vực nhận phục vụ.
+/// </summary>
+/// <param name="Lat">Toạ độ đã làm tròn ~100m, đủ để đặt ghim bản đồ.</param>
+public record PublicKtvProfileDto(
+    Guid Id,
+    string FullName,
+    string Slug,
+    string? Bio,
+    short YearsExperience,
+    double Lat,
+    double Lon,
+    short ServiceRadiusKm,
+    decimal RatingAvg,
+    int RatingCount,
+    bool IsOnline,
+    DateTimeOffset CreatedAt,
+    List<PublicCertificationDto> Certifications,
+    List<PublicAreaDto> CoverageAreas,
+    List<PublicKtvServiceDto> Services);
+
 public class CreateKtvProfileDtoValidator : AbstractValidator<CreateKtvProfileDto>
 {
     public CreateKtvProfileDtoValidator()
