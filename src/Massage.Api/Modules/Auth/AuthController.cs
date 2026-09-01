@@ -5,10 +5,17 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Massage.Api.Modules.Auth;
 
+/// <summary>Đăng ký / đăng nhập bằng OTP qua số điện thoại.</summary>
 [ApiController]
 [Route("auth")]
+[Tags("Auth")]
 public class AuthController(AuthService auth) : ControllerBase
 {
+    /// <summary>Xin mã OTP cho một số điện thoại.</summary>
+    /// <remarks>
+    /// Khi <c>Otp:StubEnabled=true</c> (mặc định ở môi trường dev), mã được trả về
+    /// ngay trong trường <c>debugCode</c> để test mà không cần SMS thật.
+    /// </remarks>
     [HttpPost("otp/request")]
     public async Task<IActionResult> RequestOtp(RequestOtpDto dto, CancellationToken ct)
     {
@@ -18,6 +25,7 @@ public class AuthController(AuthService auth) : ControllerBase
         return Ok(new { phone, expiresAt, debugCode });
     }
 
+    /// <summary>Xác thực OTP và cấp JWT.</summary>
     [HttpPost("otp/verify")]
     public async Task<IActionResult> VerifyOtp(VerifyOtpDto dto, CancellationToken ct)
     {
@@ -27,6 +35,7 @@ public class AuthController(AuthService auth) : ControllerBase
         return Ok(tokens);
     }
 
+    /// <summary>Thông tin tài khoản đang đăng nhập.</summary>
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> Me(CancellationToken ct)

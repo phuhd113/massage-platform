@@ -4,10 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Modules.Health;
 
+/// <summary>Kiểm tra tình trạng hệ thống.</summary>
 [ApiController]
 [Route("health")]
+[Tags("Health")]
 public class HealthController(AppDbContext db) : ControllerBase
 {
+    /// <summary>Trạng thái API, kết nối DB và phiên bản PostGIS.</summary>
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)
     {

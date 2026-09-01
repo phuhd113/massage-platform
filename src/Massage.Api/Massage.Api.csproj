@@ -4,6 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Sinh file XML để Swagger hiển thị doc comment của controller/DTO.
+         CS1591 tắt vì không bắt buộc mọi kiểu public phải có comment; CS1573 tắt
+         vì không cần mô tả các tham số hạ tầng như CancellationToken. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
