@@ -18,7 +18,20 @@ Hạ tầng và dữ liệu:
 docker compose up -d                              # Postgres 16 + PostGIS 3.4, Redis 7, API
 docker compose exec api dotnet Massage.Api.dll migrate      # áp migration
 docker compose exec api dotnet Massage.Api.dll seed-areas   # seed quận/huyện (idempotent)
+docker compose exec api dotnet Massage.Api.dll seed-services # seed danh mục dịch vụ (idempotent)
 ```
+
+Frontend Next.js ở `apps/web` (chạy cùng `docker compose up -d`, cổng 3000):
+
+```bash
+docker compose build web && docker compose up -d web
+# typecheck/build không cần cài Node trên host:
+docker run --rm --network massage-platform_default -v "C:/Startup/massage-platform/apps/web:/app" \
+  -w /app -e API_BASE_URL="http://api:8080/api/v1" node:20-alpine npm run build
+```
+
+Kiểm chứng SSR **luôn bằng HTML thô** (`curl http://localhost:3000/... | grep`), không bằng
+DevTools Elements — DevTools hiển thị DOM sau khi JS chạy nên trang client-render vẫn trông ổn.
 
 Migration chạy từ `src/Massage.Api`: `dotnet ef migrations add <Tên>`, `dotnet ef database update`,
 `dotnet ef database update 0` (rollback hết).
@@ -142,13 +155,26 @@ không có skill.
 
 ## Trạng thái dự án
 
-Đang ở **Phase 0 (Foundation)** — đã có: repo/CI, Docker, schema nền, auth OTP + JWT, hồ sơ KTV +
-upload chứng chỉ, admin duyệt hồ sơ. Frontend Next.js chưa tồn tại.
+**Phase 1 (MVP Core Marketplace) đã xong** (2026-09-01). Trước đó Phase 0 đã có repo/CI, Docker,
+schema nền, auth OTP + JWT, hồ sơ KTV + upload chứng chỉ, admin duyệt hồ sơ.
+
+Phase 1 bổ sung: module `Search` (PostGIS + BaseScore), `ServiceCatalog`, `Areas`, `Leads`,
+`Reviews`, `PublicSite`; và frontend Next.js 14 tại `apps/web` (App Router, SSR/ISR, structured
+data, sitemap động). Chi tiết từng phase còn lại: [docs/roadmap-phase-1-4.md](docs/roadmap-phase-1-4.md).
+
+Ba quyết định của Phase 1 dễ bị vô tình đảo ngược khi sửa sau này:
+
+- **Hồ sơ công khai không chứa địa chỉ nhà và toạ độ được làm tròn ~100m.** Khoảng cách đã tính ở
+  server nên client không cần toạ độ chính xác; đây là hồ sơ của người đi làm tại nhà khách.
+- **Số điện thoại KTV chỉ trả về trong response của `POST /leads`.** Vừa chống quét số hàng loạt,
+  vừa đảm bảo không có đường liên hệ nào không được đếm — Phase 2 tính phí dựa trên con số đó.
+- **Ngưỡng cho index trang khu vực (`AreaService.MinKtvForIndex`) nằm ở backend**, frontend đọc cờ
+  `indexable` chứ không tự so sánh. Sitemap và thẻ robots phải luôn khớp nhau.
 
 Backend **đã chuyển từ NestJS sang .NET 8** (2026-08-26). Schema DB giữ nguyên; lịch sử NestJS còn
 ở commit trước đó nếu cần đối chiếu.
 
-Roadmap: Phase 1 geo-search + trang public SSR → Phase 2 ví & gói quảng cáo → Phase 3 Redis
+Roadmap còn lại: Phase 2 ví & gói quảng cáo → Phase 3 Redis
 ranking + Instant Boost + background worker → Phase 4 hardening. Kiến trúc chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.

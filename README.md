@@ -64,7 +64,7 @@ docker run --rm --network massage-platform_default \
   mcr.microsoft.com/dotnet/sdk:8.0 dotnet test Massage.sln
 ```
 
-## API endpoints (Phase 0)
+## API endpoints
 
 | Method | Endpoint | Quyền | Mô tả |
 |---|---|---|---|
@@ -80,8 +80,52 @@ docker run --rm --network massage-platform_default \
 | GET | `/api/v1/admin/ktv` | ADMIN | Danh sách hồ sơ theo trạng thái |
 | PATCH | `/api/v1/admin/ktv/{id}/verify` | ADMIN | Duyệt / từ chối hồ sơ |
 | PATCH | `/api/v1/admin/certifications/{id}/verify` | ADMIN | Duyệt / từ chối chứng chỉ |
+| PATCH | `/api/v1/admin/reviews/{id}/moderate` | ADMIN | Gỡ / khôi phục đánh giá |
 
-Swagger UI có ở `/swagger` khi chạy môi trường Development.
+### Phase 1 — tìm kiếm, dịch vụ, lead, đánh giá
+
+| Method | Endpoint | Quyền | Mô tả |
+|---|---|---|---|
+| GET | `/api/v1/search` | công khai | Tìm KTV theo `lat`/`lon`+`radiusKm`, hoặc theo `areaSlug` |
+| GET | `/api/v1/areas` | công khai | Cây tỉnh/quận kèm số KTV đã duyệt |
+| GET | `/api/v1/areas/{tinh}` · `/{tinh}/{quan}` | công khai | Khu vực + quận lân cận + cờ `indexable` |
+| GET | `/api/v1/services` · `/services/{slug}` | công khai | Danh mục dịch vụ |
+| GET | `/api/v1/ktv/by-slug/{slug}` | công khai | Hồ sơ công khai theo slug |
+| GET/PUT | `/api/v1/ktv/profile/services` | KTV | Bảng giá dịch vụ của mình |
+| POST | `/api/v1/leads` | công khai | Ghi nhận lượt liên hệ, **trả về số điện thoại KTV** |
+| GET/POST | `/api/v1/ktv/{id}/reviews` | công khai / đã đăng nhập | Đánh giá |
+| GET | `/api/v1/public/sitemap` | công khai | URL được phép index, cho `sitemap.xml` |
+
+## Frontend (apps/web)
+
+Next.js 14 App Router, chạy ở <http://localhost:3000>. Mọi trang public render ở server (SSR/ISR).
+
+| Route | Render | Ghi chú |
+|---|---|---|
+| `/` | theo request, data cache 300s | `WebSite` + `Organization` |
+| `/massage-tai-nha/{tinh}` | ISR 300s | Danh sách quận theo số KTV |
+| `/massage-tai-nha/{tinh}/{quan}` | ISR 300s | `noindex, follow` khi dưới 3 KTV; `ItemList` + `BreadcrumbList` |
+| `/ktv/{slug}-{id}` | ISR 600s | `ProfessionalService` + `AggregateRating` (chỉ khi có đánh giá thật) |
+| `/dich-vu/{slug}` | ISR 300s | Trang trung chuyển dịch vụ ↔ khu vực |
+| `/tim-kiem` | SSR | `noindex, follow`; canonical về URL gốc |
+| `/sitemap.xml`, `/robots.txt` | động | Chỉ chứa URL backend cho phép index |
+
+Số điện thoại KTV không nằm trong HTML — nút liên hệ gọi `POST /leads` rồi mới nhận số.
+
+## Swagger UI
+
+Chạy ở môi trường Development, mở <http://localhost:5080> (truy cập `/` sẽ tự chuyển sang
+`/swagger`). Đặc tả OpenAPI thô: <http://localhost:5080/swagger/v1/swagger.json>.
+
+Để thử các endpoint có biểu tượng ổ khoá:
+
+1. `POST /api/v1/auth/otp/request` → chép `debugCode` trong response (OTP đang stub nên mã trả
+   thẳng về, không cần SMS).
+2. `POST /api/v1/auth/otp/verify` với mã đó → chép `accessToken`.
+3. Bấm nút **Authorize** ở góc trên phải, dán token (không cần gõ chữ `Bearer`), bấm Authorize.
+
+Token được lưu lại qua các lần reload trang, nên không phải xin OTP lại mỗi lần F5. Với endpoint
+`/api/v1/admin/*`, tài khoản phải có role `ADMIN` — xem phần Lưu ý vận hành bên dưới.
 
 ## Lưu ý vận hành
 
