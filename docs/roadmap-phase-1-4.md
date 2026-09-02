@@ -276,6 +276,18 @@ phút mới lên, KTV mất phần đáng kể thứ họ vừa trả tiền mua
 
 ### 3.3 Instant Hourly Boost — cấp phát slot hai lớp
 
+> **Đã làm xong lớp Postgres (2026-09-02).** Tách khỏi phần Redis đúng như mục "chỗ cắt được nếu
+> cần ship sớm" ở cuối tài liệu này. Gói `instant-boost-1d` đã mở bán, chiếm slot theo **khung giờ**
+> (3 khung liên tiếp kể từ giờ kế tiếp), dùng lại nguyên bảng `slot_allocations` và ràng buộc UNIQUE
+> sẵn có — `package_type` nằm trong khoá nên khung giờ không đụng khung ngày.
+>
+> **Lớp Redis lock (bước 1 và 7) đã làm xong** (2026-09-02): cổng `ISlotLock` ở domain, adapter
+> `RedisSlotLock` ở tầng API, TTL 10s và lệnh nhả có so khớp `requestId` bằng Lua.
+>
+> Đã kiểm chứng đúng điều tài liệu này yêu cầu — **tắt hẳn Redis thì luồng mua gói vẫn đúng**, chỉ
+> mất phần gom hàng: vẫn mua được, vẫn chọn đúng `slot_index` kế tiếp, ví không lệch sổ. Không lấy
+> được khoá là đi tiếp chứ không phải bị từ chối.
+
 ```
 1. Redis lock (TTL + requestId)      ← fast-path: phản hồi nhanh, giảm tải DB
 2. BEGIN

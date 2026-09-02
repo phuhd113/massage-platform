@@ -44,11 +44,18 @@ public class PromotionController(
     public async Task<IActionResult> Packages([FromQuery] Guid? areaId, CancellationToken ct)
     {
         var packages = await catalog.ListActiveAsync(ct);
-        var window = SlotWindow.DayBucket(clock.UtcNow);
+        var now = clock.UtcNow;
 
         var items = new List<object>(packages.Count);
         foreach (var p in packages)
         {
+            // Đếm tồn kho ở đúng khung mà chính gói này sẽ chiếm khi mua ngay bây
+            // giờ. Trước đây mọi gói đều đếm theo khung ngày, nên Instant Boost —
+            // gói bán theo giờ — sẽ báo còn chỗ trong khi lệnh mua báo hết, hoặc
+            // ngược lại. Lấy khung đầu tiên vì đó là khung khan hiếm nhất: các khung
+            // sau chưa ai đặt trước thì luôn rộng hơn.
+            var window = p.WindowsFrom(now)[0];
+
             int? free = areaId is null
                 ? null
                 : await slots.CountFreeAsync(areaId.Value, p.Type, window, p.MaxSlotsPerArea, ct);
@@ -61,13 +68,18 @@ public class PromotionController(
                 p.Type,
                 p.Price,
                 p.DurationDays,
+                // Thời lượng theo đơn vị thật của gói, để giao diện không phải đoán.
+                p.DurationHours,
                 p.MaxSlotsPerArea,
                 p.BoostPoints,
-                // Nói thẳng gói nào thật sự đảm bảo đứng trên KTV miễn phí. Featured
-                // Badge (+50) nhỏ hơn dải BaseScore nên không đảm bảo — bán kèm lời
-                // hứa sai là thứ KTV sẽ phát hiện ra và mất niềm tin.
+                // Nói thẳng gói nào thật sự đảm bảo đứng trên KTV miễn phí — bán kèm
+                // một lời hứa sai là thứ KTV sẽ phát hiện ra và mất niềm tin.
                 p.GuaranteesTopPlacement,
                 freeSlots = free,
+                // Khung mà lần mua ngay bây giờ sẽ bắt đầu chiếm. Với gói theo giờ,
+                // đây là thông tin KTV cần thấy trước khi trả tiền: mua lúc 20h05
+                // thì boost chạy từ 21h, không phải ngay lập tức.
+                startsAt = window,
             });
         }
 

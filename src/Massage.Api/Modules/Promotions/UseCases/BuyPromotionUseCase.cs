@@ -23,7 +23,8 @@ public sealed record BuyPromotionResult(
 ///
 /// Thứ tự thao tác là thứ quan trọng nhất trong file này:
 /// <code>
-///   Hold(tiền)  →  chiếm slot TRONG cùng transaction  →  Capture
+///   [khoá Redis]  →  Hold(tiền)  →  chiếm slot TRONG cùng transaction  →  Capture
+///                 →  commit  →  nhả khoá
 /// </code>
 /// Không có đường nào trừ tiền trước khi slot được xác nhận. Nếu đảo lại, KTV
 /// thua cuộc tranh slot sẽ thấy tiền biến mất rồi mới được hoàn — và nếu process
@@ -32,6 +33,10 @@ public sealed record BuyPromotionResult(
 /// Mọi nhánh thất bại đều nhả hold, không phải nhờ khối <c>catch</c> mà nhờ hold
 /// nằm trong chính transaction bị rollback. Đó cũng là lý do không được đưa bất
 /// kỳ thao tác nào ra ngoài transaction này.
+///
+/// Khoá Redis nằm <b>ngoài</b> transaction và chỉ là fast-path: nó xếp hàng bớt
+/// đám đông trước khi họ cùng lao vào một hàng của unique index, chứ không quyết
+/// định ai được slot. Không lấy được khoá thì vẫn đi tiếp — xem <see cref="ISlotLock"/>.
 /// </summary>
 public class BuyPromotionUseCase(
     AppDbContext db,
@@ -40,10 +45,21 @@ public class BuyPromotionUseCase(
     IPromotionCatalog catalog,
     ICampaignRepository campaigns,
     ISlotAllocator slots,
+    ISlotLock slotLock,
     IClock clock)
 {
     /// <summary>Hold sống đủ lâu cho một transaction, không lâu hơn.</summary>
     private static readonly TimeSpan HoldTtl = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// TTL của khoá fast-path.
+    ///
+    /// Ngắn hơn <see cref="HoldTtl"/> rất nhiều và cố ý như vậy: khoá chỉ cần sống
+    /// qua một transaction mua gói (vài chục mili giây). Đặt dài hơn thì một process
+    /// chết giữa chừng sẽ chặn cả khu vực trong suốt quãng đó, mà lợi ích thu lại
+    /// bằng không — vì tính đúng đắn không dựa vào khoá này.
+    /// </summary>
+    private static readonly TimeSpan LockTtl = TimeSpan.FromSeconds(10);
 
     public async Task<BuyPromotionResult> ExecuteAsync(
         Guid userId, Guid packageId, Guid areaId, string idempotencyKey, CancellationToken ct = default)
@@ -78,6 +94,21 @@ public class BuyPromotionUseCase(
 
         var now = clock.UtcNow;
 
+        // Khoá fast-path cho đúng khung đầu tiên — khung khan hiếm nhất và là chỗ
+        // mọi người mua cùng lúc sẽ đụng nhau. Khoá cả dãy khung sẽ phải xử lý
+        // deadlock giữa các campaign có độ dài khác nhau, đổi lấy gần như không gì:
+        // ai qua được khung đầu thì các khung sau cũng cùng một transaction.
+        //
+        // `using` nằm ngoài transaction nên khoá được nhả SAU commit. Nhả trước
+        // commit sẽ mở cửa cho request kế tiếp đúng lúc dòng slot của ta còn chưa
+        // nhìn thấy được — tức là mất sạch tác dụng gom hàng của khoá.
+        //
+        // Handle có thể là null (Redis chết, hoặc người khác đang giữ). Đi tiếp
+        // trong cả hai trường hợp: khoá không phải điều kiện để được mua.
+        await using var _ = await slotLock.TryAcquireAsync(
+            areaId, package.Type, package.WindowsFrom(now)[0], LockTtl, ct)
+            ?? NullLockHandle.Instance;
+
         await using var tx = await uow.BeginAsync(ct);
 
         // Khoá dòng ví tới hết transaction. Đọc thường ở đây là chỗ hai request
@@ -94,9 +125,11 @@ public class BuyPromotionUseCase(
 
         // Ném SlotExhaustedException nếu hết chỗ. Không bắt ở đây: transaction bị
         // rollback sẽ nhả hold và xoá campaign vừa tạo, còn tầng API dịch nó thành 409.
+        // Khung do chính gói quyết định (ngày hay giờ) — không suy lại ở đây, để
+        // tầng mua và tầng đếm tồn kho không thể lệch nhau.
         var slotIndex = await slots.AllocateAsync(
             campaign.Id, areaId, package.Type,
-            SlotWindow.DayWindows(campaign.StartAt, package.DurationDays),
+            package.WindowsFrom(now),
             package.MaxSlotsPerArea, ct);
 
         // Slot đã chắc chắn thuộc về campaign này — giờ mới được trừ tiền.
@@ -126,5 +159,19 @@ public class BuyPromotionUseCase(
         return new BuyPromotionResult(
             campaign.Id, slotIndex, campaign.PricePaid, campaign.StartAt, campaign.EndAt,
             wallet.Balance.Amount, AlreadyProcessed: false);
+    }
+
+    /// <summary>
+    /// Handle rỗng cho trường hợp không lấy được khoá.
+    ///
+    /// Dùng null-object thay vì <c>if (handle is not null)</c> rải khắp nơi: luồng
+    /// mua gói phải giống hệt nhau dù có khoá hay không, và mọi nhánh rẽ thêm ở
+    /// vùng chạm tiền là một nhánh nữa phải test.
+    /// </summary>
+    private sealed class NullLockHandle : ISlotLockHandle
+    {
+        public static readonly NullLockHandle Instance = new();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

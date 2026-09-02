@@ -64,7 +64,11 @@ public sealed class Campaign
     public static Campaign Start(
         Guid id, Guid ktvId, Guid areaId, PromotionPackage package, DateTimeOffset now)
     {
-        var startAt = SlotWindow.DayBucket(now);
+        // Mốc bắt đầu do gói quyết định theo độ mịn khung của nó: gói ngày cắt về
+        // đầu ngày, gói giờ cắt về đầu giờ được tính tiền. Cắt cứng về đầu ngày như
+        // trước sẽ cho Instant Boost một StartAt sớm hơn khung nó thật sự chiếm —
+        // campaign coi như đang chạy trong khi chưa giữ slot nào.
+        var startAt = package.StartAtFrom(now);
         return new Campaign(id, ktvId, package.Id, areaId, package.Type, package.BoostPoints,
             package.Price, startAt, package.EndAtFrom(now), CampaignStatuses.Active);
     }
@@ -84,12 +88,21 @@ public sealed class Campaign
         if (Status != CampaignStatuses.Active)
             throw new InvalidCampaignTransitionException(Status, CampaignStatuses.Cancelled);
 
-        var totalDays = (EndAt - StartAt).TotalDays;
-        var remainingFullDays = Math.Floor(Math.Max(0, (EndAt - now).TotalDays));
+        // Đơn vị hoàn tiền phải là chính đơn vị khung mà gói chiếm slot.
+        //
+        // Tính theo ngày cho gói bán theo giờ thì "số ngày trọn vẹn còn lại" của một
+        // campaign 3 giờ luôn bằng 0, và KTV huỷ ngay sau khi mua vẫn không được
+        // hoàn đồng nào — một lỗi im lặng, vì hàm vẫn chạy và vẫn trả về số.
+        var unit = SlotGranularities.For(PackageType) == SlotGranularity.Hour
+            ? TimeSpan.FromHours(1)
+            : TimeSpan.FromDays(1);
 
-        var refund = totalDays <= 0
+        var totalUnits = (EndAt - StartAt) / unit;
+        var remainingFullUnits = Math.Floor(Math.Max(0, (EndAt - now) / unit));
+
+        var refund = totalUnits <= 0
             ? 0m
-            : Math.Floor(PricePaid * (decimal)remainingFullDays / (decimal)totalDays);
+            : Math.Floor(PricePaid * (decimal)remainingFullUnits / (decimal)totalUnits);
 
         Status = CampaignStatuses.Cancelled;
         CancelledAt = now;

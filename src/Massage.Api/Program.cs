@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -94,6 +95,39 @@ builder.Services.AddScoped<IWalletUnitOfWork, WalletUnitOfWork>();
 builder.Services.AddScoped<IPromotionCatalog, PromotionCatalog>();
 builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<ISlotAllocator, SlotAllocator>();
+
+// Redis chỉ là fast-path, nên kết nối được đăng ký ở dạng "có thì dùng".
+//
+// `AbortOnConnectFail = false` để app vẫn khởi động khi Redis chưa sẵn sàng và tự
+// nối lại sau — ngược lại thì một Redis chậm khởi động sẽ chặn cả API, đúng kiểu
+// đặt tính sẵn sàng của hệ thống vào tay một cache.
+builder.Services.AddSingleton<RedisConnection>(sp =>
+{
+    var host = builder.Configuration["Redis:Host"];
+    if (string.IsNullOrWhiteSpace(host)) return new RedisConnection(null);
+
+    var options = new ConfigurationOptions
+    {
+        EndPoints = { { host, int.TryParse(builder.Configuration["Redis:Port"], out var p) ? p : 6379 } },
+        AbortOnConnectFail = false,
+        ConnectTimeout = 2000,
+        ConnectRetry = 3,
+    };
+
+    try
+    {
+        return new RedisConnection(ConnectionMultiplexer.Connect(options));
+    }
+    catch (Exception ex)
+    {
+        // Không ném: thiếu khoá fast-path thì mua gói chậm hơn chứ không sai.
+        sp.GetRequiredService<ILogger<Program>>()
+            .LogWarning(ex, "Không kết nối được Redis, khoá slot sẽ bỏ qua");
+        return new RedisConnection(null);
+    }
+});
+builder.Services.AddScoped<ISlotLock, RedisSlotLock>();
+
 builder.Services.AddScoped<IPaymentGateway, VnPayGateway>();
 builder.Services.AddScoped<StartTopUpUseCase>();
 builder.Services.AddScoped<ConfirmTopUpUseCase>();

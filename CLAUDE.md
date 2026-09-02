@@ -54,6 +54,7 @@ là chạy trong container SDK:
 MSYS_NO_PATHCONV=1 docker run --rm --network massage-platform_default \
   -v "C:/Startup/massage-platform:/src" -w /src \
   -e TEST_DB_CONNECTION="Host=postgres;Port=5432;Database=postgres;Username=massage;Password=massage_dev_pw" \
+  -e TEST_REDIS="redis:6379" \
   mcr.microsoft.com/dotnet/sdk:8.0 dotnet test Massage.sln
 ```
 
@@ -240,8 +241,50 @@ Ba quyết định của Phase 1 dễ bị vô tình đảo ngược khi sửa s
 Backend **đã chuyển từ NestJS sang .NET 8** (2026-08-26). Schema DB giữ nguyên; lịch sử NestJS còn
 ở commit trước đó nếu cần đối chiếu.
 
-Roadmap còn lại: Phase 3 Redis
-ranking + Instant Boost + background worker → Phase 4 hardening. Kiến trúc chi tiết ở
+**Phase 3 đang làm dở.** Xong phần đầu: **Instant Hourly Boost chạy trên Postgres** (2026-09-02).
+Roadmap nói rõ phần Redis hoãn được khi lượng KTV còn nhỏ, còn Instant Boost thì không — nó là gói
+bán chạy nhất theo thiết kế — nên nó được tách ra làm trước.
+
+Bốn điều cần biết khi đụng vào phần này:
+
+- **`slot_allocations` không đổi và cố ý không tách bảng riêng cho khung giờ.** `package_type` nằm
+  trong khoá `UNIQUE (area_id, package_type, window_start, slot_index)`, nên khung giờ của Instant
+  Boost không bao giờ đụng khung ngày của VIP Pin dù ghi chung một bảng. Tách bảng sẽ tạo ra hai
+  trọng tài chống trùng phải tự giữ cho khớp nhau mãi mãi.
+- **Độ mịn khung suy từ loại gói ở đúng một chỗ** (`SlotGranularities.For`). Tầng mua và tầng đếm tồn
+  kho phải dùng chung nó; trước đây catalog đếm mọi gói theo khung ngày, nên gói theo giờ sẽ báo còn
+  chỗ trong khi lệnh mua báo hết.
+- **Gói theo giờ khai `duration_hours`, gói theo ngày để NULL** — ép bằng CHECK
+  `chk_package_duration_unit` ở tầng DB, không chỉ bằng code: một hàng seed sai đơn vị sẽ bán 3 ngày
+  với giá 3 giờ mà không test ứng dụng nào nhìn thấy.
+- **Hoàn tiền tính theo đúng đơn vị khung của gói.** Tính theo ngày cho gói 3 giờ thì "số ngày trọn
+  vẹn còn lại" luôn bằng 0 và KTV huỷ ngay sau khi mua mất trắng — lỗi im lặng, vì hàm vẫn trả về số.
+
+**Khoá Redis khi tranh slot đã có** (2026-09-02, `RedisSlotLock` + cổng `ISlotLock`). Ba điều bắt
+buộc nhớ khi sửa nó:
+
+- **Nó là fast-path, không phải cơ chế đúng sai.** Trọng tài vẫn là `UNIQUE` ở `slot_allocations`.
+  Không lấy được khoá thì **vẫn đi tiếp** — từ chối lệnh mua vì thua khoá sẽ biến một tối ưu thành
+  lỗi nghiệp vụ, và Redis chết là cả sàn ngừng bán. Đã kiểm chứng: tắt hẳn Redis thì vẫn mua được,
+  vẫn chọn đúng `slot_index` kế tiếp, ví không lệch sổ.
+- **Nhả khoá phải so khớp token bằng Lua**, không `GET` rồi `DEL`. Khoá có thể hết hạn giữa chừng và
+  người khác đã chiếm; xoá mù là mở khoá của họ. Khoá nhả **sau** commit, không phải trước.
+- **Khoá chỉ đặt cho khung đầu tiên** và TTL rất ngắn (10s, ngắn hơn hold 5 phút nhiều). TTL dài thì
+  một process chết sẽ chặn cả khu vực suốt quãng đó mà không đổi lại được gì.
+
+Test khoá (`RedisSlotLockTests`) **bỏ qua khi không có Redis**, nên xanh không chứng minh được gì nếu
+Redis không chạy — vì vậy khi `TEST_REDIS` được đặt tường minh mà không kết nối được thì test **ném
+lỗi** thay vì bỏ qua. Chạy có Redis mất ~3s, bỏ qua chỉ vài chục ms; nhìn thời gian là biết.
+
+Các test tranh slot khác cố ý chạy **không có khoá** (`NoSlotLock`) để chứng minh ràng buộc DB tự
+mình chặn được — dùng khoá thật ở đó thì test vẫn xanh kể cả khi ai đó xoá mất `UNIQUE`.
+
+Giới hạn đã biết, chưa làm: boost chỉ có hiệu lực khi `now()` rơi vào khung đã mua, và search đọc
+trực tiếp từ Postgres mỗi request nên độ trễ hiệu lực bằng 0 mà **chưa cần** job `promotion:activate`.
+Job đó chỉ trở nên bắt buộc khi đường đọc chuyển sang Redis.
+
+Phần Phase 3 còn lại: Redis read-path cho search + `rebuild-cache`, Hangfire (`promotion:expire`,
+sweep, `wallet:reconcile`, `hold:cleanup`), analytics partition theo tháng → rồi Phase 4. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
 

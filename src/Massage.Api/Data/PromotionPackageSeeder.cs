@@ -56,15 +56,18 @@ public static class PromotionPackageSeeder
         {
             Code = "instant-boost-1d",
             Name = "Instant Boost khung giờ vàng",
-            Description = "Đẩy hạng theo khung giờ. Mở bán ở Phase 3 cùng với cấp phát slot theo giờ.",
+            Description = "Đẩy hạng trong 3 khung giờ liên tiếp kể từ giờ kế tiếp, "
+                          + "đảm bảo đứng trên các KTV không mua gói trong khu vực đã chọn.",
             Type = PackageTypes.InstantBoost,
             Price = 150_000m,
+            // Gói này bán theo giờ nên `DurationHours` mới là thời lượng thật.
+            // `DurationDays` vẫn phải > 0 vì cột NOT NULL CHECK (> 0) có từ Phase 2;
+            // nó không tham gia tính khung — xem `PromotionPackage.Duration`.
             DurationDays = 1,
+            DurationHours = 3,
             MaxSlotsPerArea = 5,
-            // Chưa bán: cấp phát slot hiện cắt theo khung ngày, còn gói này bán theo
-            // khung giờ. Bật lên khi Phase 3 làm xong slot theo giờ — bật sớm sẽ bán
-            // một thứ chạy không đúng như tên gọi.
-            IsActive = false,
+            // Mở bán từ Phase 3: cấp phát slot đã cắt được theo khung giờ.
+            IsActive = true,
         },
     ];
 

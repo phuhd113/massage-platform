@@ -304,6 +304,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Description).HasColumnName("description");
             e.Property(x => x.Price).HasColumnName("price").HasPrecision(12, 0);
             e.Property(x => x.DurationDays).HasColumnName("duration_days");
+            e.Property(x => x.DurationHours).HasColumnName("duration_hours");
             e.Property(x => x.MaxSlotsPerArea).HasColumnName("max_slots_per_area");
             e.Property(x => x.IsActive).HasColumnName("is_active");
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");

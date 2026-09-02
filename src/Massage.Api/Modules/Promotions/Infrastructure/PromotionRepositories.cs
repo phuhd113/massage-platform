@@ -28,7 +28,8 @@ public class PromotionCatalog(AppDbContext db) : IPromotionCatalog
     }
 
     internal static PromotionPackage Map(PromotionPackageRow r) =>
-        new(r.Id, r.Code, r.Name, r.Type, r.Price, r.DurationDays, r.MaxSlotsPerArea, r.IsActive);
+        new(r.Id, r.Code, r.Name, r.Type, r.Price, r.DurationDays, r.MaxSlotsPerArea, r.IsActive,
+            r.DurationHours);
 }
 
 public class CampaignRepository(AppDbContext db) : ICampaignRepository

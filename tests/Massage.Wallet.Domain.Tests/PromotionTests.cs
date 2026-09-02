@@ -179,3 +179,125 @@ public class CampaignTests
         campaign.IsRunning(Start.AddDays(11)).Should().BeFalse();
     }
 }
+
+/// <summary>
+/// Instant Boost bán theo khung giờ. Đây là những quy tắc mà một lỗi im lặng biến
+/// thành bán sai thứ đã thu tiền — chúng chạy không cần DB nên không có lý do gì
+/// để không canh.
+/// </summary>
+public class HourlySlotTests
+{
+    private static PromotionPackage InstantBoost(int hours = 3, decimal price = 150_000) =>
+        new(Guid.NewGuid(), "instant-boost-1d", "Instant Boost", PackageTypes.InstantBoost,
+            price, DurationDays: 1, MaxSlotsPerArea: 5, IsActive: true, DurationHours: hours);
+
+    [Fact]
+    public void Instant_Boost_dùng_khung_giờ_còn_hai_gói_kia_dùng_khung_ngày()
+    {
+        SlotGranularities.For(PackageTypes.InstantBoost).Should().Be(SlotGranularity.Hour);
+        SlotGranularities.For(PackageTypes.VipPin).Should().Be(SlotGranularity.Day);
+        SlotGranularities.For(PackageTypes.FeaturedBadge).Should().Be(SlotGranularity.Day);
+    }
+
+    [Fact]
+    public void Mua_giữa_giờ_thì_tính_từ_giờ_kế_tiếp()
+    {
+        // 20h05 → khung đầu tiên là 21h. Giờ đang chạy đã trôi mất một phần, bán
+        // trọn giá cho phần còn lại là bán thiếu thứ đã hứa.
+        var windows = InstantBoost(hours: 3)
+            .WindowsFrom(new DateTimeOffset(2026, 9, 1, 20, 5, 0, TimeSpan.Zero));
+
+        windows.Should().HaveCount(3);
+        windows[0].Should().Be(new DateTimeOffset(2026, 9, 1, 21, 0, 0, TimeSpan.Zero));
+        windows[2].Should().Be(new DateTimeOffset(2026, 9, 1, 23, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Mua_đúng_đầu_giờ_thì_tính_luôn_giờ_đó()
+    {
+        var windows = InstantBoost(hours: 2)
+            .WindowsFrom(new DateTimeOffset(2026, 9, 1, 20, 0, 0, TimeSpan.Zero));
+
+        windows[0].Should().Be(new DateTimeOffset(2026, 9, 1, 20, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Khung_giờ_bắc_qua_nửa_đêm_vẫn_liên_tục()
+    {
+        // 23h05 mua 3 giờ → 0h, 1h, 2h ngày hôm sau. Nếu ai đó "sửa" cho khung giờ
+        // bị kẹp trong một ngày thì gói khung giờ vàng buổi tối sẽ hụt mất phần
+        // đắt giá nhất của nó.
+        var windows = InstantBoost(hours: 3)
+            .WindowsFrom(new DateTimeOffset(2026, 9, 1, 23, 5, 0, TimeSpan.Zero));
+
+        windows[0].Should().Be(new DateTimeOffset(2026, 9, 2, 0, 0, 0, TimeSpan.Zero));
+        windows[2].Should().Be(new DateTimeOffset(2026, 9, 2, 2, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Campaign_theo_giờ_chạy_đúng_bằng_các_khung_nó_chiếm()
+    {
+        var now = new DateTimeOffset(2026, 9, 1, 20, 5, 0, TimeSpan.Zero);
+        var package = InstantBoost(hours: 3);
+
+        var campaign = Campaign.Start(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), package, now);
+
+        var windows = package.WindowsFrom(now);
+
+        // StartAt phải trùng khung đầu, EndAt phải là hết khung cuối — lệch một đầu
+        // nào cũng nghĩa là campaign được coi là đang chạy trong lúc không giữ slot.
+        campaign.StartAt.Should().Be(windows[0]);
+        campaign.EndAt.Should().Be(windows[^1].AddHours(1));
+
+        campaign.IsRunning(now).Should().BeFalse("chưa tới khung đầu tiên");
+        campaign.IsRunning(windows[0]).Should().BeTrue();
+        campaign.IsRunning(campaign.EndAt).Should().BeFalse("hết khung cuối là hết hạn");
+    }
+
+    [Fact]
+    public void Huỷ_gói_theo_giờ_hoàn_theo_số_giờ_trọn_vẹn_còn_lại()
+    {
+        // Đây là hồi quy cho một lỗi im lặng thật: khi hoàn tiền tính theo "số ngày
+        // trọn vẹn còn lại", một campaign 3 giờ luôn ra 0 ngày, nên KTV huỷ ngay sau
+        // khi mua vẫn không được hoàn đồng nào — hàm vẫn chạy, vẫn trả về số.
+        var now = new DateTimeOffset(2026, 9, 1, 20, 0, 0, TimeSpan.Zero);
+        var campaign = Campaign.Start(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            InstantBoost(hours: 3, price: 150_000), now);
+
+        // Huỷ sau 1 giờ: còn đúng 2 trên 3 khung.
+        var refund = campaign.Cancel(now.AddHours(1));
+
+        refund.Should().Be(100_000);
+    }
+
+    [Fact]
+    public void Gói_theo_giờ_thiếu_khai_báo_số_giờ_thì_ném_chứ_không_lặng_lẽ_lấy_số_ngày()
+    {
+        // Nếu chỗ này âm thầm rơi về DurationDays, một gói khai 1 sẽ bán 1 giờ với
+        // giá của 1 ngày — hoặc ngược lại, tuỳ hướng đọc nhầm.
+        var broken = new PromotionPackage(
+            Guid.NewGuid(), "broken", "Hỏng", PackageTypes.InstantBoost,
+            150_000m, DurationDays: 1, MaxSlotsPerArea: 5, IsActive: true, DurationHours: null);
+
+        FluentActions.Invoking(() => broken.Duration)
+            .Should().Throw<PromotionArgumentException>();
+    }
+
+    [Fact]
+    public void Gói_theo_ngày_không_đổi_hành_vi()
+    {
+        // Hồi quy: thêm khung giờ không được làm xê dịch gói bán theo ngày.
+        var vip = new PromotionPackage(
+            Guid.NewGuid(), "vip-7d", "VIP", PackageTypes.VipPin,
+            1_000_000m, DurationDays: 7, MaxSlotsPerArea: 3, IsActive: true);
+
+        var now = new DateTimeOffset(2026, 9, 1, 18, 30, 0, TimeSpan.FromHours(7));
+
+        vip.Duration.Should().Be(7);
+        vip.WindowsFrom(now).Should().HaveCount(7);
+        vip.WindowsFrom(now)[0].Should().Be(SlotWindow.DayBucket(now));
+        vip.EndAtFrom(now).Should().Be(SlotWindow.EndOfDays(now, 7));
+    }
+}

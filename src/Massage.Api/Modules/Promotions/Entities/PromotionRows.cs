@@ -10,6 +10,14 @@ public class PromotionPackageRow
     public string? Description { get; set; }
     public decimal Price { get; set; }
     public int DurationDays { get; set; }
+
+    /// <summary>
+    /// Số giờ với gói bán theo khung giờ (Instant Boost); NULL với gói bán theo ngày.
+    ///
+    /// Cột riêng chứ không tái dụng <c>duration_days</c> với đơn vị ngầm: đọc nhầm
+    /// đơn vị ở đây là bán 24 lần thứ đã thu tiền.
+    /// </summary>
+    public int? DurationHours { get; set; }
     public int MaxSlotsPerArea { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
