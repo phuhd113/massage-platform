@@ -77,11 +77,11 @@ export function CertificationsSection({
           {certifications.map((c) => (
             <li
               key={c.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-ink-200 bg-white px-4 py-3 shadow-card"
             >
               <div>
                 <div className="font-medium">{c.name}</div>
-                <div className="text-sm text-stone-500">
+                <div className="text-sm text-ink-500">
                   {c.issuingOrg ?? 'Chưa ghi nơi cấp'}
                   {c.issuedAt && ` · ${new Date(c.issuedAt).toLocaleDateString('vi-VN')}`}
                 </div>
@@ -106,12 +106,12 @@ export function CertificationsSection({
         </ul>
       )}
 
-      <form onSubmit={submit} className="rounded-lg border border-stone-200 bg-white p-5">
+      <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-5 shadow-card">
         <h3 className="font-medium">Thêm chứng chỉ</h3>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="text-stone-700">Tên chứng chỉ *</span>
+            <span className="text-ink-700">Tên chứng chỉ *</span>
             <input
               required
               minLength={2}
@@ -119,40 +119,40 @@ export function CertificationsSection({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Chứng chỉ xoa bóp bấm huyệt"
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </label>
 
           <label className="block text-sm">
-            <span className="text-stone-700">Nơi cấp</span>
+            <span className="text-ink-700">Nơi cấp</span>
             <input
               maxLength={150}
               value={issuingOrg}
               onChange={(e) => setIssuingOrg(e.target.value)}
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </label>
 
           <label className="block text-sm">
-            <span className="text-stone-700">Ngày cấp</span>
+            <span className="text-ink-700">Ngày cấp</span>
             <input
               type="date"
               value={issuedAt}
               onChange={(e) => setIssuedAt(e.target.value)}
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </label>
 
           <label className="block text-sm">
-            <span className="text-stone-700">Ảnh hoặc PDF *</span>
+            <span className="text-ink-700">Ảnh hoặc PDF *</span>
             <input
               type="file"
               required
               accept={ACCEPT}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-2 file:text-sm"
+              className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-sm"
             />
-            <span className="mt-1 block text-xs text-stone-500">
+            <span className="mt-1 block text-xs text-ink-500">
               JPG, PNG, WEBP hoặc PDF, tối đa {MAX_MB}MB.
             </span>
           </label>

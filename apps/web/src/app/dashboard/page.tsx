@@ -27,7 +27,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Tổng quan</h1>
+      <h1 className="text-h1 text-ink-900">Tổng quan</h1>
 
       <ProfileStatus profile={profile} />
 
@@ -58,16 +58,16 @@ export default async function DashboardPage() {
 
       {running.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold">Đang chạy</h2>
+          <h2 className="text-h2 text-ink-900">Đang chạy</h2>
           <ul className="mt-3 space-y-2">
             {running.map((c) => (
               <li
                 key={c.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-ink-200 bg-white px-4 py-3 shadow-card"
               >
                 <div>
                   <div className="font-medium">{packageLabel(c.packageType)}</div>
-                  <div className="text-sm text-stone-500">
+                  <div className="text-sm text-ink-500">
                     Hết hạn {new Date(c.endAt).toLocaleDateString('vi-VN')} · +{c.boostPoints} điểm
                   </div>
                 </div>
@@ -85,10 +85,10 @@ export default async function DashboardPage() {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
-      <div className="text-sm text-stone-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
-      {hint && <div className="mt-1 text-xs text-stone-500">{hint}</div>}
+    <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
+      <div className="text-sm text-ink-500">{label}</div>
+      <div className="tabular mt-1 font-display text-xl font-semibold text-ink-900">{value}</div>
+      {hint && <div className="mt-1 text-xs text-ink-500">{hint}</div>}
     </div>
   );
 }
@@ -111,7 +111,7 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
 
   if (profile.verificationStatus === 'VERIFIED') {
     return (
-      <p className="mt-4 text-sm text-stone-600">
+      <p className="mt-4 text-sm text-ink-600">
         Hồ sơ <strong>{profile.fullName}</strong> đã được duyệt
         {profile.ratingCount > 0 && <> · ★ {profile.ratingAvg.toFixed(1)} ({profile.ratingCount} đánh giá)</>}
       </p>

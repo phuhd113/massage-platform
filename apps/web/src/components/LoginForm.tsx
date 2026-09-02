@@ -71,16 +71,16 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto max-w-sm rounded-lg border border-stone-200 bg-white p-6">
-      <h1 className="text-xl font-semibold">Đăng nhập cho kỹ thuật viên</h1>
-      <p className="mt-2 text-sm text-stone-600">
+    <div className="mx-auto max-w-sm rounded-lg border border-ink-200 bg-white p-6 shadow-card">
+      <h1 className="text-h2 text-ink-900">Đăng nhập cho kỹ thuật viên</h1>
+      <p className="mt-2 text-sm text-ink-600">
         Nhập số điện thoại, chúng tôi gửi mã xác thực gồm 6 chữ số.
       </p>
 
       {step === 'phone' ? (
         <form onSubmit={requestOtp} className="mt-5 space-y-4">
           <label className="block text-sm">
-            <span className="text-stone-700">Số điện thoại</span>
+            <span className="text-ink-700">Số điện thoại</span>
             <input
               type="tel"
               inputMode="numeric"
@@ -89,7 +89,7 @@ export function LoginForm() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="0901234567"
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </label>
 
@@ -104,7 +104,7 @@ export function LoginForm() {
       ) : (
         <form onSubmit={verify} className="mt-5 space-y-4">
           <label className="block text-sm">
-            <span className="text-stone-700">Mã xác thực gửi tới {phone}</span>
+            <span className="text-ink-700">Mã xác thực gửi tới {phone}</span>
             <input
               inputMode="numeric"
               pattern="[0-9]{6}"
@@ -113,7 +113,7 @@ export function LoginForm() {
               autoFocus
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 tracking-[0.4em]"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tracking-[0.4em]"
             />
           </label>
 
@@ -134,7 +134,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => { setStep('phone'); setCode(''); setError(null); }}
-            className="w-full text-sm text-stone-600 hover:text-brand-600"
+            className="w-full text-sm text-ink-600 hover:text-brand-600"
           >
             Đổi số điện thoại
           </button>

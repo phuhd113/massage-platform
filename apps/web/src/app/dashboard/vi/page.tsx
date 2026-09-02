@@ -24,49 +24,67 @@ export default async function WalletPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Ví</h1>
+      <h1 className="text-h1 text-ink-900">Ví</h1>
 
+      {/* "Dùng được" đứng đầu và to nhất vì nó trả lời đúng câu hỏi KTV đang
+          hỏi: mua được gói nào bây giờ. Nếu tổng số dư nổi bật hơn, KTV nhìn
+          thấy 1.750.000₫ rồi bị từ chối mua gói 1.500.000₫ — trải nghiệm đó đọc
+          như lỗi hệ thống và thành ticket, dù ví hoạt động hoàn toàn đúng. */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
-          <div className="text-sm text-stone-500">Tổng số dư</div>
-          <div className="mt-1 text-xl font-semibold tabular-nums">{formatVnd(wallet.balance)}</div>
-        </div>
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
-          <div className="text-sm text-stone-500">Đang giữ</div>
-          <div className="mt-1 text-xl font-semibold tabular-nums">{formatVnd(wallet.held)}</div>
-          <div className="mt-1 text-xs text-stone-500">
-            Nằm trong tổng số dư, chưa bị trừ — giữ cho lần mua chưa chốt.
+        <div className="rounded-lg border border-brand-300 bg-brand-50 p-4 shadow-card">
+          <div className="text-label uppercase text-brand-700">Dùng được</div>
+          <div className="tabular mt-1 font-display text-2xl font-bold text-brand-700">
+            {formatVnd(wallet.available)}
+          </div>
+          <div className="mt-1 text-caption text-ink-600">
+            Số mua được gói ngay bây giờ.
           </div>
         </div>
-        <div className="rounded-lg border border-brand-500 bg-brand-50 p-4">
-          <div className="text-sm text-brand-700">Dùng được</div>
-          <div className="mt-1 text-xl font-semibold tabular-nums text-brand-700">
-            {formatVnd(wallet.available)}
+
+        <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
+          <div className="text-label uppercase text-ink-500">Tổng số dư</div>
+          <div className="tabular mt-1 font-display text-xl font-semibold text-ink-900">
+            {formatVnd(wallet.balance)}
+          </div>
+          <div className="mt-1 text-caption text-ink-600">
+            Tổng sở hữu, đã gồm cả phần đang giữ.
+          </div>
+        </div>
+
+        {/* Xanh dương, không phải đỏ: tiền bị giữ chưa mất. Tô đỏ khiến KTV
+            tưởng đã bị trừ; tô xanh lá thì không nói được là chưa tiêu được. */}
+        <div className="rounded-lg border border-info-bd bg-info-bg p-4 shadow-card">
+          <div className="text-label uppercase text-info-fg">Đang giữ</div>
+          <div className="tabular mt-1 font-display text-xl font-semibold text-info-fg">
+            {formatVnd(wallet.held)}
+          </div>
+          <div className="mt-1 text-caption text-ink-600">
+            Giữ cho lần mua chưa chốt. Tự hoàn lại nếu không giành được slot.
           </div>
         </div>
       </div>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold">Nạp tiền</h2>
+        <h2 className="text-h2 text-ink-900">Nạp tiền</h2>
         <div className="mt-3">
           <TopUpForm />
         </div>
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-semibold">Sổ giao dịch</h2>
-        <p className="mt-1 text-sm text-stone-500">
+        <h2 className="text-h2 text-ink-900">Sổ giao dịch</h2>
+        <p className="mt-1 text-sm text-ink-500">
           Cột số dư sau cho biết ví còn bao nhiêu ngay sau từng giao dịch, để đối chiếu được tới
           đúng dòng khi thấy lệch.
         </p>
 
         {ledger.items.length === 0 ? (
-          <p className="mt-4 text-stone-600">Chưa có giao dịch nào.</p>
+          <p className="mt-4 text-ink-600">Chưa có giao dịch nào.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+          <div className="mt-4 overflow-x-auto rounded-lg border border-ink-200 bg-white shadow-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-200 text-left text-stone-500">
+                <tr className="border-b border-ink-200 text-left text-ink-500">
                   <th className="px-4 py-2 font-medium">Thời gian</th>
                   <th className="px-4 py-2 font-medium">Nội dung</th>
                   <th className="px-4 py-2 text-right font-medium">Số tiền</th>
@@ -75,20 +93,23 @@ export default async function WalletPage() {
               </thead>
               <tbody>
                 {ledger.items.map((t) => (
-                  <tr key={t.id} className="border-b border-stone-100 last:border-0">
-                    <td className="whitespace-nowrap px-4 py-2 text-stone-600">
+                  <tr key={t.id} className="border-b border-ink-100 last:border-0">
+                    <td className="whitespace-nowrap px-4 py-2 text-ink-600">
                       {new Date(t.createdAt).toLocaleString('vi-VN')}
                     </td>
                     <td className="px-4 py-2">{transactionLabel(t.type)}</td>
+                    {/* Màu trạng thái, không phải màu thương hiệu: tiền vào/ra
+                        là thông tin cần đọc lướt được, và brand-600 đang mang
+                        nghĩa "link/hành động" ở khắp nơi khác. */}
                     <td
-                      className={`whitespace-nowrap px-4 py-2 text-right tabular-nums ${
-                        t.amount < 0 ? 'text-stone-900' : 'text-brand-600'
+                      className={`tabular whitespace-nowrap px-4 py-2 text-right ${
+                        t.amount < 0 ? 'text-danger-fg' : 'text-success-fg'
                       }`}
                     >
                       {t.amount > 0 ? '+' : ''}
                       {formatVnd(t.amount)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-stone-600">
+                    <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-ink-600">
                       {formatVnd(t.balanceAfter)}
                     </td>
                   </tr>
@@ -99,7 +120,7 @@ export default async function WalletPage() {
         )}
 
         {ledger.total > ledger.items.length && (
-          <p className="mt-3 text-sm text-stone-500">
+          <p className="mt-3 text-sm text-ink-500">
             Hiển thị {ledger.items.length} trên tổng {ledger.total} giao dịch.
           </p>
         )}

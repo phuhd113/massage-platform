@@ -73,7 +73,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const mapRadiusKm = origin ? numeric(radiusKm) : null;
 
   const emptyMessage = (
-    <p className="text-stone-600">
+    <p className="text-ink-600">
       Chưa có KTV nào khớp. Thử tăng bán kính hoặc bỏ bớt bộ lọc dịch vụ.
     </p>
   );
@@ -82,17 +82,17 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Tìm kỹ thuật viên</h1>
+      <h1 className="text-h1 text-ink-900">Tìm kỹ thuật viên</h1>
 
       <div className="mt-6">
-        <Suspense fallback={<div className="h-24 rounded-lg border border-stone-200 bg-white" />}>
+        <Suspense fallback={<div className="h-24 rounded-lg border border-ink-200 bg-white" />}>
           <SearchFilters areas={areas} services={services} />
         </Suspense>
       </div>
 
       <section className="mt-8">
         {!hasScope && (
-          <p className="text-stone-600">
+          <p className="text-ink-600">
             Bấm <strong>Tìm quanh tôi</strong> để tìm theo vị trí hiện tại, hoặc chọn quận/huyện.
           </p>
         )}
@@ -105,14 +105,14 @@ export default async function SearchPage({ searchParams }: Props) {
 
         {results && (
           <>
-            <p className="text-sm text-stone-500">{results.total} kết quả</p>
+            <p className="text-sm text-ink-500">{results.total} kết quả</p>
 
             {showMap ? (
               // Danh sách vẫn render ở server và vẫn nằm trong HTML đầu tiên — bản
               // đồ là lớp phủ thêm bên cạnh, không thay thế nó.
               <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <Suspense
-                  fallback={<div className="h-[420px] rounded-lg bg-stone-100 lg:h-[560px]" />}
+                  fallback={<div className="h-[420px] rounded-lg bg-ink-100 lg:h-[560px]" />}
                 >
                   <SearchMapPanel
                     items={results.items}

@@ -28,7 +28,7 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Hồ sơ kỹ thuật viên</h1>
+      <h1 className="text-h1 text-ink-900">Hồ sơ kỹ thuật viên</h1>
 
       {profile ? (
         <StatusBanner profile={profile} />
@@ -46,8 +46,8 @@ export default async function ProfilePage() {
       {profile && (
         <>
           <section className="mt-12">
-            <h2 className="text-lg font-semibold">Chứng chỉ hành nghề</h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <h2 className="text-h2 text-ink-900">Chứng chỉ hành nghề</h2>
+            <p className="mt-1 text-sm text-ink-600">
               Chỉ chứng chỉ đã được duyệt mới hiển thị trên trang hồ sơ công khai. Đây cũng là hàng
               rào chất lượng của nền tảng, nên khâu duyệt không bỏ qua được.
             </p>
@@ -57,8 +57,8 @@ export default async function ProfilePage() {
           </section>
 
           <section className="mt-12">
-            <h2 className="text-lg font-semibold">Dịch vụ và bảng giá</h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <h2 className="text-h2 text-ink-900">Dịch vụ và bảng giá</h2>
+            <p className="mt-1 text-sm text-ink-600">
               Giá hiển thị công khai là giá khởi điểm. Khách lọc theo dịch vụ, nên hồ sơ không khai
               dịch vụ nào sẽ không xuất hiện khi khách lọc.
             </p>

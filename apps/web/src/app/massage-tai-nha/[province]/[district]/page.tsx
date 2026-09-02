@@ -55,11 +55,11 @@ export default async function DistrictPage({ params }: Props) {
         ]}
       />
 
-      <h1 className="text-2xl font-semibold sm:text-3xl">
+      <h1 className="text-h1 text-ink-900 sm:text-display">
         Massage trị liệu tại nhà {area.name}
       </h1>
 
-      <p className="mt-3 max-w-2xl text-stone-600">
+      <p className="mt-3 max-w-prose text-body-l text-ink-600">
         {area.ktvCount > 0 ? (
           <>
             Hiện có <strong>{area.ktvCount}</strong> kỹ thuật viên nhận đến tận nhà tại {area.name}
@@ -75,13 +75,13 @@ export default async function DistrictPage({ params }: Props) {
       </p>
 
       {!area.indexable && area.ktvCount > 0 && (
-        <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="mt-4 rounded-md border border-warning-bd bg-warning-bg px-4 py-3 text-body-s text-warning-fg">
           Khu vực này còn ít kỹ thuật viên. Thử mở rộng sang quận lân cận để có nhiều lựa chọn hơn.
         </p>
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold">Kỹ thuật viên tại {area.name}</h2>
+        <h2 className="text-h2 text-ink-900">Kỹ thuật viên tại {area.name}</h2>
         {results.items.length > 0 ? (
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
             {results.items.map((ktv) => (
@@ -89,22 +89,22 @@ export default async function DistrictPage({ params }: Props) {
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-stone-500">Chưa có hồ sơ nào trong khu vực này.</p>
+          <p className="mt-4 text-body text-ink-500">Chưa có hồ sơ nào trong khu vực này.</p>
         )}
       </section>
 
       {area.siblings.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold">Khu vực lân cận</h2>
+          <h2 className="text-h2 text-ink-900">Khu vực lân cận</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {area.siblings.map((s) => (
               <li key={s.id}>
                 <Link
                   href={areaPath(params.province, s.slug)}
-                  className="inline-block rounded-full border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:border-brand-500 hover:text-brand-600"
+                  className="inline-block rounded-full border border-ink-200 bg-white px-3 py-1.5 text-body-s text-ink-700 shadow-card transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
                 >
                   {s.name}
-                  {s.ktvCount > 0 && <span className="text-stone-400"> · {s.ktvCount}</span>}
+                  {s.ktvCount > 0 && <span className="text-ink-400"> · {s.ktvCount}</span>}
                 </Link>
               </li>
             ))}
@@ -112,9 +112,9 @@ export default async function DistrictPage({ params }: Props) {
         </section>
       )}
 
-      <section className="mt-10 max-w-2xl">
-        <h2 className="text-lg font-semibold">Chọn kỹ thuật viên ở {area.name} thế nào</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-stone-600">
+      <section className="mt-10 max-w-prose">
+        <h2 className="text-h2 text-ink-900">Chọn kỹ thuật viên ở {area.name} thế nào</h2>
+        <ul className="mt-3 list-disc space-y-2 pl-5 text-body text-ink-600">
           <li>
             Ưu tiên hồ sơ có chứng chỉ hành nghề đã duyệt — chứng chỉ hiển thị công khai ngay trên
             trang hồ sơ.

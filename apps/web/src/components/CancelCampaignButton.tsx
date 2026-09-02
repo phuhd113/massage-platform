@@ -51,7 +51,7 @@ export function CancelCampaignButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="text-sm text-stone-600 hover:text-red-700"
+        className="text-sm text-ink-600 hover:text-red-700"
       >
         Huỷ
       </button>
@@ -60,7 +60,7 @@ export function CancelCampaignButton({
 
   return (
     <div className="text-right">
-      <p className="text-xs text-stone-600">
+      <p className="text-xs text-ink-600">
         Huỷ và hoàn {remainingDays} ngày còn lại?
         {remainingDays === 0 && ' Không còn ngày trọn vẹn nào nên sẽ không hoàn tiền.'}
       </p>
@@ -76,7 +76,7 @@ export function CancelCampaignButton({
         <button
           type="button"
           onClick={() => setConfirming(false)}
-          className="rounded-md border border-stone-300 px-3 py-1 text-xs text-stone-700"
+          className="rounded-md border border-ink-300 px-3 py-1 text-xs text-ink-700"
         >
           Không
         </button>

@@ -28,23 +28,23 @@ export default async function CampaignsPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Chiến dịch</h1>
+      <h1 className="text-h1 text-ink-900">Chiến dịch</h1>
 
       {campaigns.length === 0 ? (
-        <p className="mt-4 text-stone-600">Chưa có chiến dịch nào.</p>
+        <p className="mt-4 text-ink-600">Chưa có chiến dịch nào.</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {campaigns.map((c) => (
-            <li key={c.id} className="rounded-lg border border-stone-200 bg-white p-4">
+            <li key={c.id} className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">
                     {packageLabel(c.packageType)}
-                    <span className="ml-2 text-sm font-normal text-stone-500">
+                    <span className="ml-2 text-sm font-normal text-ink-500">
                       {areaName.get(c.areaId) ?? 'Khu vực đã gỡ'}
                     </span>
                   </h2>
-                  <p className="mt-1 text-sm text-stone-600">
+                  <p className="mt-1 text-sm text-ink-600">
                     {new Date(c.startAt).toLocaleDateString('vi-VN')} –{' '}
                     {new Date(c.endAt).toLocaleDateString('vi-VN')} · +{c.boostPoints} điểm ·{' '}
                     {formatVnd(c.pricePaid)}
@@ -61,7 +61,7 @@ export default async function CampaignsPage() {
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
                       c.isRunning
                         ? 'bg-brand-50 text-brand-700'
-                        : 'bg-stone-100 text-stone-600'
+                        : 'bg-ink-100 text-ink-600'
                     }`}
                   >
                     {c.isRunning ? 'Đang chạy' : campaignStatusLabel(c.status)}
@@ -77,7 +77,7 @@ export default async function CampaignsPage() {
         </ul>
       )}
 
-      <p className="mt-8 max-w-2xl text-sm text-stone-600">
+      <p className="mt-8 max-w-2xl text-sm text-ink-600">
         Huỷ giữa chừng được hoàn tiền theo số ngày <strong>trọn vẹn</strong> còn lại; ngày đang dùng
         dở không hoàn. Tiền quay về ví chứ không về thẻ, và chỗ đã giữ trong khu vực được trả lại
         ngay cho người khác mua.

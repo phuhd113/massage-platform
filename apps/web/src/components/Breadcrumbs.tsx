@@ -17,13 +17,13 @@ export interface Crumb {
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
     <>
-      <nav aria-label="Đường dẫn" className="mb-4 text-sm text-stone-500">
+      <nav aria-label="Đường dẫn" className="mb-4 text-sm text-ink-500">
         <ol className="flex flex-wrap items-center gap-1.5">
           {items.map((item, i) => (
             <li key={item.href} className="flex items-center gap-1.5">
               {i > 0 && <span aria-hidden="true">›</span>}
               {i === items.length - 1 ? (
-                <span className="text-stone-700">{item.name}</span>
+                <span className="text-ink-700">{item.name}</span>
               ) : (
                 <Link href={item.href} className="hover:text-brand-600 hover:underline">
                   {item.name}

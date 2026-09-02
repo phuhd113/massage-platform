@@ -3,9 +3,102 @@
 @tailwind utilities;
 
 :root {
+  /* Trang public cố ý khoá light: ảnh chứng chỉ và ảnh chân dung do KTV upload
+     đều nền sáng, đảo nền làm chúng chói. Token dark đã sẵn trong config để bật
+     cho dashboard trước — đó là màn hình dùng lâu, nhiều bảng số, không có ảnh
+     người dùng tải lên. */
   color-scheme: light;
 }
 
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-ink-50 text-ink-900 antialiased;
+}
+
+/* Tiêu đề dùng Lexend; nội dung chạy dùng Be Vietnam Pro (mặc định qua font-sans).
+   text-wrap: balance vì tên riêng tiếng Việt hay xuống dòng lẻ một chữ. */
+h1,
+h2,
+h3,
+h4 {
+  @apply font-display;
+  text-wrap: balance;
+}
+
+/* Mọi số tiền và cột số phải thẳng hàng khi cuộn. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Ghim dạng pill trên bản đồ tìm kiếm -----------------------------------
+
+   Đặt ở đây chứ không nội tuyến trong divIcon: Leaflet chèn HTML thô nên các
+   lớp Tailwind bên trong vẫn cần Tailwind quét thấy, còn phần hình học (mũi
+   nhọn, neo) thì lặp lại ở mỗi ghim, để CSS thường gọn hơn nhiều.
+
+   Ghim neo ở góc trên trái của toạ độ (iconAnchor 0,0) rồi được dịch bằng
+   transform, nhờ vậy pill co giãn theo độ dài tên mà mũi nhọn vẫn chỉ đúng
+   điểm toạ độ. */
+.pin-pill {
+  @apply relative inline-flex w-max items-center rounded-md px-2 py-1 text-xs font-semibold shadow-card ring-1;
+  /* Dịch sang trái nửa chiều rộng của chính nó và lên trên toàn bộ chiều cao,
+     cộng 6px chừa cho mũi nhọn. */
+  transform: translate(-50%, calc(-100% - 6px));
+  white-space: nowrap;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* Mũi nhọn chỉ xuống đúng toạ độ. currentColor không dùng được vì nền pill do
+   lớp Tailwind quyết định, nên vẽ bằng border và để nó thừa hưởng background
+   qua ::after tách riêng là thừa — dùng một tam giác xám trung tính đủ tối để
+   nhìn được trên mọi nền pill. */
+.pin-pill::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  /* Mũi nhọn mảnh nên dùng màu chữ của pill; trên pill trắng chữ là ink-900,
+     trên pill trả phí chữ là trắng — cả hai đều tương phản với nền bản đồ. */
+  opacity: 0.9;
+}
+
+/* Ghim đang được trỏ (từ bản đồ hoặc từ danh sách bên cạnh) nhấc lên một chút.
+   Không đổi màu: màu đang mang nghĩa "hạng gói", đổi nó khi hover sẽ khiến KTV
+   miễn phí trông như đang trả phí. */
+.pin-pill--active {
+  @apply z-[500] shadow-card-hover ring-2 ring-brand-500;
+  transform: translate(-50%, calc(-100% - 10px)) scale(1.06);
+}
+
+/* Popup Leaflet mặc định bo góc 12px và viền xám lạnh — kéo về đúng ngôn ngữ
+   thẻ của sàn. */
+.leaflet-popup-content-wrapper {
+  @apply rounded-lg shadow-card-hover;
+}
+
+.leaflet-popup-content {
+  @apply m-0 px-3 py-2.5;
+}
+
+/* Nút zoom mặc định là hai ô vuông xám; bo tròn cho khớp thanh công cụ nổi. */
+.leaflet-touch .leaflet-bar,
+.leaflet-bar {
+  @apply overflow-hidden rounded-lg border-none shadow-card;
 }

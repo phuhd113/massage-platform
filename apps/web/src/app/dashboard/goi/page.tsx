@@ -29,8 +29,8 @@ export default async function PackagesPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Mua gói đẩy tin</h1>
-      <p className="mt-2 text-stone-600">
+      <h1 className="text-h1 text-ink-900">Mua gói đẩy tin</h1>
+      <p className="mt-2 text-ink-600">
         Số dư dùng được: <strong className="tabular-nums">{formatVnd(wallet.available)}</strong>
       </p>
 
@@ -46,8 +46,8 @@ export default async function PackagesPage() {
         <BuyPackageForm packages={packages} areas={areas} disabled={!canBuy} />
       </section>
 
-      <section className="mt-10 max-w-2xl text-sm text-stone-600">
-        <h2 className="text-lg font-semibold text-stone-900">Cách tính thứ hạng</h2>
+      <section className="mt-10 max-w-2xl text-sm text-ink-600">
+        <h2 className="text-h2 text-ink-900">Cách tính thứ hạng</h2>
         <p className="mt-2">
           Thứ hạng = điểm gói + điểm hồ sơ. Điểm hồ sơ nằm trong khoảng 0–100, tính từ đánh giá,
           khoảng cách tới khách, tỉ lệ phản hồi và mức độ hoạt động gần đây.

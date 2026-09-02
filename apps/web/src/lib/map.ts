@@ -112,3 +112,68 @@ export function spreadCoincident(items: readonly SearchItem[]): PinnedItem[] {
 
   return items.map((item) => ({ ...item, ...placed.get(item.id)! }));
 }
+
+/**
+ * Nhãn ngắn cho ghim dạng pill.
+ *
+ * Pill nằm chồng lên nhau trên bản đồ nên tên dài sẽ che mất ghim bên cạnh. Cắt
+ * theo *từ* chứ không theo ký tự: "Nguyễn Thị Ngọc…" đọc được, "Nguyễn Thị Ng…"
+ * thì không. Lấy hai từ cuối vì tiếng Việt đặt tên riêng ở cuối — "Ngọc Anh" mới
+ * là thứ khách nhớ, không phải họ "Nguyễn".
+ */
+export function pinLabel(fullName: string): string {
+  const words = fullName.trim().split(/\s+/);
+  return words.length <= 2 ? fullName.trim() : words.slice(-2).join(' ');
+}
+
+export interface Cluster {
+  /** Toạ độ hiển thị: trung bình cộng của các thành viên. */
+  lat: number;
+  lon: number;
+  items: PinnedItem[];
+}
+
+/** Kích thước ô gộp cụm tính bằng pixel màn hình ở mức zoom hiện tại. */
+const CLUSTER_CELL_PX = 68;
+/** Kích thước ảnh tile của Web Mercator — cơ sở quy đổi độ → pixel. */
+const TILE_SIZE_PX = 256;
+
+/**
+ * Gộp các ghim quá gần nhau ở mức zoom hiện tại thành một bong bóng "N tin".
+ *
+ * Gộp theo **pixel màn hình** chứ không theo khoảng cách địa lý: hai ghim cách
+ * nhau 300m chồng lên nhau ở zoom 12 nhưng tách rời hẳn ở zoom 16, nên ngưỡng cố
+ * định tính bằng mét sẽ vừa gộp thừa ở zoom cao vừa gộp thiếu ở zoom thấp.
+ *
+ * Lưới cố ý neo vào gốc toạ độ thế giới chứ không vào khung nhìn: neo vào khung
+ * nhìn thì mỗi lần khách kéo bản đồ vài pixel, ranh giới ô dịch theo và các cụm
+ * vỡ ra rồi gộp lại liên tục.
+ *
+ * Thứ tự trong `items` giữ nguyên thứ tự đầu vào — tức thứ tự xếp hạng — nên
+ * ghim đại diện của cụm luôn là KTV hạng cao nhất trong cụm đó.
+ */
+export function clusterByPixel(items: readonly PinnedItem[], zoom: number): Cluster[] {
+  // Số pixel cho trọn 360° kinh độ ở mức zoom này.
+  const worldPx = TILE_SIZE_PX * 2 ** zoom;
+  const cells = new Map<string, PinnedItem[]>();
+
+  for (const item of items) {
+    const x = ((item.pinLon + 180) / 360) * worldPx;
+    // Chiếu Mercator theo vĩ độ: ở gần cực, cùng một khoảng vĩ độ chiếm nhiều
+    // pixel hơn, nên chia đều theo lat sẽ gộp sai ở phía bắc bản đồ.
+    const sinLat = Math.sin(rad(item.pinLat));
+    const y =
+      (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * worldPx;
+
+    const key = `${Math.floor(x / CLUSTER_CELL_PX)}:${Math.floor(y / CLUSTER_CELL_PX)}`;
+    const cell = cells.get(key);
+    if (cell) cell.push(item);
+    else cells.set(key, [item]);
+  }
+
+  return [...cells.values()].map((group) => ({
+    lat: group.reduce((s, i) => s + i.pinLat, 0) / group.length,
+    lon: group.reduce((s, i) => s + i.pinLon, 0) / group.length,
+    items: group,
+  }));
+}

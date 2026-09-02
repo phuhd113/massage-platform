@@ -56,39 +56,108 @@ export function ContactButtons({ ktvId, ktvName }: { ktvId: string; ktvName: str
     }
   }
 
+  const callLabel = `Gọi ${ktvName}`;
+
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
-      <div className="flex flex-wrap gap-3">
+    <>
+      <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => contact('CALL')}
+            disabled={pending !== null}
+            className="rounded-md bg-brand-500 px-5 py-2.5 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+          >
+            <PendingLabel pending={pending === 'CALL'} label={callLabel} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => contact('ZALO')}
+            disabled={pending !== null}
+            className="rounded-md border border-brand-500 px-5 py-2.5 font-medium text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+          >
+            <PendingLabel pending={pending === 'ZALO'} label="Nhắn Zalo" />
+          </button>
+        </div>
+
+        {/* Bằng chứng đứng cạnh nút, không ở cuối trang: nỗi lo lên cao nhất
+            đúng lúc ngón tay chạm "Gọi ngay". */}
+        <p className="mt-3 text-caption text-ink-500">
+          Thanh toán trực tiếp sau buổi trị liệu — nền tảng không thu tiền trước.
+        </p>
+
+        {phone && (
+          <p className="mt-3 text-body-s text-ink-700">
+            Số điện thoại:{' '}
+            <a href={`tel:${phone}`} className="tabular font-semibold text-brand-600">
+              {phone}
+            </a>
+          </p>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-3 text-body-s text-danger-fg">
+            {error}
+          </p>
+        )}
+      </div>
+
+      {/* Thanh dính đáy cho mobile. Hiện ngay khi tải xong chứ không chờ cuộn:
+          khách vào từ Google thường quyết định trong màn hình đầu tiên.
+          padding-bottom cộng safe-area — thiếu nó, nút nằm dưới thanh gạt home
+          của iPhone và khách chạm trúng viền màn hình thay vì nút. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-ink-200 bg-white px-4 pt-3 shadow-sticky [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
         <button
           type="button"
           onClick={() => contact('CALL')}
           disabled={pending !== null}
-          className="rounded-md bg-brand-500 px-5 py-2.5 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+          className="flex-[3] rounded-md bg-brand-500 px-4 py-3 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
         >
-          {pending === 'CALL' ? 'Đang lấy số…' : `Gọi ${ktvName}`}
+          <PendingLabel pending={pending === 'CALL'} label="Gọi ngay" />
         </button>
 
         <button
           type="button"
           onClick={() => contact('ZALO')}
           disabled={pending !== null}
-          className="rounded-md border border-brand-500 px-5 py-2.5 font-medium text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+          className="flex-[2] rounded-md border border-brand-500 px-4 py-3 font-medium text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
         >
-          {pending === 'ZALO' ? 'Đang lấy số…' : 'Nhắn Zalo'}
+          <PendingLabel pending={pending === 'ZALO'} label="Zalo" />
         </button>
       </div>
+    </>
+  );
+}
 
-      {phone && (
-        <p className="mt-3 text-sm text-stone-700">
-          Số điện thoại: <a href={`tel:${phone}`} className="font-semibold text-brand-600">{phone}</a>
-        </p>
+/**
+ * Giữ nguyên bề rộng nút khi đang chờ mạng.
+ *
+ * Nhãn vẫn nằm trong DOM nhưng ẩn đi, spinner chồng lên trên — nếu thay chuỗi
+ * ("Gọi ngay" → "Đang lấy số…") thì nút co giãn ngay dưới ngón tay đang chạm,
+ * và trên mobile việc đó đủ để trượt mất lượt bấm. Lượt bấm ở đây chính là đơn
+ * vị đo doanh thu.
+ */
+function PendingLabel({ pending, label }: { pending: boolean; label: string }) {
+  return (
+    <span className="relative inline-flex items-center justify-center">
+      <span className={pending ? 'invisible' : undefined}>{label}</span>
+      {pending && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <svg
+            aria-hidden
+            className="h-4 w-4 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <path d="M12 3a9 9 0 1 0 9 9" />
+          </svg>
+          <span className="sr-only">Đang lấy số…</span>
+        </span>
       )}
-
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-    </div>
+    </span>
   );
 }

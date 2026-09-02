@@ -46,7 +46,7 @@ export function TopUpForm() {
   const valid = amount >= MIN && amount <= MAX && Number.isInteger(amount);
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-stone-200 bg-white p-4">
+    <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-4">
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((preset) => (
           <button
@@ -56,7 +56,7 @@ export function TopUpForm() {
             className={`rounded-full border px-4 py-1.5 text-sm ${
               amount === preset
                 ? 'border-brand-500 bg-brand-50 text-brand-700'
-                : 'border-stone-300 text-stone-700 hover:border-brand-500'
+                : 'border-ink-300 text-ink-700 hover:border-brand-500'
             }`}
           >
             {formatVnd(preset)}
@@ -65,7 +65,7 @@ export function TopUpForm() {
       </div>
 
       <label className="mt-4 block text-sm">
-        <span className="text-stone-700">Hoặc nhập số tiền (VND)</span>
+        <span className="text-ink-700">Hoặc nhập số tiền (VND)</span>
         <input
           type="number"
           min={MIN}
@@ -73,11 +73,11 @@ export function TopUpForm() {
           step={1000}
           value={amount}
           onChange={(e) => setAmount(Number(e.target.value))}
-          className="mt-1 w-full max-w-xs rounded-md border border-stone-300 px-3 py-2 tabular-nums"
+          className="mt-1 w-full max-w-xs rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
         />
       </label>
 
-      <p className="mt-2 text-xs text-stone-500">
+      <p className="mt-2 text-xs text-ink-500">
         Từ {formatVnd(MIN)} đến {formatVnd(MAX)}. Tiền vào ví sau khi cổng thanh toán xác nhận, có
         thể chậm vài giây so với lúc bạn thanh toán xong.
       </p>

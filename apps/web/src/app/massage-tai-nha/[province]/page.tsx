@@ -48,25 +48,25 @@ export default async function ProvincePage({ params }: Props) {
         ]}
       />
 
-      <h1 className="text-2xl font-semibold sm:text-3xl">
+      <h1 className="text-h1 text-ink-900 sm:text-display">
         Massage trị liệu tại nhà {area.name}
       </h1>
-      <p className="mt-3 max-w-2xl text-stone-600">
+      <p className="mt-3 max-w-2xl text-ink-600">
         {area.ktvCount} kỹ thuật viên đang nhận khách tại {area.name}. Chọn quận/huyện của bạn để
         xem những người ở gần nhất.
       </p>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold">Chọn quận/huyện</h2>
+        <h2 className="text-h2 text-ink-900">Chọn quận/huyện</h2>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {districts.map((d) => (
             <li key={d.id}>
               <Link
                 href={areaPath(params.province, d.slug)}
-                className="flex items-center justify-between rounded-md border border-stone-200 bg-white px-4 py-3 text-sm hover:border-brand-500"
+                className="flex items-center justify-between rounded-md border border-ink-200 bg-white px-4 py-3 text-body-s shadow-card transition hover:border-brand-500 hover:shadow-card-hover"
               >
                 <span>{d.name}</span>
-                <span className="text-stone-500">
+                <span className="text-ink-500">
                   {d.ktvCount > 0 ? `${d.ktvCount} KTV` : '—'}
                 </span>
               </Link>
@@ -77,7 +77,7 @@ export default async function ProvincePage({ params }: Props) {
 
       {results.items.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold">Kỹ thuật viên nổi bật tại {area.name}</h2>
+          <h2 className="text-h2 text-ink-900">Kỹ thuật viên nổi bật tại {area.name}</h2>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
             {results.items.map((ktv) => (
               <KtvCard key={ktv.id} ktv={ktv} />

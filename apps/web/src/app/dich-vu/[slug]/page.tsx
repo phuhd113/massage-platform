@@ -46,13 +46,13 @@ export default async function ServicePage({ params }: Props) {
         ]}
       />
 
-      <h1 className="text-2xl font-semibold sm:text-3xl">{service.name} tại nhà</h1>
+      <h1 className="text-h1 text-ink-900 sm:text-display">{service.name} tại nhà</h1>
       {service.description && (
-        <p className="mt-3 max-w-2xl text-stone-600">{service.description}</p>
+        <p className="mt-3 max-w-2xl text-ink-600">{service.description}</p>
       )}
 
       <section className="mt-10">
-        <h2 className="text-lg font-semibold">Tìm {service.name.toLowerCase()} theo khu vực</h2>
+        <h2 className="text-h2 text-ink-900">Tìm {service.name.toLowerCase()} theo khu vực</h2>
         <div className="mt-4 grid gap-6 sm:grid-cols-2">
           {areas.map((province) => (
             <div key={province.id}>
@@ -64,7 +64,7 @@ export default async function ServicePage({ params }: Props) {
                     <li key={d.id}>
                       <Link
                         href={areaPath(province.slug, d.slug)}
-                        className="inline-block rounded-full border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:border-brand-500 hover:text-brand-600"
+                        className="inline-block rounded-full border border-ink-200 bg-white px-3 py-1.5 text-body-s text-ink-700 shadow-card transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
                       >
                         {d.name}
                       </Link>

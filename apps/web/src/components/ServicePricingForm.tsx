@@ -78,14 +78,14 @@ export function ServicePricingForm({
   }
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-5">
+    <div className="rounded-lg border border-ink-200 bg-white p-5">
       <ul className="space-y-3">
         {catalog.map((service) => {
           const row = byId.get(service.id);
           const on = row !== undefined;
 
           return (
-            <li key={service.id} className="rounded-md border border-stone-200 p-3">
+            <li key={service.id} className="rounded-md border border-ink-200 p-3">
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -96,7 +96,7 @@ export function ServicePricingForm({
                 <span>
                   <span className="font-medium">{service.name}</span>
                   {service.description && (
-                    <span className="mt-0.5 block text-sm text-stone-500">{service.description}</span>
+                    <span className="mt-0.5 block text-sm text-ink-500">{service.description}</span>
                   )}
                 </span>
               </label>
@@ -104,7 +104,7 @@ export function ServicePricingForm({
               {on && row && (
                 <div className="mt-3 flex flex-wrap gap-4 pl-7">
                   <label className="block text-sm">
-                    <span className="text-stone-700">Giá từ (VND)</span>
+                    <span className="text-ink-700">Giá từ (VND)</span>
                     <input
                       type="number"
                       min={0}
@@ -114,15 +114,15 @@ export function ServicePricingForm({
                       onChange={(e) =>
                         update(service.id, { priceFrom: Math.trunc(Number(e.target.value)) })
                       }
-                      className="mt-1 w-40 rounded-md border border-stone-300 px-3 py-1.5 tabular-nums"
+                      className="mt-1 w-40 rounded-md border border-ink-200 bg-white px-3 py-1.5 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
                     />
-                    <span className="mt-1 block text-xs text-stone-500">
+                    <span className="mt-1 block text-xs text-ink-500">
                       {formatVnd(row.priceFrom)}
                     </span>
                   </label>
 
                   <label className="block text-sm">
-                    <span className="text-stone-700">Thời lượng (phút)</span>
+                    <span className="text-ink-700">Thời lượng (phút)</span>
                     <input
                       type="number"
                       min={15}
@@ -132,7 +132,7 @@ export function ServicePricingForm({
                       onChange={(e) =>
                         update(service.id, { durationMin: Math.trunc(Number(e.target.value)) })
                       }
-                      className="mt-1 w-32 rounded-md border border-stone-300 px-3 py-1.5 tabular-nums"
+                      className="mt-1 w-32 rounded-md border border-ink-200 bg-white px-3 py-1.5 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
                     />
                   </label>
                 </div>
@@ -151,7 +151,7 @@ export function ServicePricingForm({
         >
           {pending ? 'Đang lưu…' : 'Lưu bảng giá'}
         </button>
-        <span className="text-sm text-stone-500">
+        <span className="text-sm text-ink-500">
           Đã chọn {rows.length}/{MAX_SERVICES} dịch vụ
         </span>
       </div>

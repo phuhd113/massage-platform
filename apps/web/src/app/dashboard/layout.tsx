@@ -29,13 +29,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-ink-200 pb-4">
         <nav className="flex flex-wrap gap-1">
           {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-100 hover:text-brand-600"
+              className="rounded-md px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-100 hover:text-brand-600"
             >
               {item.label}
             </Link>

@@ -85,11 +85,11 @@ export function BuyPackageForm({
   return (
     <div>
       <label className="block max-w-sm text-sm">
-        <span className="text-stone-700">Khu vực muốn đẩy tin</span>
+        <span className="text-ink-700">Khu vực muốn đẩy tin</span>
         <select
           value={areaId}
           onChange={(e) => setAreaId(e.target.value)}
-          className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         >
           <option value="">— Chọn quận/huyện —</option>
           {districts.map((d) => (
@@ -104,35 +104,66 @@ export function BuyPackageForm({
         {withSlots.map((pkg) => {
           const soldOut = pkg.freeSlots === 0;
           return (
-            <li key={pkg.id} className="flex flex-col rounded-lg border border-stone-200 bg-white p-4">
+            <li
+              key={pkg.id}
+              className="flex flex-col rounded-lg border border-champagne-200 bg-gradient-to-b from-champagne-50 via-white to-white p-4 shadow-card"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold">{pkg.name}</h3>
-                  <p className="mt-0.5 text-sm text-stone-500">
+                  <h3 className="text-h4 text-ink-900">{pkg.name}</h3>
+                  <p className="mt-0.5 text-body-s text-ink-500">
                     {packageLabel(pkg.type)} · {pkg.durationDays} ngày · +{pkg.boostPoints} điểm
                   </p>
                 </div>
-                <div className="shrink-0 text-right font-semibold tabular-nums">
+                <div className="tabular shrink-0 text-right font-display font-semibold text-ink-900">
                   {formatVnd(pkg.price)}
                 </div>
               </div>
 
-              <p className="mt-3 text-sm">
+              {/* Lời hứa bán hàng đọc thẳng từ cờ backend tính, không hardcode
+                  theo tên gói: nếu ai đó hạ boostPoints xuống dưới dải BaseScore
+                  thì mô tả ở đây tự đổi theo, thay vì bán một lời hứa hệ thống
+                  không còn giữ được. */}
+              <p className="mt-3 text-body-s">
                 {pkg.guaranteesTopPlacement ? (
-                  <span className="text-brand-700">Đảm bảo đứng trên KTV không mua gói</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-champagne-200 bg-champagne-50 px-2 py-0.5 font-semibold text-champagne-600">
+                    <svg
+                      aria-hidden
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m2 8 4 12h12l4-12-5 4-5-6-5 6-5-4z" />
+                      <path d="M2 20h20" />
+                    </svg>
+                    Đảm bảo đứng trên KTV không mua gói
+                  </span>
                 ) : (
                   // Nói thẳng giới hạn thay vì để KTV tự phát hiện sau khi trả tiền.
-                  <span className="text-stone-600">
+                  <span className="text-ink-600">
                     Tăng khả năng hiển thị, không đảm bảo vị trí đầu trang
                   </span>
                 )}
               </p>
 
               {areaId && (
-                <p className="mt-2 text-sm text-stone-500">
-                  {soldOut
-                    ? 'Đã hết chỗ ở khu vực này'
-                    : `Còn ${pkg.freeSlots}/${pkg.maxSlotsPerArea} chỗ`}
+                <p className="mt-2 text-body-s">
+                  {soldOut ? (
+                    <span className="font-medium text-danger-fg">Đã hết chỗ ở khu vực này</span>
+                  ) : (
+                    <span className="text-ink-600">
+                      Còn{' '}
+                      <strong className="tabular text-ink-900">
+                        {pkg.freeSlots}/{pkg.maxSlotsPerArea}
+                      </strong>{' '}
+                      chỗ
+                    </span>
+                  )}
                 </p>
               )}
 
@@ -150,10 +181,15 @@ export function BuyPackageForm({
       </ul>
 
       {done && (
-        <p className="mt-4 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-700">{done}</p>
+        <p className="mt-4 rounded-md border border-success-bd bg-success-bg px-4 py-3 text-body-s text-success-fg">
+          {done}
+        </p>
       )}
       {error && (
-        <p role="alert" className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p
+          role="alert"
+          className="mt-4 rounded-md border border-danger-bd bg-danger-bg px-4 py-3 text-body-s text-danger-fg"
+        >
           {error}
         </p>
       )}

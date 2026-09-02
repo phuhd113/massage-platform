@@ -24,12 +24,12 @@ export default function TopUpResultPage({
   const succeeded = code === '00';
 
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-stone-200 bg-white p-6 text-center">
-      <h1 className="text-xl font-semibold">
+    <div className="mx-auto max-w-md rounded-lg border border-ink-200 bg-white p-6 text-center shadow-card">
+      <h1 className="text-h2 text-ink-900">
         {succeeded ? 'Đã thanh toán' : 'Giao dịch chưa hoàn tất'}
       </h1>
 
-      <p className="mt-3 text-stone-600">
+      <p className="mt-3 text-ink-600">
         {succeeded ? (
           <>
             Cổng thanh toán báo thành công. Tiền vào ví ngay khi hệ thống nhận được xác nhận từ

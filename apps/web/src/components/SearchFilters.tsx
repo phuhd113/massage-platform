@@ -83,7 +83,7 @@ export function SearchFilters({
   const isMap = params.get('view') === 'map';
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
+    <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <button
@@ -97,9 +97,9 @@ export function SearchFilters({
         </div>
 
         <label className="text-sm">
-          <span className="block text-stone-600">Khu vực</span>
+          <span className="block text-ink-600">Khu vực</span>
           <select
-            className="mt-1 rounded-md border border-stone-300 px-3 py-2"
+            className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             value={params.get('areaSlug') ?? ''}
             onChange={(e) => setParam('areaSlug', e.target.value)}
           >
@@ -113,9 +113,9 @@ export function SearchFilters({
         </label>
 
         <label className="text-sm">
-          <span className="block text-stone-600">Dịch vụ</span>
+          <span className="block text-ink-600">Dịch vụ</span>
           <select
-            className="mt-1 rounded-md border border-stone-300 px-3 py-2"
+            className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             value={params.get('service') ?? ''}
             onChange={(e) => setParam('service', e.target.value)}
           >
@@ -130,9 +130,9 @@ export function SearchFilters({
 
         {params.get('lat') && (
           <label className="text-sm">
-            <span className="block text-stone-600">Bán kính</span>
+            <span className="block text-ink-600">Bán kính</span>
             <select
-              className="mt-1 rounded-md border border-stone-300 px-3 py-2"
+              className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
               value={params.get('radiusKm') ?? '10'}
               onChange={(e) => setParam('radiusKm', e.target.value)}
             >
@@ -148,14 +148,14 @@ export function SearchFilters({
         <div
           role="group"
           aria-label="Cách hiển thị kết quả"
-          className="ml-auto flex rounded-md border border-stone-300 p-0.5 text-sm"
+          className="ml-auto flex rounded-md border border-ink-300 p-0.5 text-sm"
         >
           <button
             type="button"
             aria-pressed={!isMap}
             onClick={() => setView('list')}
             className={`rounded px-3 py-1.5 font-medium ${
-              isMap ? 'text-stone-600 hover:bg-stone-100' : 'bg-stone-900 text-white'
+              isMap ? 'text-ink-600 hover:bg-ink-100' : 'bg-ink-900 text-white'
             }`}
           >
             Danh sách
@@ -165,7 +165,7 @@ export function SearchFilters({
             aria-pressed={isMap}
             onClick={() => setView('map')}
             className={`rounded px-3 py-1.5 font-medium ${
-              isMap ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+              isMap ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100'
             }`}
           >
             Bản đồ

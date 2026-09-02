@@ -3,8 +3,8 @@ import Link from 'next/link';
 export default function NotFound() {
   return (
     <div className="py-16 text-center">
-      <h1 className="text-2xl font-semibold">Không tìm thấy trang</h1>
-      <p className="mt-3 text-stone-600">
+      <h1 className="text-h1 text-ink-900">Không tìm thấy trang</h1>
+      <p className="mt-3 text-ink-600">
         Trang bạn tìm không tồn tại hoặc hồ sơ đã ngừng hiển thị.
       </p>
       <Link

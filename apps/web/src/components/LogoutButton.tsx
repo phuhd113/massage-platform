@@ -19,7 +19,7 @@ export function LogoutButton() {
       type="button"
       onClick={logout}
       disabled={pending}
-      className="text-sm text-stone-600 hover:text-brand-600 disabled:opacity-60"
+      className="text-sm text-ink-600 hover:text-brand-600 disabled:opacity-60"
     >
       {pending ? 'Đang thoát…' : 'Đăng xuất'}
     </button>

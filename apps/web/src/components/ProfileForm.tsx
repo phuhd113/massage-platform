@@ -119,52 +119,52 @@ export function ProfileForm({
   const coordsValid = lat !== '' && lon !== '' && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180;
 
   return (
-    <form onSubmit={submit} className="space-y-6 rounded-lg border border-stone-200 bg-white p-5">
+    <form onSubmit={submit} className="space-y-6 rounded-lg border border-ink-200 bg-white p-5 shadow-card">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="text-stone-700">Họ tên hiển thị *</span>
+          <span className="text-ink-700">Họ tên hiển thị *</span>
           <input
             required
             minLength={2}
             maxLength={120}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="text-stone-700">Số năm kinh nghiệm</span>
+          <span className="text-ink-700">Số năm kinh nghiệm</span>
           <input
             type="number"
             min={0}
             max={60}
             value={years}
             onChange={(e) => setYears(Number(e.target.value))}
-            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </label>
       </div>
 
       <label className="block text-sm">
-        <span className="text-stone-700">Giới thiệu</span>
+        <span className="text-ink-700">Giới thiệu</span>
         <textarea
           rows={4}
           maxLength={2000}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Kinh nghiệm, phương pháp trị liệu, đối tượng khách phù hợp…"
-          className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+          className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         />
-        <span className="mt-1 block text-xs text-stone-500">
+        <span className="mt-1 block text-xs text-ink-500">
           Nội dung này hiển thị công khai và được kiểm duyệt trước khi đăng. {bio.length}/2000
         </span>
       </label>
 
-      <fieldset className="rounded-md border border-stone-200 p-4">
-        <legend className="px-1 text-sm font-medium text-stone-700">Vị trí xuất phát</legend>
+      <fieldset className="rounded-md border border-ink-200 p-4">
+        <legend className="px-1 text-sm font-medium text-ink-700">Vị trí xuất phát</legend>
 
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-ink-600">
           Dùng để tính khoảng cách tới khách. Trang công khai chỉ hiện toạ độ đã làm tròn khoảng
           100m và <strong>không</strong> hiện địa chỉ, nên chỗ ở của bạn không lộ ra.
         </p>
@@ -180,7 +180,7 @@ export function ProfileForm({
 
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="text-stone-700">Vĩ độ (lat) *</span>
+            <span className="text-ink-700">Vĩ độ (lat) *</span>
             <input
               type="number"
               step="any"
@@ -188,11 +188,11 @@ export function ProfileForm({
               value={lat}
               onChange={(e) => setLat(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="10.7295"
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 tabular-nums"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
             />
           </label>
           <label className="block text-sm">
-            <span className="text-stone-700">Kinh độ (lon) *</span>
+            <span className="text-ink-700">Kinh độ (lon) *</span>
             <input
               type="number"
               step="any"
@@ -200,23 +200,23 @@ export function ProfileForm({
               value={lon}
               onChange={(e) => setLon(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="106.7215"
-              className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 tabular-nums"
+              className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
             />
           </label>
         </div>
 
         <label className="mt-4 block text-sm">
-          <span className="text-stone-700">Địa chỉ (chỉ dùng nội bộ)</span>
+          <span className="text-ink-700">Địa chỉ (chỉ dùng nội bộ)</span>
           <input
             maxLength={255}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </label>
 
         <label className="mt-4 block text-sm">
-          <span className="text-stone-700">Bán kính nhận khách: {radius}km</span>
+          <span className="text-ink-700">Bán kính nhận khách: {radius}km</span>
           <input
             type="range"
             min={1}
@@ -225,25 +225,25 @@ export function ProfileForm({
             onChange={(e) => setRadius(Number(e.target.value))}
             className="mt-1 w-full max-w-sm"
           />
-          <span className="mt-1 block text-xs text-stone-500">
+          <span className="mt-1 block text-xs text-ink-500">
             Khách ở xa hơn bán kính này sẽ không thấy bạn, kể cả khi họ tìm với bán kính rộng — để
             không ai gọi trúng người không nhận đi khu đó.
           </span>
         </label>
       </fieldset>
 
-      <fieldset className="rounded-md border border-stone-200 p-4">
-        <legend className="px-1 text-sm font-medium text-stone-700">
+      <fieldset className="rounded-md border border-ink-200 p-4">
+        <legend className="px-1 text-sm font-medium text-ink-700">
           Khu vực nhận phục vụ ({selectedAreas.length}/{MAX_AREAS})
         </legend>
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-ink-600">
           Quyết định bạn xuất hiện ở trang khu vực nào, và là khu vực bạn mua được gói đẩy tin.
         </p>
 
         <div className="mt-3 space-y-4">
           {areas.map((province) => (
             <div key={province.id}>
-              <div className="text-sm font-medium text-stone-700">{province.name}</div>
+              <div className="text-sm font-medium text-ink-700">{province.name}</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {province.children.map((d) => {
                   const on = selectedAreas.includes(d.id);
@@ -256,7 +256,7 @@ export function ProfileForm({
                       className={`rounded-full border px-3 py-1 text-sm ${
                         on
                           ? 'border-brand-500 bg-brand-50 text-brand-700'
-                          : 'border-stone-300 text-stone-700 hover:border-brand-500'
+                          : 'border-ink-300 text-ink-700 hover:border-brand-500'
                       }`}
                     >
                       {d.name}
@@ -269,7 +269,7 @@ export function ProfileForm({
         </div>
 
         {districts.length === 0 && (
-          <p className="mt-2 text-sm text-stone-500">
+          <p className="mt-2 text-sm text-ink-500">
             Chưa có danh mục khu vực. Chạy lệnh seed-areas trước.
           </p>
         )}
@@ -285,7 +285,7 @@ export function ProfileForm({
         </button>
 
         {profile && (
-          <span className="text-sm text-stone-500">
+          <span className="text-sm text-ink-500">
             Sửa hồ sơ đã duyệt sẽ đưa nó về chờ duyệt lại — hồ sơ tạm ẩn khỏi tìm kiếm trong lúc đó.
           </span>
         )}
