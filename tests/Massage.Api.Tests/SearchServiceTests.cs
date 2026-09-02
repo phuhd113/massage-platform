@@ -2,6 +2,8 @@ using FluentAssertions;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Search;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace Massage.Api.Tests;
 
@@ -214,5 +216,44 @@ public class SearchRankingTests(PostgresFixture fixture)
 
         result.Items[0].Id.Should().Be(gần.Id);
         result.Items[1].Id.Should().Be(xa.Id);
+    }
+}
+
+
+/// <summary>
+/// Canh chi phí của đường search — thứ không nhìn thấy được bằng test chức năng.
+/// </summary>
+public class SearchQueryShapeTests
+{
+    /// <summary>
+    /// Hồi quy cho một lỗi hiệu năng thật, đo được ngày 2026-09-02.
+    ///
+    /// CTE <c>global</c> (tiên nghiệm Bayesian) từng không có <c>MATERIALIZED</c>,
+    /// nên Postgres inline nó vào nested loop và tính lại **một lần cho mỗi ứng
+    /// viên** — mỗi lần là một seq scan toàn bảng <c>ktv_profiles</c>. Đo trên 5.000
+    /// hồ sơ / 1.117 ứng viên: p50 của API là 2,59 giây; thêm một từ khoá còn 29ms.
+    ///
+    /// Vì sao canh bằng chuỗi SQL chứ không bằng EXPLAIN hay đồng hồ — đã thử cả hai
+    /// và cả hai đều không dùng được:
+    ///
+    /// <list type="bullet">
+    /// <item>EXPLAIN trên database test (vài chục hồ sơ) cho kế hoạch hoàn toàn
+    /// khác: planner không chọn nested loop nên seq scan lặp không xuất hiện, và
+    /// test vẫn xanh kể cả khi đã bỏ MATERIALIZED. Đã kiểm chứng đúng như vậy.</item>
+    /// <item>Đo thời gian thì phụ thuộc tốc độ máy CI, ngưỡng chặt sẽ đỏ vu vơ còn
+    /// ngưỡng lỏng thì không bắt được gì.</item>
+    /// </list>
+    ///
+    /// Chuỗi SQL là thứ duy nhất tất định ở đây. Test này yếu — nó không chứng minh
+    /// kế hoạch thực thi tốt — nhưng nó chặn đúng thao tác đã gây ra lỗi: ai đó xoá
+    /// từ khoá này mà không biết vì sao nó ở đó.
+    /// </summary>
+    [Fact]
+    public void CTE_tiên_nghiệm_rating_phải_là_MATERIALIZED()
+    {
+        SearchService.SqlForDiagnostics.Should().Contain("global AS MATERIALIZED",
+            "thiếu MATERIALIZED thì Postgres tính lại tiên nghiệm cho từng ứng viên — " +
+            "mỗi lần một seq scan toàn bảng ktv_profiles (đo được: chậm hơn 55 lần " +
+            "trên 5.000 hồ sơ). Xem ghi chú trong SearchService.");
     }
 }

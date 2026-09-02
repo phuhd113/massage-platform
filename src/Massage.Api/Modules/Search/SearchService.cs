@@ -49,7 +49,18 @@ public class SearchService(AppDbContext db)
                         THEN ST_SetSRID(ST_MakePoint(@lon, @lat), 4326)::geography
                    END AS pt
         ),
-        global AS (
+        -- MATERIALIZED là bắt buộc, không phải gợi ý tối ưu.
+        --
+        -- Không có nó, Postgres inline CTE này vào nested loop và tính lại tiên
+        -- nghiệm **một lần cho mỗi ứng viên** — mỗi lần là một seq scan toàn bảng
+        -- ktv_profiles. Đo trên 5.000 hồ sơ / 1.117 ứng viên: 1.875ms so với 34ms,
+        -- tức chậm hơn 55 lần, và càng nhiều KTV càng tệ theo cấp số nhân (số ứng
+        -- viên × kích thước bảng).
+        --
+        -- Triệu chứng rất dễ đổ nhầm cho geo-search: index GiST vẫn hoạt động đúng
+        -- và phần lọc toạ độ chỉ mất ~11ms. Chỗ tốn thời gian nằm trong EXPLAIN ở
+        -- dòng "Seq Scan on ktv_profiles ... loops=1117".
+        global AS MATERIALIZED (
             -- Tiên nghiệm là trung bình trên từng *đánh giá*, không phải trung bình
             -- của các trung bình. Lấy trung bình cộng theo hồ sơ thì một KTV mới có
             -- đúng một review 5 sao kéo tiên nghiệm lên ngang với chính nó, và làm
@@ -142,6 +153,16 @@ public class SearchService(AppDbContext db)
         ORDER BY boost_points + base_score DESC, distance_m ASC NULLS LAST, id
         OFFSET @skip LIMIT @take
         """;
+
+    /// <summary>
+    /// Chính câu SQL trên, mở ra cho test chạy <c>EXPLAIN</c>.
+    ///
+    /// Có test canh kế hoạch thực thi (<c>SearchQueryPlanTests</c>) vì chi phí của
+    /// truy vấn này không nhìn thấy được trên dữ liệu test nhỏ — xem ghi chú
+    /// MATERIALIZED ở trên. Test phải đọc đúng chuỗi mà production chạy, nếu chép
+    /// lại một bản riêng thì hai bản sẽ trôi khỏi nhau và test canh nhầm thứ.
+    /// </summary>
+    public static string SqlForDiagnostics => Sql;
 
     public async Task<SearchResponseDto> SearchAsync(SearchQueryDto q, CancellationToken ct = default)
     {

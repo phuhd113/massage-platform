@@ -283,8 +283,28 @@ Giới hạn đã biết, chưa làm: boost chỉ có hiệu lực khi `now()` r
 trực tiếp từ Postgres mỗi request nên độ trễ hiệu lực bằng 0 mà **chưa cần** job `promotion:activate`.
 Job đó chỉ trở nên bắt buộc khi đường đọc chuyển sang Redis.
 
-Phần Phase 3 còn lại: Redis read-path cho search + `rebuild-cache`, Hangfire (`promotion:expire`,
-sweep, `wallet:reconcile`, `hold:cleanup`), analytics partition theo tháng → rồi Phase 4. Chi tiết ở
+**Đường search đã đo ở quy mô thật (2026-09-02) và tìm ra một lỗi hiệu năng nghiêm trọng.** Với
+5.000 hồ sơ / 1.117 ứng viên, p50 của `/search` là **2,59 giây**. Nguyên nhân **không phải** geo-search
+— index GiST vẫn đúng và phần lọc toạ độ chỉ mất ~11ms. Thủ phạm là CTE `global` (tiên nghiệm
+Bayesian) thiếu `MATERIALIZED`: Postgres inline nó vào nested loop và **quét lại toàn bảng
+`ktv_profiles` một lần cho mỗi ứng viên** (`Seq Scan ... loops=1117`). Thêm một từ khoá: p50 còn
+**29ms**, nhanh hơn 89 lần, thứ hạng không đổi một dòng nào.
+
+Bài học đáng giữ: **đừng đặt cache lên trước một truy vấn chưa đo**. Kế hoạch ban đầu là làm Redis
+read-path cho search; nếu làm luôn thì Redis đã che mất lỗi này và nó sẽ quay lại nguyên vẹn ở mọi
+cache miss — đúng lúc tải cao nhất. Đo trước, sửa gốc, rồi mới cache.
+
+Vì vậy **Redis read-path cho search tạm hoãn**: 29ms ở 5.000 hồ sơ chưa cần cache, và roadmap cũng
+nói phần này hoãn được khi lượng KTV còn nhỏ. Làm khi số đo thật đòi hỏi, không theo kế hoạch.
+
+Lỗi này **không nhìn thấy được trên dữ liệu test nhỏ** (vài chục hồ sơ thì 1.117 lần quét vẫn xong
+trong mili giây), nên `SearchQueryShapeTests` canh thẳng chuỗi SQL. Đã thử hai cách canh tốt hơn và
+cả hai đều hỏng: EXPLAIN trên DB test cho kế hoạch khác hẳn nên **vẫn xanh kể cả khi bỏ MATERIALIZED**
+(đã kiểm chứng), còn đo thời gian thì phụ thuộc tốc độ máy CI. Test hiện tại yếu nhưng chặn đúng thao
+tác đã gây ra lỗi.
+
+Phần Phase 3 còn lại: Hangfire (`promotion:expire`, sweep, `wallet:reconcile`, `hold:cleanup`),
+analytics partition theo tháng, Redis read-path khi số đo đòi hỏi → rồi Phase 4. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
 
