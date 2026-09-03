@@ -7,8 +7,10 @@ namespace Massage.Api.Modules.Areas;
 /// Danh mục tỉnh/quận cho trang landing theo khu vực.
 ///
 /// Đường dẫn phân cấp tỉnh → quận cố ý khớp 1:1 với URL công khai
-/// <c>/massage-tai-nha/{tinh}/{quan}</c>: slug chỉ unique theo (slug, level) nên
-/// tra cứu chỉ bằng slug sẽ nhập nhằng khi một tỉnh và một quận trùng tên.
+/// <c>/massage-tai-nha/{tinh}/{quan}</c>, và slug quận **chỉ duy nhất trong phạm vi
+/// tỉnh**: cả nước có 10 tỉnh cùng chứa "Huyện Châu Thành", nên không có endpoint nào
+/// tra quận chỉ bằng slug — thiếu vế tỉnh là trả về một trong mười mà không có gì
+/// quyết định là cái nào.
 /// </summary>
 [ApiController]
 [Route("areas")]
@@ -16,7 +18,10 @@ namespace Massage.Api.Modules.Areas;
 [AllowAnonymous]
 public class AreaController(AreaService service) : ControllerBase
 {
-    /// <summary>Cây tỉnh/thành kèm quận trực thuộc và số KTV đã duyệt.</summary>
+    /// <summary>
+    /// Cây tỉnh/thành kèm quận trực thuộc và số KTV đã duyệt.
+    /// Không chứa phường/xã — dùng <see cref="Wards"/> cho cấp đó.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Tree(CancellationToken ct) =>
         Ok(await service.GetTreeAsync(ct));
@@ -31,4 +36,15 @@ public class AreaController(AreaService service) : ControllerBase
     public async Task<IActionResult> District(
         string provinceSlug, string districtSlug, CancellationToken ct) =>
         Ok(await service.GetDistrictAsync(provinceSlug, districtSlug, ct));
+
+    /// <summary>
+    /// Phường/xã của một quận — cho ô chọn địa chỉ cơ sở trong form hồ sơ KTV.
+    ///
+    /// Tách khỏi cây khu vực vì cả nước có hơn 10.000 phường: nhét chúng vào
+    /// <see cref="Tree"/> là bắt mọi trang gọi cây phải tải toàn bộ.
+    /// </summary>
+    [HttpGet("{provinceSlug}/{districtSlug}/wards")]
+    public async Task<IActionResult> Wards(
+        string provinceSlug, string districtSlug, CancellationToken ct) =>
+        Ok(await service.GetWardsAsync(provinceSlug, districtSlug, ct));
 }

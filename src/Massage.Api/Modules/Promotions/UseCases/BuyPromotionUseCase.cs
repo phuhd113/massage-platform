@@ -67,8 +67,14 @@ public class BuyPromotionUseCase(
         var package = await catalog.FindAsync(packageId, ct)
             ?? throw new NotFoundException("Không tìm thấy gói đang bán");
 
-        if (!await db.AdministrativeAreas.AnyAsync(a => a.Id == areaId, ct))
-            throw new BadRequestException("Khu vực không tồn tại");
+        // Phải đúng cấp quận/huyện, không chỉ "có tồn tại". Gói bán theo khu vực và
+        // search chỉ tra boost theo id khu vực đã mua, nên một campaign gắn vào tỉnh
+        // hay phường sẽ chiếm một dòng slot_allocations cho khu vực mà không truy vấn
+        // nào hỏi tới: KTV trả tiền, tồn kho bị giữ, và thứ hạng không bao giờ đổi.
+        // Siết ở đây, trước khi giữ tiền — chưa có bút toán nào được ghi tại điểm này.
+        if (!await db.AdministrativeAreas.AnyAsync(
+                a => a.Id == areaId && a.Level == AreaLevels.District, ct))
+            throw new BadRequestException("Khu vực mua gói phải là quận/huyện");
 
         var ktv = await db.KtvProfiles
             .Where(k => k.UserId == userId && k.VerificationStatus == VerificationStatuses.Verified)

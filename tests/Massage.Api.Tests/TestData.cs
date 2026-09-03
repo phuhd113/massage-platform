@@ -2,6 +2,7 @@ using Massage.Api.Data;
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.ServiceCatalog.Entities;
+using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 
 namespace Massage.Api.Tests;
@@ -60,6 +61,7 @@ public static class TestData
         string status = VerificationStatuses.Verified,
         decimal ratingAvg = 0m,
         int ratingCount = 0,
+        bool isOnline = false,
         CancellationToken ct = default)
     {
         var user = await CreateUserAsync(db, ct: ct);
@@ -76,6 +78,7 @@ public static class TestData
             VerificationStatus = status,
             RatingAvg = ratingAvg,
             RatingCount = ratingCount,
+            IsOnline = isOnline,
         };
 
         db.KtvProfiles.Add(profile);
@@ -93,33 +96,104 @@ public static class TestData
     }
 
     public static async Task LinkServiceAsync(
-        AppDbContext db, Guid ktvId, Guid serviceId, CancellationToken ct = default)
+        AppDbContext db,
+        Guid ktvId,
+        Guid serviceId,
+        decimal priceFrom = 300_000m,
+        short durationMin = 60,
+        CancellationToken ct = default)
     {
         db.KtvServices.Add(new KtvService
         {
             KtvId = ktvId,
             ServiceId = serviceId,
-            PriceFrom = 300_000m,
-            DurationMin = 60,
+            PriceFrom = priceFrom,
+            DurationMin = durationMin,
         });
         await db.SaveChangesAsync(ct);
     }
 
-    public static async Task<AdministrativeArea> CreateAreaAsync(
-        AppDbContext db, string level, Guid? parentId = null, CancellationToken ct = default)
+    /// <summary>
+    /// Thêm một chứng chỉ. Mặc định là ĐÃ DUYỆT vì phần lớn test quan tâm tới hồ sơ
+    /// hoàn chỉnh; truyền <c>VerificationStatuses.Pending</c> khi cần kiểm tra rằng
+    /// chứng chỉ chờ duyệt không được đếm.
+    /// </summary>
+    public static async Task<Certification> AddCertificationAsync(
+        AppDbContext db,
+        Guid ktvId,
+        string? status = null,
+        CancellationToken ct = default)
     {
+        var cert = new Certification
+        {
+            KtvId = ktvId,
+            Name = $"Chứng chỉ {Guid.NewGuid().ToString("N")[..8]}",
+            FileUrl = $"https://example.test/{Guid.NewGuid():N}.pdf",
+            VerifyStatus = status ?? VerificationStatuses.Verified,
+        };
+        db.Certifications.Add(cert);
+        await db.SaveChangesAsync(ct);
+        return cert;
+    }
+
+    /// <summary>
+    /// Tạo một khu vực. Slug ngẫu nhiên theo mặc định để test chạy song song không
+    /// đụng nhau — truyền <paramref name="slug"/> khi chính cái slug là thứ đang được
+    /// kiểm (ví dụ hai tỉnh cùng chứa "huyen-chau-thanh").
+    ///
+    /// Quận/huyện **luôn có tỉnh cha**: từ khi slug chỉ duy nhất trong phạm vi cha,
+    /// tra quận đòi cặp (tỉnh, quận), nên một quận mồ côi không tra ra được bằng
+    /// đường mà production dùng. Truyền <paramref name="parentId"/> để gắn vào tỉnh
+    /// có sẵn; bỏ trống thì tự dựng một tỉnh mới.
+    /// </summary>
+    public static async Task<AdministrativeArea> CreateAreaAsync(
+        AppDbContext db,
+        string level,
+        Guid? parentId = null,
+        string? slug = null,
+        string? code = null,
+        CancellationToken ct = default)
+    {
+        if (level != AreaLevels.Province && parentId is null)
+        {
+            var parentLevel = level == AreaLevels.Ward ? AreaLevels.District : AreaLevels.Province;
+            var parent = await CreateAreaAsync(db, parentLevel, ct: ct);
+            parentId = parent.Id;
+        }
+
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var area = new AdministrativeArea
         {
             Name = $"Khu vực {suffix}",
-            Slug = $"khu-vuc-{suffix}",
+            Slug = slug ?? $"khu-vuc-{suffix}",
             Level = level,
             ParentId = parentId,
+            Code = code,
         };
         db.AdministrativeAreas.Add(area);
         await db.SaveChangesAsync(ct);
         return area;
     }
+
+    /// <summary>
+    /// Slug tỉnh chứa khu vực này — thứ mà <c>SearchQueryDto.ProvinceSlug</c> cần khi
+    /// tìm theo quận.
+    /// </summary>
+    public static async Task<string> ProvinceSlugOfAsync(
+        AppDbContext db, Guid areaId, CancellationToken ct = default) =>
+        await db.AdministrativeAreas
+            .Where(a => a.Id == areaId)
+            .Select(a => a.Parent!.Slug)
+            .FirstAsync(ct);
+
+    /// <summary>
+    /// Gắn nội dung biên tập cho một khu vực. Cờ indexable đòi cả đủ KTV lẫn có nội
+    /// dung riêng, nên test nào kiểm ngưỡng số KTV đều phải set trường này trước.
+    /// </summary>
+    public static async Task SetEditorialNoteAsync(
+        AppDbContext db, Guid areaId, string note, CancellationToken ct = default) =>
+        await db.AdministrativeAreas.Where(a => a.Id == areaId)
+            .ExecuteUpdateAsync(u => u.SetProperty(a => a.EditorialNote, note), ct);
 
     public static async Task CoverAsync(
         AppDbContext db, Guid ktvId, Guid areaId, CancellationToken ct = default)

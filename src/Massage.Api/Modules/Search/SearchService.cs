@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Massage.Api.Data;
+using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
@@ -74,7 +76,7 @@ public class SearchService(AppDbContext db)
         candidates AS (
             SELECT k.id, k.full_name, k.slug, k.years_experience,
                    k.rating_avg, k.rating_count, k.response_rate, k.is_online,
-                   k.last_active_at, k.created_at,
+                   k.last_active_at, k.created_at, k.bio,
                    -- Làm tròn 3 chữ số (~100m) trước khi ra khỏi hệ thống. Khoảng
                    -- cách đã tính ở server nên client không cần toạ độ chính xác,
                    -- còn base_point là chỗ ở của KTV — đủ để đặt ghim bản đồ là đủ.
@@ -95,11 +97,21 @@ public class SearchService(AppDbContext db)
                     JOIN services sv ON sv.id = ks.service_id
                     WHERE ks.ktv_id = k.id AND sv.slug = @serviceSlug AND sv.is_active
               ))
-              AND (@areaSlug IS NULL OR EXISTS (
+              AND (@areaId IS NULL OR EXISTS (
                     SELECT 1 FROM coverage_areas ca
-                    JOIN administrative_areas aa ON aa.id = ca.area_id
-                    WHERE ca.ktv_id = k.id AND aa.slug = @areaSlug
+                    WHERE ca.ktv_id = k.id
+                      AND (ca.area_id = @areaId
+                           -- Slug tỉnh cũng tìm được: KTV chỉ khai coverage ở mức quận,
+                           -- nên so thẳng area_id với id tỉnh sẽ luôn rỗng và trang tỉnh
+                           -- hiện danh sách trắng ngay dưới dòng "N kỹ thuật viên".
+                           -- Chỉ mở một cấp — phường không bao giờ nằm trong coverage_areas
+                           -- nên đây vẫn là quan hệ tỉnh → quận, không cần CTE đệ quy.
+                           OR ca.area_id IN (SELECT id FROM administrative_areas
+                                              WHERE parent_id = @areaId))
               ))
+              -- Lọc "đang nhận khách". Đây là bộ lọc thu hẹp tập ứng viên nên phải
+              -- nằm ở đây, trước khi tính điểm và phân trang.
+              AND (NOT @onlineOnly OR k.is_online)
         ),
         scored AS (
             SELECT c.*,
@@ -130,28 +142,67 @@ public class SearchService(AppDbContext db)
                   -- VIP Pin là ghim theo khu vực, mua ở Quận 7 không được ghim ở
                   -- Hà Nội. Tìm theo toạ độ thì không có khu vực để so — xem ghi
                   -- chú giới hạn ở đầu class.
-                  AND (@areaSlug IS NULL OR cp.area_id IN (
-                        SELECT aa.id FROM administrative_areas aa WHERE aa.slug = @areaSlug
-                  ))
+                  --
+                  -- Khớp CHÍNH XÁC, cố ý không mở lên cấp cha như bộ lọc bên trên:
+                  -- gói bán theo từng khu vực với giá của khu vực đó, nên để gói mua
+                  -- ở một quận ăn thứ hạng trên trang tỉnh là phát không phần tồn kho
+                  -- chưa bán.
+                  AND (@areaId IS NULL OR cp.area_id = @areaId)
             ) b ON true
+        ),
+        -- Phân trang TRƯỚC khi đọc thêm dữ liệu cho thẻ. Ranh giới này quan trọng:
+        -- mọi thứ dưới đây chạy trên đúng @take dòng (≤50), không phải trên toàn bộ
+        -- ứng viên. Kéo chứng chỉ/dịch vụ lên trên CTE này sẽ biến chúng thành công
+        -- việc nhân với số ứng viên — cùng hình dạng với sự cố MATERIALIZED.
+        paged AS (
+            SELECT *, COUNT(*) OVER () AS total
+            FROM scored
+            ORDER BY boost_points + base_score DESC, distance_m ASC NULLS LAST, id
+            OFFSET @skip LIMIT @take
         )
-        SELECT id            AS "Id",
-               full_name     AS "FullName",
-               slug          AS "Slug",
-               years_experience AS "YearsExperience",
-               rating_avg    AS "RatingAvg",
-               rating_count  AS "RatingCount",
-               is_online     AS "IsOnline",
-               distance_m    AS "DistanceM",
-               boost_points  AS "BoostPoints",
-               base_score    AS "BaseScore",
-               boost_points + base_score AS "Score",
-               lat           AS "Lat",
-               lon           AS "Lon",
-               COUNT(*) OVER () AS "Total"
-        FROM scored
-        ORDER BY boost_points + base_score DESC, distance_m ASC NULLS LAST, id
-        OFFSET @skip LIMIT @take
+        SELECT p.id            AS "Id",
+               p.full_name     AS "FullName",
+               p.slug          AS "Slug",
+               p.years_experience AS "YearsExperience",
+               p.rating_avg    AS "RatingAvg",
+               p.rating_count  AS "RatingCount",
+               p.is_online     AS "IsOnline",
+               p.distance_m    AS "DistanceM",
+               p.boost_points  AS "BoostPoints",
+               p.base_score    AS "BaseScore",
+               p.boost_points + p.base_score AS "Score",
+               p.lat           AS "Lat",
+               p.lon           AS "Lon",
+               p.bio           AS "Bio",
+               -- Chỉ đếm chứng chỉ ĐÃ DUYỆT: thẻ nói "n chứng chỉ đã duyệt", nên đếm
+               -- cả hàng PENDING sẽ biến hồ sơ chờ xét thành hồ sơ đã xác minh trong
+               -- mắt khách. Partial index idx_certification_ktv_verified phục vụ đúng
+               -- vị từ này.
+               (SELECT COUNT(*) FROM certifications ct
+                 WHERE ct.ktv_id = p.id AND ct.verify_status = 'VERIFIED')::int
+                               AS "VerifiedCertCount",
+               -- Tối đa 2 dịch vụ, rẻ trước — thẻ chỉ có chỗ cho chừng đó, và giá thấp
+               -- nhất là thứ khách dùng để so sánh. Gộp thành JSON tại DB thay vì trả
+               -- nhiều dòng rồi ghép ở C#: giữ nguyên một dòng một KTV, không phải sửa
+               -- vòng đọc kết quả.
+               COALESCE((
+                   SELECT jsonb_agg(jsonb_build_object(
+                              'name', s.name,
+                              'durationMin', s.duration_min,
+                              'priceFrom', s.price_from)
+                          ORDER BY s.price_from, s.name)
+                   FROM (
+                       SELECT sv.name, ks.duration_min, ks.price_from
+                       FROM ktv_services ks
+                       JOIN services sv ON sv.id = ks.service_id
+                       WHERE ks.ktv_id = p.id AND sv.is_active
+                       ORDER BY ks.price_from, sv.name
+                       LIMIT 2
+                   ) s
+               ), '[]'::jsonb)::text AS "ServicesJson",
+               p.total         AS "Total"
+        FROM paged p
+        ORDER BY p.boost_points + p.base_score DESC, p.distance_m ASC NULLS LAST, p.id
         """;
 
     /// <summary>
@@ -169,6 +220,15 @@ public class SearchService(AppDbContext db)
         var hasOrigin = q is { Lat: not null, Lon: not null };
         var radiusM = q.RadiusKm * 1000.0;
 
+        var areaId = await ResolveAreaIdAsync(q, ct);
+
+        // Slug không khớp khu vực nào: trả rỗng chứ KHÔNG rơi về areaId = NULL, vì
+        // NULL nghĩa là "không giới hạn khu vực" tức trả về cả nước. Một URL cũ hoặc
+        // sai chính tả phải cho trang rỗng, không phải danh sách toàn quốc — và cũng
+        // không phải 500, để crawler gặp URL đã gỡ vẫn nhận phản hồi lành.
+        if (q.AreaSlug is not null && areaId is null)
+            return new SearchResponseDto([], q.Page, q.Size, 0);
+
         var rows = await db.Database
             .SqlQueryRaw<SearchRow>(
                 Sql,
@@ -177,7 +237,8 @@ public class SearchService(AppDbContext db)
                 Param("lon", NpgsqlDbType.Double, q.Lon ?? 0d),
                 Param("radiusM", NpgsqlDbType.Double, radiusM),
                 Param("serviceSlug", NpgsqlDbType.Text, q.Service),
-                Param("areaSlug", NpgsqlDbType.Text, q.AreaSlug),
+                Param("areaId", NpgsqlDbType.Uuid, areaId),
+                Param("onlineOnly", NpgsqlDbType.Boolean, q.IsOnline == true),
                 Param("skip", NpgsqlDbType.Integer, (q.Page - 1) * q.Size),
                 Param("take", NpgsqlDbType.Integer, q.Size))
             .ToListAsync(ct);
@@ -186,10 +247,70 @@ public class SearchService(AppDbContext db)
             rows.Select(r => new SearchItemDto(
                 r.Id, r.FullName, r.Slug, r.YearsExperience,
                 r.RatingAvg, r.RatingCount, r.IsOnline,
-                r.DistanceM, r.BoostPoints, r.BaseScore, r.Score, r.Lat, r.Lon)).ToList(),
+                r.DistanceM, r.BoostPoints, r.BaseScore, r.Score, r.Lat, r.Lon,
+                r.Bio, r.VerifiedCertCount, ParseServices(r.ServicesJson))).ToList(),
             q.Page,
             q.Size,
             rows.Count > 0 ? rows[0].Total : 0);
+    }
+
+    /// <summary>
+    /// Giải mã mảng dịch vụ Postgres đã gộp sẵn.
+    ///
+    /// JSON hỏng trả về danh sách rỗng thay vì ném lỗi: thẻ thiếu dòng giá vẫn dùng
+    /// được, còn cả trang tìm kiếm đổ vì một hồ sơ có dữ liệu lạ thì không.
+    /// </summary>
+    private static IReadOnlyList<SearchItemServiceDto> ParseServices(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<SearchItemServiceDto>>(json, JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Khoá JSON do SQL đặt theo camelCase để khớp thẳng tên property.</summary>
+    private static readonly JsonSerializerOptions JsonOptions =
+        new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// Đổi cặp slug thành id khu vực **trước khi** vào câu SQL.
+    ///
+    /// Giải ở đây chứ không đẩy join vào truy vấn vì hai lẽ. Một: slug quận chỉ duy
+    /// nhất trong phạm vi tỉnh — cả nước có 10 "huyen-chau-thanh" — nên khớp bằng
+    /// slug trần bên trong SQL sẽ gộp KTV của mười tỉnh vào một trang, và tệ hơn, để
+    /// gói VIP Pin mua ở Tiền Giang đẩy hạng trên trang Bến Tre. Hai: truyền
+    /// <c>uuid</c> thay cho <c>text</c> giữ nguyên hình dạng câu truy vấn — CTE
+    /// MATERIALIZED và kế hoạch thực thi không đổi, hai subquery còn bớt được một
+    /// join mỗi cái. Nếu thấy mình đang sửa <c>SearchQueryShapeTests</c> thì đã đi
+    /// sai đường, dừng lại.
+    ///
+    /// <c>areaSlug</c> đứng một mình = slug tỉnh (giữ tương thích với URL cũ); kèm
+    /// <c>provinceSlug</c> = quận trong tỉnh đó.
+    /// </summary>
+    private async Task<Guid?> ResolveAreaIdAsync(SearchQueryDto q, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q.AreaSlug)) return null;
+
+        if (string.IsNullOrWhiteSpace(q.ProvinceSlug))
+        {
+            return await db.AdministrativeAreas
+                .Where(a => a.Slug == q.AreaSlug && a.Level == AreaLevels.Province)
+                .Select(a => (Guid?)a.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return await db.AdministrativeAreas
+            .Where(a => a.Slug == q.AreaSlug
+                        && a.Parent!.Slug == q.ProvinceSlug
+                        && a.Parent.Level == AreaLevels.Province)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
     private static NpgsqlParameter Param(string name, NpgsqlDbType type, object? value) =>
@@ -215,6 +336,16 @@ public class SearchService(AppDbContext db)
         public double Score { get; set; }
         public double Lat { get; set; }
         public double Lon { get; set; }
+        public string? Bio { get; set; }
+        public int VerifiedCertCount { get; set; }
+
+        /// <summary>
+        /// Mảng dịch vụ dạng JSON do Postgres gộp sẵn. Giữ nguyên chuỗi ở tầng này
+        /// và chỉ giải mã khi dựng DTO — <c>SqlQueryRaw</c> không ánh xạ được kiểu
+        /// phức hợp, nên jsonb phải đi qua đây dưới dạng text.
+        /// </summary>
+        public string ServicesJson { get; set; } = "[]";
+
         public long Total { get; set; }
     }
 }

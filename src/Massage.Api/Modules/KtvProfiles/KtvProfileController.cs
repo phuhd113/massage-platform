@@ -28,7 +28,10 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
     public async Task<IActionResult> MyProfile(CancellationToken ct)
     {
         var profile = await service.GetByUserIdAsync(User.GetUserId(), ct);
-        return Ok(ToDto(profile, await service.ListCoverageAreasAsync(profile.Id, ct)));
+        return Ok(ToDto(
+            profile,
+            await service.ListCoverageAreasAsync(profile.Id, ct),
+            await service.GetBaseAreaAsync(profile.BaseWardId, ct)));
     }
 
     /// <summary>Cập nhật hồ sơ KTV của chính mình.</summary>
@@ -79,28 +82,34 @@ public class KtvProfileController(KtvProfileService service, CertificationUpload
     /// Chỉ truyền ở đường "hồ sơ của tôi". Với hồ sơ vừa tạo hoặc vừa sửa thì để
     /// null — client vừa gửi lên danh sách đó nên không cần nhận lại.
     /// </param>
-    private static object ToDto(KtvProfile p, List<PublicAreaDto>? coverageAreas = null) => new
-    {
-        p.Id,
-        p.FullName,
-        p.Slug,
-        p.Bio,
-        p.YearsExperience,
-        // Toạ độ đầy đủ, không làm tròn: đây là hồ sơ của chính chủ, và form sửa
-        // cần đúng điểm đã lưu để không dịch vị trí mỗi lần bấm lưu.
-        // Bản làm tròn dành cho đường công khai, xem PublicKtvProfileDto.
-        BasePoint = new { type = "Point", coordinates = new[] { p.BasePoint.X, p.BasePoint.Y } },
-        p.BaseAddress,
-        p.ServiceRadiusKm,
-        p.VerificationStatus,
-        p.RejectionReason,
-        p.RatingAvg,
-        p.RatingCount,
-        p.IsOnline,
-        p.CreatedAt,
-        Certifications = p.Certifications.Select(ToDto),
-        CoverageAreas = coverageAreas,
-    };
+    private static object ToDto(
+        KtvProfile p, List<PublicAreaDto>? coverageAreas = null, BaseAreaDto? baseArea = null) => new
+        {
+            p.Id,
+            p.FullName,
+            p.Slug,
+            p.Bio,
+            p.YearsExperience,
+            // Toạ độ đầy đủ, không làm tròn: đây là hồ sơ của chính chủ, và form sửa
+            // cần đúng điểm đã lưu để không dịch vị trí mỗi lần bấm lưu.
+            // Bản làm tròn dành cho đường công khai, xem PublicKtvProfileDto.
+            BasePoint = new { type = "Point", coordinates = new[] { p.BasePoint.X, p.BasePoint.Y } },
+            p.BaseAddress,
+            p.BaseWardId,
+            p.BaseStreet,
+            // Tỉnh/quận/phường suy từ base_ward_id, để form sửa render được lựa chọn hiện
+            // tại mà không phải tự tra ngược cây khu vực.
+            BaseArea = baseArea,
+            p.ServiceRadiusKm,
+            p.VerificationStatus,
+            p.RejectionReason,
+            p.RatingAvg,
+            p.RatingCount,
+            p.IsOnline,
+            p.CreatedAt,
+            Certifications = p.Certifications.Select(ToDto),
+            CoverageAreas = coverageAreas,
+        };
 
     private static object ToDto(Certification c) => new
     {

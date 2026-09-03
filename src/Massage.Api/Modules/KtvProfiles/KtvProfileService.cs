@@ -17,6 +17,7 @@ public class KtvProfileService(AppDbContext db)
             throw new ConflictException("Tài khoản này đã có hồ sơ KTV");
 
         await AssertAreasExistAsync(dto.CoverageAreaIds, ct);
+        await AssertWardExistsAsync(dto.BaseWardId, ct);
 
         var profile = new KtvProfile
         {
@@ -27,6 +28,8 @@ public class KtvProfileService(AppDbContext db)
             YearsExperience = dto.YearsExperience ?? 0,
             BasePoint = ToPoint(dto.Lon, dto.Lat),
             BaseAddress = dto.BaseAddress,
+            BaseWardId = dto.BaseWardId,
+            BaseStreet = dto.BaseStreet,
             ServiceRadiusKm = dto.ServiceRadiusKm,
             VerificationStatus = VerificationStatuses.Pending,
         };
@@ -44,11 +47,14 @@ public class KtvProfileService(AppDbContext db)
     {
         var profile = await GetByUserIdAsync(userId, ct);
         await AssertAreasExistAsync(dto.CoverageAreaIds, ct);
+        await AssertWardExistsAsync(dto.BaseWardId, ct);
 
         if (dto.FullName is not null) profile.FullName = dto.FullName;
         if (dto.Bio is not null) profile.Bio = dto.Bio;
         if (dto.YearsExperience.HasValue) profile.YearsExperience = dto.YearsExperience.Value;
         if (dto.BaseAddress is not null) profile.BaseAddress = dto.BaseAddress;
+        if (dto.BaseWardId.HasValue) profile.BaseWardId = dto.BaseWardId;
+        if (dto.BaseStreet is not null) profile.BaseStreet = dto.BaseStreet;
         if (dto.ServiceRadiusKm.HasValue) profile.ServiceRadiusKm = dto.ServiceRadiusKm.Value;
         if (dto.Lat.HasValue && dto.Lon.HasValue) profile.BasePoint = ToPoint(dto.Lon.Value, dto.Lat.Value);
 
@@ -154,6 +160,28 @@ public class KtvProfileService(AppDbContext db)
             .ToListAsync(ct);
 
     /// <summary>
+    /// Địa chỉ hành chính của hồ sơ, dựng bằng hai bước join lên <c>parent_id</c> từ
+    /// phường đã lưu. Trả cả tên lẫn slug để form sửa hiển thị được lựa chọn hiện tại
+    /// mà không phải gọi thêm ba lượt tra khu vực.
+    ///
+    /// Chỉ nhận phường làm điểm xuất phát: <c>base_ward_id</c> được validate đúng cấp
+    /// ở đường ghi, nên gặp cấp khác ở đây là dữ liệu hỏng chứ không phải trường hợp
+    /// hợp lệ — trả null để trang vẫn hiện được thay vì ném lỗi.
+    /// </summary>
+    public async Task<BaseAreaDto?> GetBaseAreaAsync(Guid? wardId, CancellationToken ct = default)
+    {
+        if (wardId is null) return null;
+
+        return await db.AdministrativeAreas
+            .Where(w => w.Id == wardId && w.Level == AreaLevels.Ward)
+            .Select(w => new BaseAreaDto(
+                w.Id, w.Name, w.Slug,
+                w.Parent!.Id, w.Parent.Name, w.Parent.Slug,
+                w.Parent.Parent!.Id, w.Parent.Parent.Name, w.Parent.Parent.Slug))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
     /// Dữ liệu sinh <c>sitemap.xml</c>: chỉ hồ sơ đã duyệt, kèm mốc cập nhật để
     /// Google biết trang nào cần crawl lại.
     /// </summary>
@@ -185,14 +213,38 @@ public class KtvProfileService(AppDbContext db)
         return cert;
     }
 
+    /// <summary>
+    /// Khu vực hoạt động phải tồn tại **và phải ở cấp quận/huyện**.
+    ///
+    /// Kiểm cấp là bắt buộc chứ không thừa: đặt một tỉnh làm khu vực hoạt động sẽ
+    /// khiến KTV được đếm hai lần ở rollup tỉnh, còn đặt một phường thì cộng vào cha
+    /// của nó — tức vào một quận, như thể quận đó là tỉnh. Cả hai đều làm sai con số
+    /// quyết định trang nào được index.
+    /// </summary>
     private async Task AssertAreasExistAsync(List<Guid>? areaIds, CancellationToken ct)
     {
         if (areaIds is null || areaIds.Count == 0) return;
 
         var distinct = areaIds.Distinct().ToList();
-        var found = await db.AdministrativeAreas.CountAsync(a => distinct.Contains(a.Id), ct);
+        var found = await db.AdministrativeAreas
+            .CountAsync(a => distinct.Contains(a.Id) && a.Level == AreaLevels.District, ct);
+
         if (found != distinct.Count)
-            throw new BadRequestException("Có khu vực hoạt động không tồn tại");
+            throw new BadRequestException("Khu vực hoạt động phải là quận/huyện có thật");
+    }
+
+    /// <summary>
+    /// Phường/xã của địa chỉ cơ sở phải tồn tại và đúng cấp phường. Nhận nhầm một quận
+    /// ở đây sẽ làm địa chỉ hiển thị thiếu một cấp mà không có lỗi nào hiện ra.
+    /// </summary>
+    private async Task AssertWardExistsAsync(Guid? wardId, CancellationToken ct)
+    {
+        if (wardId is null) return;
+
+        var ok = await db.AdministrativeAreas
+            .AnyAsync(a => a.Id == wardId && a.Level == AreaLevels.Ward, ct);
+
+        if (!ok) throw new BadRequestException("Phường/xã của địa chỉ không hợp lệ");
     }
 
     private async Task ReplaceCoverageAreasAsync(Guid ktvId, List<Guid>? areaIds, CancellationToken ct)

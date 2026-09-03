@@ -92,7 +92,9 @@ public class SearchServiceTests(PostgresFixture fixture)
 
         // Trang landing khu vực render ở server, không có GPS của khách — nếu chế độ
         // này không chạy thì toàn bộ kênh SEO không có dữ liệu để hiển thị.
-        var result = await Service().SearchAsync(new SearchQueryDto(AreaSlug: area.Slug));
+        // Slug quận chỉ duy nhất trong phạm vi tỉnh nên phải gửi kèm tỉnh.
+        var result = await Service().SearchAsync(new SearchQueryDto(
+            AreaSlug: area.Slug, ProvinceSlug: await TestData.ProvinceSlugOfAsync(db, area.Id)));
 
         result.Items.Should().ContainSingle().Which.Id.Should().Be(trongKhuVực.Id);
         result.Items[0].DistanceM.Should().BeNull("không có toạ độ khách thì không có khoảng cách để tính");
@@ -142,14 +144,77 @@ public class SearchServiceTests(PostgresFixture fixture)
         page1.Items.Should().HaveCount(2);
         page1.Total.Should().Be(3, "tổng phải là số kết quả trước khi phân trang");
     }
+
+    [Fact]
+    public async Task AreaSlug_không_lẫn_KTV_giữa_hai_tỉnh_trùng_slug_quận()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        // Cả nước có 10 tỉnh cùng chứa "Huyện Châu Thành". Khớp bằng slug trần sẽ gộp
+        // KTV của cả mười vào một trang — test này đỏ với bản khớp slug cũ.
+        var slugTrùng = $"huyen-chau-thanh-{Guid.NewGuid().ToString("N")[..8]}";
+
+        var tỉnhA = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var tỉnhB = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quậnA = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnhA.Id, slug: slugTrùng);
+        var quậnB = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnhB.Id, slug: slugTrùng);
+
+        var ktvA = await TestData.CreateKtvAsync(db, lat, lon);
+        await TestData.CoverAsync(db, ktvA.Id, quậnA.Id);
+        var ktvB = await TestData.CreateKtvAsync(db, lat, lon);
+        await TestData.CoverAsync(db, ktvB.Id, quậnB.Id);
+
+        // Phải kiểm CẢ HAI chiều. Chỉ kiểm một chiều thì bản khớp slug trần vẫn xanh:
+        // FirstOrDefault trả về hàng nào Postgres đưa ra trước, và thường trúng ngay
+        // tỉnh tạo trước — tức test đúng vì may, không phải vì code đúng.
+        var ởA = await Service().SearchAsync(new SearchQueryDto(
+            AreaSlug: slugTrùng, ProvinceSlug: tỉnhA.Slug, Size: 50));
+        var ởB = await Service().SearchAsync(new SearchQueryDto(
+            AreaSlug: slugTrùng, ProvinceSlug: tỉnhB.Slug, Size: 50));
+
+        ởA.Items.Should().ContainSingle().Which.Id.Should().Be(ktvA.Id);
+        ởB.Items.Should().ContainSingle().Which.Id.Should().Be(ktvB.Id);
+    }
+
+    [Fact]
+    public async Task Tìm_theo_slug_tỉnh_trả_về_KTV_của_các_quận_trực_thuộc()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        await TestData.CoverAsync(db, ktv.Id, quận.Id);
+
+        // KTV chỉ khai coverage ở mức quận, nên so thẳng area_id với id tỉnh luôn rỗng:
+        // trang tỉnh hiện danh sách trắng ngay dưới dòng "N kỹ thuật viên đang nhận khách".
+        var kếtQuả = await Service().SearchAsync(new SearchQueryDto(AreaSlug: tỉnh.Slug, Size: 50));
+
+        kếtQuả.Items.Select(i => i.Id).Should().Contain(ktv.Id);
+    }
+
+    [Fact]
+    public async Task Slug_khu_vực_không_tồn_tại_trả_rỗng_chứ_không_trả_cả_nước()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        await TestData.CoverAsync(db, ktv.Id, quận.Id);
+
+        // Rơi về "không giới hạn khu vực" ở đây nghĩa là một URL gõ sai trả về toàn bộ
+        // KTV cả nước — im lặng và rất khó phát hiện.
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(AreaSlug: $"khong-ton-tai-{Guid.NewGuid():N}", Size: 50));
+
+        kếtQuả.Items.Should().BeEmpty();
+        kếtQuả.Total.Should().Be(0);
+    }
 }
 
-/// <summary>
-/// Test xếp hạng tách riêng vì công thức Bayesian dùng rating trung bình
-/// <em>toàn hệ thống</em> làm tiên nghiệm. Dữ liệu sót lại từ test khác sẽ kéo giá
-/// trị đó đi và làm kết quả dao động, nên ở đây phải dọn bảng — an toàn vì xUnit
-/// chạy tuần tự các test trong cùng một collection.
-/// </summary>
 [Collection(PostgresCollection.Name)]
 public class SearchRankingTests(PostgresFixture fixture)
 {
@@ -217,6 +282,99 @@ public class SearchRankingTests(PostgresFixture fixture)
         result.Items[0].Id.Should().Be(gần.Id);
         result.Items[1].Id.Should().Be(xa.Id);
     }
+
+    [Fact]
+    public async Task Lọc_đang_nhận_khách_loại_KTV_đang_bận()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var rảnh = await TestData.CreateKtvAsync(db, lat, lon, isOnline: true);
+        var bận = await TestData.CreateKtvAsync(db, lat, lon, isOnline: false);
+
+        var lọc = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, IsOnline: true));
+
+        var ids = lọc.Items.Select(i => i.Id).ToList();
+        ids.Should().Contain(rảnh.Id).And.NotContain(bận.Id);
+
+        // Không truyền cờ thì không lọc — `false` và `null` phải cho cùng kết quả,
+        // nếu không thì "bỏ chọn bộ lọc" lại biến thành "chỉ hiện KTV đang bận".
+        var khôngLọc = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
+        var khôngLọcIds = khôngLọc.Items.Select(i => i.Id).ToList();
+        khôngLọcIds.Should().Contain(rảnh.Id).And.Contain(bận.Id);
+
+        var tắtCờ = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, IsOnline: false));
+        tắtCờ.Items.Select(i => i.Id).Should().Contain(bận.Id);
+    }
+
+    [Fact]
+    public async Task Chỉ_đếm_chứng_chỉ_đã_duyệt_trên_thẻ_listing()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+
+        await TestData.AddCertificationAsync(db, ktv.Id);
+        await TestData.AddCertificationAsync(db, ktv.Id);
+        await TestData.AddCertificationAsync(db, ktv.Id, VerificationStatuses.Pending);
+        await TestData.AddCertificationAsync(db, ktv.Id, VerificationStatuses.Rejected);
+
+        var result = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
+
+        var item = result.Items.Single(i => i.Id == ktv.Id);
+        item.VerifiedCertCount.Should().Be(
+            2,
+            "thẻ hiển thị con số này kèm chữ 'đã duyệt' — đếm cả hồ sơ chờ xét hoặc bị " +
+            "từ chối là nói với khách rằng KTV đã được xác minh nhiều hơn thực tế");
+    }
+
+    [Fact]
+    public async Task Thẻ_listing_lấy_tối_đa_hai_dịch_vụ_rẻ_nhất()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+
+        var đắt = await TestData.CreateServiceAsync(db);
+        var rẻ = await TestData.CreateServiceAsync(db);
+        var vừa = await TestData.CreateServiceAsync(db);
+        await TestData.LinkServiceAsync(db, ktv.Id, đắt.Id, priceFrom: 480_000m, durationMin: 90);
+        await TestData.LinkServiceAsync(db, ktv.Id, rẻ.Id, priceFrom: 280_000m, durationMin: 45);
+        await TestData.LinkServiceAsync(db, ktv.Id, vừa.Id, priceFrom: 350_000m, durationMin: 60);
+
+        var result = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
+
+        var item = result.Items.Single(i => i.Id == ktv.Id);
+
+        // Giá thấp nhất là thứ khách dùng để so sánh nhanh giữa các thẻ, nên thứ tự
+        // này là nội dung chứ không phải trang trí.
+        item.Services.Should().HaveCount(2, "thẻ chỉ có chỗ cho hai dòng giá");
+        item.Services.Select(s => s.PriceFrom).Should().ContainInOrder(280_000m, 350_000m);
+        item.Services[0].DurationMin.Should().Be((short)45);
+    }
+
+    [Fact]
+    public async Task KTV_chưa_khai_dịch_vụ_trả_về_danh_sách_rỗng_chứ_không_phải_null()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+
+        var result = await new SearchService(fixture.CreateContext())
+            .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
+
+        var item = result.Items.Single(i => i.Id == ktv.Id);
+
+        // Hồ sơ mới chưa khai gì vẫn phải hiện được trên thẻ. Trả null ở đây buộc mọi
+        // chỗ đọc phải tự phòng thủ, và chỗ nào quên thì vỡ đúng lúc có KTV mới.
+        item.Services.Should().BeEmpty();
+        item.VerifiedCertCount.Should().Be(0);
+    }
 }
 
 
@@ -255,5 +413,40 @@ public class SearchQueryShapeTests
             "thiếu MATERIALIZED thì Postgres tính lại tiên nghiệm cho từng ứng viên — " +
             "mỗi lần một seq scan toàn bảng ktv_profiles (đo được: chậm hơn 55 lần " +
             "trên 5.000 hồ sơ). Xem ghi chú trong SearchService.");
+    }
+
+    /// <summary>
+    /// Dữ liệu cho thẻ (chứng chỉ, dịch vụ) phải đọc SAU khi đã phân trang.
+    ///
+    /// Cùng một loại lỗi với MATERIALIZED và cũng vô hình trên dữ liệu test nhỏ: nếu
+    /// hai subquery này nằm trên CTE <c>paged</c>, chúng chạy một lần cho mỗi *ứng
+    /// viên* thay vì mỗi *dòng của trang* — ở 5.000 hồ sơ là 1.064 lần thay vì 20.
+    /// Đo được sau khi làm đúng thứ tự: <c>loops=20</c>, p50 28ms.
+    ///
+    /// Canh bằng vị trí chuỗi vì đó là thứ tất định duy nhất ở đây — xem lý do đầy đủ
+    /// ở test MATERIALIZED bên trên.
+    /// </summary>
+    [Fact]
+    public void Dữ_liệu_thẻ_phải_đọc_sau_khi_phân_trang()
+    {
+        var sql = SearchService.SqlForDiagnostics;
+
+        var vịTríPhânTrang = sql.IndexOf("paged AS (", StringComparison.Ordinal);
+        var vịTríĐếmChứngChỉ = sql.IndexOf("FROM certifications", StringComparison.Ordinal);
+        var vịTríDịchVụ = sql.IndexOf("FROM ktv_services ks", StringComparison.Ordinal);
+
+        vịTríPhânTrang.Should().BeGreaterThan(0, "CTE phân trang phải tồn tại");
+
+        vịTríĐếmChứngChỉ.Should().BeGreaterThan(vịTríPhânTrang,
+            "đếm chứng chỉ phải nằm sau CTE phân trang, nếu không nó chạy cho từng ứng " +
+            "viên chứ không phải từng dòng của trang");
+
+        // Lọc dịch vụ theo `sv.slug` vẫn nằm trong `candidates` (đó là bộ lọc tìm kiếm,
+        // phải chạy trước phân trang); phần lấy giá hiển thị mới là phần bị canh ở đây.
+        sql.IndexOf("FROM ktv_services ks", vịTríPhânTrang, StringComparison.Ordinal)
+            .Should().BeGreaterThan(vịTríPhânTrang,
+                "phần lấy giá dịch vụ cho thẻ phải nằm sau CTE phân trang");
+
+        vịTríDịchVụ.Should().BeGreaterThan(0);
     }
 }

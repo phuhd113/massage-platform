@@ -76,7 +76,9 @@ public class UpdateKtvProfileDtoValidatorTests
     {
         // Ghép nửa toạ độ mới với nửa cũ sẽ tạo ra một điểm không có thật.
         var result = _validator.Validate(new UpdateKtvProfileDto(
-            null, null, null, Lat: 10.77, Lon: null, null, null, null));
+            FullName: null, Bio: null, YearsExperience: null, Lat: 10.77, Lon: null,
+            BaseAddress: null, BaseWardId: null, BaseStreet: null,
+            ServiceRadiusKm: null, CoverageAreaIds: null));
 
         result.IsValid.Should().BeFalse();
     }
@@ -85,7 +87,9 @@ public class UpdateKtvProfileDtoValidatorTests
     public void Gửi_đủ_cả_hai_toạ_độ_thì_hợp_lệ()
     {
         var result = _validator.Validate(new UpdateKtvProfileDto(
-            null, null, null, Lat: 10.77, Lon: 106.7, null, null, null));
+            FullName: null, Bio: null, YearsExperience: null, Lat: 10.77, Lon: 106.7,
+            BaseAddress: null, BaseWardId: null, BaseStreet: null,
+            ServiceRadiusKm: null, CoverageAreaIds: null));
 
         result.IsValid.Should().BeTrue();
     }
@@ -94,7 +98,9 @@ public class UpdateKtvProfileDtoValidatorTests
     public void Toạ_độ_ngoài_dải_hợp_lệ_bị_từ_chối()
     {
         var result = _validator.Validate(new UpdateKtvProfileDto(
-            null, null, null, Lat: 999, Lon: 106.7, null, null, null));
+            FullName: null, Bio: null, YearsExperience: null, Lat: 999, Lon: 106.7,
+            BaseAddress: null, BaseWardId: null, BaseStreet: null,
+            ServiceRadiusKm: null, CoverageAreaIds: null));
 
         result.IsValid.Should().BeFalse();
     }
