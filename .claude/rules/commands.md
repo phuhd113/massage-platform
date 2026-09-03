@@ -25,6 +25,11 @@ docker compose exec api dotnet Massage.Api.dll maintenance   # nhả hold quá h
 cần cron ngoài nữa. Lệnh CLI vẫn giữ và vẫn gọi đúng cùng logic, để chạy tay khi cần chữa
 sự cố lúc job tự động đang hỏng.
 
+Job thứ tư, `analytics:partitions` (2 giờ sáng hằng ngày), tạo trước partition tháng của
+`analytics_events` và bỏ partition quá 6 tháng. Nó **ném lỗi** khi `analytics_events_default`
+có dữ liệu: hàng nằm ở đó chặn việc tạo partition cho chính tháng chúng thuộc về, nên phải
+chuyển chúng về đúng tháng rồi mới tạo lại được.
+
 Dashboard ở `/hangfire`. **Mặc định đóng** (401) trừ khi đăng nhập bằng tài khoản ADMIN
 hoặc bật `Jobs:DashboardAnonymous` — nó kích chạy và xoá được job, kể cả job đối soát ví.
 Cờ đó đang bật sẵn trong `appsettings.Development.json`; production để nguyên và xem qua

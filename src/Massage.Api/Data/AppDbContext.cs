@@ -1,5 +1,6 @@
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
+using Massage.Api.Modules.Analytics.Entities;
 using Massage.Api.Modules.Leads.Entities;
 using Massage.Api.Modules.Promotions.Entities;
 using Massage.Api.Modules.Reviews.Entities;
@@ -20,6 +21,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Service> Services => Set<Service>();
     public DbSet<KtvService> KtvServices => Set<KtvService>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<WalletRow> Wallets => Set<WalletRow>();
     public DbSet<WalletTransactionRow> WalletTransactions => Set<WalletTransactionRow>();
@@ -206,6 +208,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne<KtvProfile>().WithMany().HasForeignKey(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<AdministrativeArea>().WithMany().HasForeignKey(x => x.AreaId);
             e.HasIndex(x => new { x.KtvId, x.CreatedAt }).HasDatabaseName("idx_lead_ktv_time");
+        });
+
+        b.Entity<AnalyticsEvent>(e =>
+        {
+            e.ToTable("analytics_events");
+            // Khoá gồm cả cột phân mảnh: bảng partition không ép được tính duy nhất nếu
+            // khoá không nói được hàng nằm ở partition nào. Khai đúng như DB để EF không
+            // sinh ra truy vấn theo mỗi `id`.
+            e.HasKey(x => new { x.Id, x.CreatedAt });
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.Type).HasColumnName("type").HasMaxLength(20).IsRequired();
+            e.Property(x => x.KtvId).HasColumnName("ktv_id");
+            e.Property(x => x.AreaId).HasColumnName("area_id");
+            e.Property(x => x.Position).HasColumnName("position");
+            e.Property(x => x.ViewerHash).HasColumnName("viewer_hash").HasMaxLength(64);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // Cố ý KHÔNG khai khoá ngoại tới ktv_profiles — xem ghi chú ở AnalyticsEvent
+            // và ở migration: khoá ngoại trên bảng partition phải khai lại ở từng
+            // partition, và job tạo partition hằng tháng sẽ phải nhớ điều đó mãi mãi.
+            e.HasIndex(x => new { x.KtvId, x.Type, x.CreatedAt })
+                .HasDatabaseName("idx_analytics_ktv_type_time");
         });
 
         b.Entity<Review>(e =>

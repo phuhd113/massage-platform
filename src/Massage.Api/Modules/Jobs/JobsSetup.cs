@@ -124,5 +124,14 @@ public static class JobsSetup
             j => j.ReconcileWalletsAsync(CancellationToken.None),
             "0 3 * * *",
             new RecurringJobOptions { TimeZone = VietnamTime });
+
+        // 2 giờ sáng, tức **trước** job đối soát một tiếng và trước khi ngày mới có lượng
+        // ghi đáng kể. Hằng ngày dù việc chỉ có nghĩa mỗi tháng một lần: lỡ một job tháng
+        // là hỏng nguyên tháng, còn ở đây có 30 cơ hội để đúng.
+        jobs.AddOrUpdate<MaintenanceJobs>(
+            MaintenanceJobs.AnalyticsPartitions,
+            j => j.MaintainAnalyticsPartitionsAsync(CancellationToken.None),
+            "0 2 * * *",
+            new RecurringJobOptions { TimeZone = VietnamTime });
     }
 }

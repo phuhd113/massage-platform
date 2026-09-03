@@ -2,13 +2,15 @@ using System.Security.Cryptography;
 using System.Text;
 using Massage.Api.Common;
 using Massage.Api.Data;
+using Massage.Api.Modules.Analytics;
+using Massage.Api.Modules.Analytics.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Leads.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Modules.Leads;
 
-public class LeadService(AppDbContext db)
+public class LeadService(AppDbContext db, IAnalyticsQueue analytics)
 {
     /// <summary>
     /// Cùng một thiết bị bấm gọi lại trong khoảng này được tính là một lead.
@@ -73,6 +75,21 @@ public class LeadService(AppDbContext db)
         await db.KtvProfiles
             .Where(k => k.Id == dto.KtvId)
             .ExecuteUpdateAsync(s => s.SetProperty(k => k.LeadCount, k => k.LeadCount + 1), ct);
+
+        // Bậc cuối của phễu analytics. Đặt **sau** nhánh gộp ở trên nên lượt bị gộp không
+        // được đếm — nếu không thì một người bấm gọi năm lần sẽ làm tỉ lệ chuyển đổi trên
+        // dashboard cao gấp năm lần sự thật.
+        //
+        // Ghi vào hàng đợi chứ không cùng transaction với `leads`: dòng ở đây là bản sao
+        // để dựng phễu, còn `leads` mới là bằng chứng tính tiền. Mất một dòng analytics
+        // thì báo cáo lệch chút; chặn một lượt lead vì analytics trục trặc thì mất khách.
+        analytics.Enqueue(new AnalyticsEvent
+        {
+            Type = AnalyticsEventTypes.Lead,
+            KtvId = dto.KtvId,
+            AreaId = dto.AreaId,
+            CreatedAt = lead.CreatedAt,
+        });
 
         return new LeadCreatedDto(lead.Id, lead.CreatedAt, Deduplicated: false, ktv.Phone);
     }

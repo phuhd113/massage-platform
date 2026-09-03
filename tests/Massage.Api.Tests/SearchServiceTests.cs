@@ -10,7 +10,9 @@ namespace Massage.Api.Tests;
 [Collection(PostgresCollection.Name)]
 public class SearchServiceTests(PostgresFixture fixture)
 {
-    private SearchService Service() => new(fixture.CreateContext());
+    private SearchService Service() => Service(new FakeAnalyticsQueue());
+
+    private SearchService Service(FakeAnalyticsQueue queue) => new(fixture.CreateContext(), queue);
 
     [Fact]
     public async Task Chỉ_trả_KTV_nằm_trong_bán_kính_khách_yêu_cầu()
@@ -238,7 +240,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         var mớiToanh = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 5.00m, ratingCount: 1);
         var lâuNăm = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 4.80m, ratingCount: 200);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         var thứTự = result.Items.Select(i => i.Id).ToList();
@@ -256,7 +258,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 4.20m, ratingCount: 40);
         var mớiToanh = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 5.00m, ratingCount: 1);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         // Không làm mượt, hồ sơ một review đóng góp trọn 0.40 × 100 = 40 điểm rating.
@@ -276,7 +278,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         var gần = await TestData.CreateKtvAsync(db, TestData.LatOffsetKm(lat, 1), lon, ratingAvg: 4.50m, ratingCount: 20);
         var xa = await TestData.CreateKtvAsync(db, TestData.LatOffsetKm(lat, 9), lon, ratingAvg: 4.50m, ratingCount: 20);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         result.Items[0].Id.Should().Be(gần.Id);
@@ -292,7 +294,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         var rảnh = await TestData.CreateKtvAsync(db, lat, lon, isOnline: true);
         var bận = await TestData.CreateKtvAsync(db, lat, lon, isOnline: false);
 
-        var lọc = await new SearchService(fixture.CreateContext())
+        var lọc = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, IsOnline: true));
 
         var ids = lọc.Items.Select(i => i.Id).ToList();
@@ -300,12 +302,12 @@ public class SearchRankingTests(PostgresFixture fixture)
 
         // Không truyền cờ thì không lọc — `false` và `null` phải cho cùng kết quả,
         // nếu không thì "bỏ chọn bộ lọc" lại biến thành "chỉ hiện KTV đang bận".
-        var khôngLọc = await new SearchService(fixture.CreateContext())
+        var khôngLọc = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
         var khôngLọcIds = khôngLọc.Items.Select(i => i.Id).ToList();
         khôngLọcIds.Should().Contain(rảnh.Id).And.Contain(bận.Id);
 
-        var tắtCờ = await new SearchService(fixture.CreateContext())
+        var tắtCờ = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, IsOnline: false));
         tắtCờ.Items.Select(i => i.Id).Should().Contain(bận.Id);
     }
@@ -322,7 +324,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         await TestData.AddCertificationAsync(db, ktv.Id, VerificationStatuses.Pending);
         await TestData.AddCertificationAsync(db, ktv.Id, VerificationStatuses.Rejected);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         var item = result.Items.Single(i => i.Id == ktv.Id);
@@ -346,7 +348,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         await TestData.LinkServiceAsync(db, ktv.Id, rẻ.Id, priceFrom: 280_000m, durationMin: 45);
         await TestData.LinkServiceAsync(db, ktv.Id, vừa.Id, priceFrom: 350_000m, durationMin: 60);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         var item = result.Items.Single(i => i.Id == ktv.Id);
@@ -365,7 +367,7 @@ public class SearchRankingTests(PostgresFixture fixture)
         var (lat, lon) = TestData.RandomOrigin();
         var ktv = await TestData.CreateKtvAsync(db, lat, lon);
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10));
 
         var item = result.Items.Single(i => i.Id == ktv.Id);

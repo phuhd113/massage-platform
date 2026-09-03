@@ -10,7 +10,9 @@ namespace Massage.Api.Tests;
 [Collection(PostgresCollection.Name)]
 public class LeadServiceTests(PostgresFixture fixture)
 {
-    private LeadService Service() => new(fixture.CreateContext());
+    private LeadService Service() => Service(new FakeAnalyticsQueue());
+
+    private LeadService Service(FakeAnalyticsQueue queue) => new(fixture.CreateContext(), queue);
 
     private const string Ip = "203.0.113.10";
     private const string Agent = "Mozilla/5.0 (iPhone)";

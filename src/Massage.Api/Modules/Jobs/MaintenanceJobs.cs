@@ -1,4 +1,5 @@
 using Hangfire;
+using Massage.Api.Modules.Analytics;
 using Massage.Api.Modules.Wallets;
 
 namespace Massage.Api.Modules.Jobs;
@@ -12,12 +13,16 @@ namespace Massage.Api.Modules.Jobs;
 /// nhau — nếu copy logic sang đây thì hai đường sẽ trôi khỏi nhau đúng vào lúc cần
 /// chúng khớp nhất: khi phải chạy tay để chữa sự cố mà job tự động đang hỏng.
 /// </summary>
-public class MaintenanceJobs(WalletMaintenance maintenance, ILogger<MaintenanceJobs> logger)
+public class MaintenanceJobs(
+    WalletMaintenance maintenance,
+    AnalyticsPartitionMaintenance partitions,
+    ILogger<MaintenanceJobs> logger)
 {
     /// <summary>Tên job dùng cho cả lịch lẫn log — gõ tay ở hai chỗ là cách tạo job mồ côi.</summary>
     public const string HoldCleanup = "hold:cleanup";
     public const string PromotionExpireSweep = "promotion:expire-sweep";
     public const string WalletReconcile = "wallet:reconcile";
+    public const string AnalyticsPartitions = "analytics:partitions";
 
     /// <summary>
     /// Nhả tiền của hold quá hạn (cron 5 phút).
@@ -92,5 +97,42 @@ public class MaintenanceJobs(WalletMaintenance maintenance, ILogger<MaintenanceJ
         }
 
         logger.LogInformation("[{Job}] đối soát ví: không có sai lệch", WalletReconcile);
+    }
+
+    /// <summary>
+    /// Tạo trước partition analytics cho tháng tới, bỏ tháng quá hạn (cron hằng ngày).
+    ///
+    /// <b>Chạy hằng ngày chứ không hằng tháng</b> dù việc chỉ có nghĩa mỗi tháng một lần:
+    /// một job tháng lỡ mất là hỏng nguyên tháng, còn job ngày thì có 30 cơ hội để đúng.
+    /// Lệnh tạo là <c>IF NOT EXISTS</c> nên 29 lần thừa kia không tốn gì.
+    ///
+    /// <b>Ném lỗi khi partition mặc định có dữ liệu</b>, cùng lý do với đối soát ví: hàng
+    /// nằm ở đó nghĩa là đã có lúc thiếu partition, và chúng **chặn** việc tạo partition
+    /// cho chính tháng chúng thuộc về — lỗi tự khoá lại, càng để lâu càng khó gỡ, nên nó
+    /// phải hiện đỏ trong dashboard chứ không phải là một dòng log trôi qua.
+    ///
+    /// Không retry: thiếu partition không phải lỗi tạm thời, và việc tạo đã chạy xong
+    /// trước khi kiểm tra này nổ — chạy lại chỉ tạo thêm một lần đỏ cho cùng sự việc.
+    /// </summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 600)]
+    [AutomaticRetry(Attempts = 0)]
+    public async Task MaintainAnalyticsPartitionsAsync(CancellationToken ct)
+    {
+        var report = await partitions.RunAsync(ct);
+
+        if (report.Created > 0 || report.Dropped > 0)
+        {
+            logger.LogInformation(
+                "[{Job}] tạo {Created} partition, bỏ {Dropped} partition quá hạn",
+                AnalyticsPartitions, report.Created, report.Dropped);
+        }
+
+        if (report.InDefaultPartition > 0)
+        {
+            throw new InvalidOperationException(
+                $"analytics_events_default có {report.InDefaultPartition} dòng: đã có lúc thiếu "
+                + "partition cho tháng tương ứng. Những hàng này chặn việc tạo partition cho "
+                + "chính tháng đó — cần chuyển chúng về đúng tháng rồi tạo lại partition.");
+        }
     }
 }

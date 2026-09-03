@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Massage.Api.Modules.Analytics;
 using Massage.Api.Modules.Jobs;
 using Massage.Api.Modules.Wallets;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +15,12 @@ namespace Massage.Api.Tests;
 [Collection(PostgresCollection.Name)]
 public class MaintenanceJobsTests(PostgresFixture fixture)
 {
-    private static MaintenanceJobs Jobs(WalletHarness harness) =>
-        new(harness.Maintenance, NullLogger<MaintenanceJobs>.Instance);
+    private MaintenanceJobs Jobs(WalletHarness harness) =>
+        new(harness.Maintenance,
+            new AnalyticsPartitionMaintenance(
+                fixture.CreateContext(),
+                NullLogger<AnalyticsPartitionMaintenance>.Instance),
+            NullLogger<MaintenanceJobs>.Instance);
 
     [Fact]
     public async Task Đối_soát_ném_lỗi_khi_ví_lệch_sổ_để_job_hiện_đỏ_trên_dashboard()

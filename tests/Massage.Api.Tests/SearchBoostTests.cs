@@ -58,7 +58,7 @@ public class SearchBoostTests(PostgresFixture fixture)
         await using var h = WalletTestData.Harness(fixture);
         await h.Buy.ExecuteAsync(paid.UserId, vipPackage.Id, area.Id, Key("vip"));
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(await InAreaAsync(area));
 
         var order = result.Items.Select(i => i.Id).ToList();
@@ -90,7 +90,7 @@ public class SearchBoostTests(PostgresFixture fixture)
         await using var h = WalletTestData.Harness(fixture);
         await h.Buy.ExecuteAsync(ktv.UserId, package.Id, muaỞĐây.Id, Key("vip"));
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(await InAreaAsync(nhưngTìmỞKia));
 
         // VIP Pin là ghim theo khu vực. Mua ở Quận 7 mà được ghim ở Hà Nội thì
@@ -111,14 +111,14 @@ public class SearchBoostTests(PostgresFixture fixture)
         await using var h = WalletTestData.Harness(fixture, clock);
         var bought = await h.Buy.ExecuteAsync(ktv.UserId, package.Id, area.Id, Key("vip"));
 
-        var before = await new SearchService(fixture.CreateContext())
+        var before = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(await InAreaAsync(area));
         before.Items.Single(i => i.Id == ktv.KtvId).BoostPoints.Should().Be(500);
 
         await using var hc = WalletTestData.Harness(fixture, clock);
         await hc.Cancel.ExecuteAsync(ktv.UserId, bought.CampaignId);
 
-        var after = await new SearchService(fixture.CreateContext())
+        var after = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(await InAreaAsync(area));
         after.Items.Single(i => i.Id == ktv.KtvId).BoostPoints.Should().Be(0,
             "đã hoàn tiền thì không được tiếp tục hưởng thứ hạng");
@@ -158,7 +158,7 @@ public class SearchBoostTests(PostgresFixture fixture)
 
         // Tìm theo toạ độ để thành phần khoảng cách (0.35) tham gia — đây là chế độ
         // dải BaseScore mở rộng hết cỡ, và cũng là chế độ khách thật hay dùng nhất.
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync((await InAreaAsync(area)) with { Lat = lat, Lon = lon, RadiusKm = 10 });
 
         var paidItem = result.Items.Single(i => i.Id == paidKtv.Id);
@@ -191,7 +191,7 @@ public class SearchBoostTests(PostgresFixture fixture)
         await using var h2 = WalletTestData.Harness(fixture);
         await h2.Buy.ExecuteAsync(ktv.UserId, badge.Id, area.Id, Key("badge"));
 
-        var result = await new SearchService(fixture.CreateContext())
+        var result = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(await InAreaAsync(area));
 
         // Lấy MAX chứ không SUM: cộng dồn thì mua hai gói rẻ sẽ vượt gói đắt nhất,
@@ -222,14 +222,14 @@ public class SearchBoostTests(PostgresFixture fixture)
         await using var h = WalletTestData.Harness(fixture);
         await h.Buy.ExecuteAsync(ktv.UserId, package.Id, quậnMua.Id, Key("vip"));
 
-        var ởTỉnhKhác = await new SearchService(fixture.CreateContext())
+        var ởTỉnhKhác = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(
                 AreaSlug: slugTrùng, ProvinceSlug: tỉnhKhác.Slug, Size: 50));
 
         ởTỉnhKhác.Items.Single(i => i.Id == ktv.KtvId).BoostPoints.Should().Be(0,
             "gói bán theo từng khu vực với giá của khu vực đó — trùng tên quận không phải là cùng một khu vực");
 
-        var ởTỉnhMua = await new SearchService(fixture.CreateContext())
+        var ởTỉnhMua = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(
                 AreaSlug: slugTrùng, ProvinceSlug: tỉnhMua.Slug, Size: 50));
 
@@ -253,7 +253,7 @@ public class SearchBoostTests(PostgresFixture fixture)
         // Bộ lọc mở lên cấp tỉnh để trang tỉnh có danh sách, nhưng boost thì không:
         // gói mua ở một quận mà ăn thứ hạng trên trang tỉnh là phát không phần tồn kho
         // chưa bán. KTV vẫn xuất hiện, chỉ là với 0 điểm boost.
-        var trangTỉnh = await new SearchService(fixture.CreateContext())
+        var trangTỉnh = await new SearchService(fixture.CreateContext(), new FakeAnalyticsQueue())
             .SearchAsync(new SearchQueryDto(AreaSlug: tỉnh.Slug, Size: 50));
 
         trangTỉnh.Items.Single(i => i.Id == ktv.KtvId).BoostPoints.Should().Be(0);

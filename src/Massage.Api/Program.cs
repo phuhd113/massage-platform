@@ -90,6 +90,14 @@ builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<AreaService>();
 builder.Services.AddScoped<SiteStatsService>();
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddScoped<AnalyticsPartitionMaintenance>();
+
+// Writer vừa là BackgroundService vừa là hàng đợi mà request ghi vào, nên phải là **một**
+// instance: đăng ký hai lần sẽ tạo ra hai đối tượng, request xếp sự kiện vào cái không
+// có ai đọc, và dashboard đứng số mà không có lỗi nào.
+builder.Services.AddSingleton<AnalyticsWriter>();
+builder.Services.AddSingleton<IAnalyticsQueue>(sp => sp.GetRequiredService<AnalyticsWriter>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AnalyticsWriter>());
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<ReviewService>();

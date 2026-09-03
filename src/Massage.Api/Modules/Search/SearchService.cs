@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Massage.Api.Data;
+using Massage.Api.Modules.Analytics;
+using Massage.Api.Modules.Analytics.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -12,7 +14,7 @@ namespace Massage.Api.Modules.Search;
 /// Redis, lúc đó truy vấn này vẫn giữ nguyên vai trò fallback khi cache miss hoặc
 /// Redis chết — nên nó phải luôn tự chạy đúng một mình.
 /// </summary>
-public class SearchService(AppDbContext db)
+public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
 {
     /// <summary>
     /// Số review "ảo" dùng để làm mượt rating theo kiểu Bayesian. Không có nó, một
@@ -243,6 +245,8 @@ public class SearchService(AppDbContext db)
                 Param("take", NpgsqlDbType.Integer, q.Size))
             .ToListAsync(ct);
 
+        RecordImpressions(rows, areaId, q);
+
         return new SearchResponseDto(
             rows.Select(r => new SearchItemDto(
                 r.Id, r.FullName, r.Slug, r.YearsExperience,
@@ -252,6 +256,42 @@ public class SearchService(AppDbContext db)
             q.Page,
             q.Size,
             rows.Count > 0 ? rows[0].Total : 0);
+    }
+
+    /// <summary>
+    /// Ghi nhận trang kết quả này đã hiện những KTV nào, ở hạng nào.
+    ///
+    /// Đặt ở đây chứ không ở controller vì đây là chỗ duy nhất biết cả kết quả lẫn
+    /// <c>areaId</c> đã resolve — để controller làm thì nó phải tra slug ra id lần nữa,
+    /// và hai chỗ tra sẽ lệch nhau vào lần sửa quy tắc đầu tiên.
+    ///
+    /// <b>Chỉ xếp vào hàng đợi trong bộ nhớ, không chạm DB.</b> 20 kết quả là 20 dòng;
+    /// ghi thẳng ở đây sẽ biến một truy vấn 29ms thành 21 lần đi DB.
+    /// </summary>
+    private void RecordImpressions(List<SearchRow> rows, Guid? areaId, SearchQueryDto q)
+    {
+        if (rows.Count == 0) return;
+
+        // Hạng thật trong toàn bộ kết quả, không phải vị trí trong trang: trang 2 bắt đầu
+        // từ 21. Thiếu phần bù này thì mọi trang đều báo hạng 1..20 và "hạng trung bình"
+        // thành con số vô nghĩa — mà đó chính là thứ gói đẩy tin bán.
+        var firstPosition = ((q.Page - 1) * q.Size) + 1;
+        var now = DateTimeOffset.UtcNow;
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            analytics.Enqueue(new AnalyticsEvent
+            {
+                Type = AnalyticsEventTypes.Impression,
+                KtvId = rows[i].Id,
+                // Null khi tìm theo toạ độ: chưa xác định được khu vực hành chính của
+                // khách (bảng khu vực chưa có polygon ranh giới), nên gán bừa một khu vực
+                // sẽ làm báo cáo "hiệu quả gói ở Quận 7" tính cả lượt của người ở quận khác.
+                AreaId = areaId,
+                Position = firstPosition + i,
+                CreatedAt = now,
+            });
+        }
     }
 
     /// <summary>

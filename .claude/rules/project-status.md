@@ -164,6 +164,32 @@ Dashboard `/hangfire` **mặc định đóng** (401), mở bằng vai ADMIN ho�
 nó kích chạy và xoá được job. Không nối nó vào `[Authorize]` bằng token trên query string: đó là đẩy
 JWT vào lịch sử trình duyệt, log proxy và Referer.
 
+**Analytics partition theo tháng đã chạy** (2026-09-03, `analytics_events`, xem `Modules/Analytics/`).
+Ba loại sự kiện dựng thành phễu IMPRESSION → VIEW → LEAD, là bằng chứng để KTV quyết định có gia hạn
+gói đẩy tin hay không. Năm điều đừng đảo ngược:
+
+- **Impression ghi qua hàng đợi trong bộ nhớ, KHÔNG chạm DB trong request.** Một lượt `/search` trả
+  20 KTV là 20 dòng; ghi thẳng sẽ biến truy vấn 29ms thành 21 lần đi DB — đo hiệu quả quảng cáo mà
+  làm hỏng chính đường đọc đang được quảng cáo. Đã đo sau khi nối: `/search` vẫn 28,6ms.
+- **Hàng đầy thì bỏ sự kiện, không chặn** (`BoundedChannelFullMode.DropWrite`). Chặn để giữ một dòng
+  thống kê là biến sự cố ghi analytics thành sự cố ngừng phục vụ khách. Số dòng bỏ được gom lại rồi
+  log theo lô, không log từng dòng — hàng đầy nghĩa là đang quá tải, log mỗi dòng là thêm một cơn bão.
+- **PRIMARY KEY là `(id, created_at)`, không phải `id`.** Bảng partition không ép được tính duy nhất
+  nếu khoá không chứa cột phân mảnh — `PRIMARY KEY (id)` trần bị Postgres từ chối thẳng.
+- **Không có khoá ngoại tới `ktv_profiles`** (khác `leads`). Khoá ngoại từ bảng partition phải khai
+  lại ở **từng** partition, nên job tạo partition hằng tháng sẽ phải nhớ điều đó mãi mãi — quên một
+  tháng là mất ràng buộc trong im lặng. Đổi lại `RecordViewAsync` tự kiểm KTV có tồn tại.
+- **`leads` vẫn là nguồn của con số lead trên dashboard**, không đọc từ analytics. Đó là con số đem
+  tính tiền nên phải lấy từ nguồn không bao giờ bị dọn và không bao giờ bị bỏ khi hàng đợi đầy. Dòng
+  LEAD trong analytics chỉ để dựng phễu, và chỉ ghi khi lead **không** bị gộp.
+
+Job `analytics:partitions` (2 giờ sáng hằng ngày) tạo trước 3 tháng, bỏ partition quá 6 tháng bằng
+`DETACH CONCURRENTLY` rồi `DROP` (drop thẳng cần khoá ACCESS EXCLUSIVE trên bảng cha, tức chặn mọi
+lượt ghi). Chạy **hằng ngày** dù việc chỉ có nghĩa mỗi tháng một lần: lỡ một job tháng là hỏng nguyên
+tháng. Job **ném lỗi** khi `analytics_events_default` có dữ liệu — hàng nằm ở đó nghĩa là đã có lúc
+thiếu partition, và chúng **chặn** việc tạo partition cho chính tháng chúng thuộc về, nên lỗi tự khoá
+lại và càng để lâu càng khó gỡ. Job không tự dọn: dọn tức là xoá số liệu thật.
+
 Phần Phase 3 còn lại: job delayed `promotion:expire` (chỉ bắt buộc khi đường đọc sang Redis),
 analytics partition theo tháng, Redis read-path khi số đo đòi hỏi → rồi Phase 4. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
