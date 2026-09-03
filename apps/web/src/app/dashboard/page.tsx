@@ -101,7 +101,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
   if (!profile) {
     return (
-      <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-warning-fg">
         Tài khoản chưa có hồ sơ kỹ thuật viên. Hồ sơ phải được tạo và duyệt trước khi hiển thị
         trong tìm kiếm và trước khi mua được gói đẩy tin.{' '}
         <Link href="/dashboard/ho-so" className="font-medium underline">Tạo hồ sơ ngay</Link>.
@@ -119,7 +119,7 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
   }
 
   return (
-    <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-warning-fg">
       {profile.verificationStatus === 'PENDING' ? (
         <>Hồ sơ đang chờ duyệt. Trong lúc chờ, hồ sơ chưa hiện trong tìm kiếm và chưa mua được gói.</>
       ) : (

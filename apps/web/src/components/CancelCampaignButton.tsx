@@ -51,7 +51,7 @@ export function CancelCampaignButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="text-sm text-ink-600 hover:text-red-700"
+        className="text-sm text-ink-600 hover:text-danger-fg"
       >
         Huỷ
       </button>
@@ -69,7 +69,7 @@ export function CancelCampaignButton({
           type="button"
           onClick={cancel}
           disabled={pending}
-          className="rounded-md bg-red-700 px-3 py-1 text-xs font-medium text-white hover:bg-red-800 disabled:opacity-60"
+          className="rounded-md bg-danger-fg px-3 py-1 text-xs font-medium text-white hover:bg-danger-fg disabled:opacity-60"
         >
           {pending ? 'Đang huỷ…' : 'Xác nhận huỷ'}
         </button>
@@ -82,7 +82,7 @@ export function CancelCampaignButton({
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-1 text-xs text-red-700">
+        <p role="alert" className="mt-1 text-xs text-danger-fg">
           {error}
         </p>
       )}

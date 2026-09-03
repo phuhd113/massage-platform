@@ -295,7 +295,7 @@ export function ProfileForm({
         <p className="rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-700">{done}</p>
       )}
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-danger-fg">
           {error}
         </p>
       )}

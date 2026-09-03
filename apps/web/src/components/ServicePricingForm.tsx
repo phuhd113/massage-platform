@@ -158,7 +158,7 @@ export function ServicePricingForm({
 
       {done && <p className="mt-3 text-sm text-brand-700">{done}</p>}
       {error && (
-        <p role="alert" className="mt-3 text-sm text-red-700">
+        <p role="alert" className="mt-3 text-sm text-danger-fg">
           {error}
         </p>
       )}

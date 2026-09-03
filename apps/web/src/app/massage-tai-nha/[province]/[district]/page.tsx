@@ -83,7 +83,7 @@ export default async function DistrictPage({ params }: Props) {
       <section className="mt-8">
         <h2 className="text-h2 text-ink-900">Kỹ thuật viên tại {area.name}</h2>
         {results.items.length > 0 ? (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-4 grid gap-3">
             {results.items.map((ktv) => (
               <KtvCard key={ktv.id} ktv={ktv} />
             ))}

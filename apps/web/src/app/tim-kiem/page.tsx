@@ -45,6 +45,9 @@ export default async function SearchPage({ searchParams }: Props) {
   const radiusKm = one(searchParams.radiusKm) ?? '10';
   const page = Number(one(searchParams.page) ?? '1') || 1;
   const isMapView = one(searchParams.view) === 'map';
+  // Chỉ chuyển tiếp khi bật: gửi `isOnline=false` sẽ tạo thêm một biến thể URL cho
+  // cùng một tập kết quả.
+  const isOnline = one(searchParams.isOnline) === 'true' ? 'true' : undefined;
 
   const hasScope = (lat && lon) || areaSlug;
 
@@ -56,7 +59,7 @@ export default async function SearchPage({ searchParams }: Props) {
       results = await api.search(
         // Bản đồ và danh sách cố ý dùng chung một `size`: chúng phải luôn hiển thị
         // đúng cùng một tập kết quả, nếu không thì bấm đổi cách nhìn lại ra số khác.
-        { lat, lon, areaSlug, service, radiusKm, page, size: 20 },
+        { lat, lon, areaSlug, service, radiusKm, isOnline, page, size: 20 },
         // Kết quả theo toạ độ là riêng của từng khách, không cache dùng chung.
         0,
       );
@@ -80,17 +83,54 @@ export default async function SearchPage({ searchParams }: Props) {
 
   const showMap = isMapView && results !== null && (results.items.length > 0 || origin !== null);
 
+  // Tên khu vực để dựng tiêu đề ("37 kỹ thuật viên quanh Quận 7"). Tìm trong cây
+  // đã tải sẵn nên không thêm request; tìm theo toạ độ thì không có khu vực nào
+  // để gọi tên, và tiêu đề lùi về dạng chung.
+  const areaName = areaSlug
+    ? (areas
+        .flatMap((p) => [p, ...p.children])
+        .find((a) => a.slug === areaSlug)?.name ?? null)
+    : null;
+
+  // Tiêu đề mang luôn số lượng ("6 kỹ thuật viên tại Quận 7"): khách đọc được ngay
+  // quy mô kết quả, và đây cũng là dòng chữ đầu tiên trong HTML thô nên nó mô tả
+  // đúng trang cho crawler.
+  //
+  // Chỉ đổi <h1> chứ không đổi `metadata.title`: trang này `robots: index:false`,
+  // nên title là nhãn tab cho khách, còn phần SEO theo địa danh do trang khu vực
+  // đảm nhiệm. Sinh title động ở đây sẽ tạo hàng trăm biến thể cho một trang cố
+  // tình không index.
+  const heading = results
+    ? areaName
+      ? `${results.total} kỹ thuật viên tại ${areaName}`
+      : origin
+        ? `${results.total} kỹ thuật viên quanh bạn`
+        : `${results.total} kỹ thuật viên`
+    : 'Tìm kỹ thuật viên';
+
   return (
     <>
-      <h1 className="text-h1 text-ink-900">Tìm kỹ thuật viên</h1>
+      <Suspense fallback={<div className="h-14 rounded-xl border border-ink-200 bg-white" />}>
+        <SearchFilters areas={areas} services={services} />
+      </Suspense>
 
-      <div className="mt-6">
-        <Suspense fallback={<div className="h-24 rounded-lg border border-ink-200 bg-white" />}>
-          <SearchFilters areas={areas} services={services} />
-        </Suspense>
+      <div className="mt-7 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="text-h1 text-ink-900">{heading}</h1>
+
+        {/*
+          "Sắp xếp" hiện ở dạng nhãn tĩnh: thứ tự do FinalScore của backend quyết
+          định, và đó là thứ KTV trả tiền để mua. Mở cho khách đổi sang "giá thấp
+          nhất" hay "gần nhất" sẽ đẩy vị trí trả phí xuống dưới — một quyết định
+          kinh doanh, không phải việc thêm một <select>.
+        */}
+        {results && results.items.length > 0 && (
+          <p className="text-body-s text-ink-500">
+            Sắp xếp: <span className="font-semibold text-ink-700">Phù hợp nhất</span>
+          </p>
+        )}
       </div>
 
-      <section className="mt-8">
+      <section className="mt-4">
         {!hasScope && (
           <p className="text-ink-600">
             Bấm <strong>Tìm quanh tôi</strong> để tìm theo vị trí hiện tại, hoặc chọn quận/huyện.
@@ -98,15 +138,13 @@ export default async function SearchPage({ searchParams }: Props) {
         )}
 
         {error && (
-          <p role="alert" className="text-red-700">
+          <p role="alert" className="text-danger-fg">
             {error}
           </p>
         )}
 
         {results && (
           <>
-            <p className="text-sm text-ink-500">{results.total} kết quả</p>
-
             {showMap ? (
               // Danh sách vẫn render ở server và vẫn nằm trong HTML đầu tiên — bản
               // đồ là lớp phủ thêm bên cạnh, không thay thế nó.
@@ -134,7 +172,9 @@ export default async function SearchPage({ searchParams }: Props) {
                 </div>
               </div>
             ) : results.items.length > 0 ? (
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              // Một cột: thẻ mang ảnh, chip, bio và hàng giá — chia đôi bề ngang
+              // sẽ ép mọi thứ xuống dòng và hàng nút hành động vỡ trước tiên.
+              <ul className="grid gap-3">
                 {results.items.map((ktv) => (
                   <KtvCard key={ktv.id} ktv={ktv} />
                 ))}
@@ -148,3 +188,4 @@ export default async function SearchPage({ searchParams }: Props) {
     </>
   );
 }
+

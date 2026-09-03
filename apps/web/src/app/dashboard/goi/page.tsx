@@ -35,7 +35,7 @@ export default async function PackagesPage() {
       </p>
 
       {!canBuy && (
-        <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-warning-fg">
           {profile
             ? 'Hồ sơ chưa được duyệt nên chưa mua được gói. Gói chỉ có tác dụng khi hồ sơ đã hiển thị trong tìm kiếm.'
             : 'Tài khoản chưa có hồ sơ kỹ thuật viên nên chưa mua được gói.'}

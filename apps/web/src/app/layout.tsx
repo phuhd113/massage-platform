@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Be_Vietnam_Pro, JetBrains_Mono, Lexend } from 'next/font/google';
+import { IBM_Plex_Mono, Plus_Jakarta_Sans, Source_Sans_3 } from 'next/font/google';
 import Link from 'next/link';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 import './globals.css';
@@ -8,26 +8,30 @@ import './globals.css';
  * `subsets` phải có 'vietnamese' — thiếu nó, font chỉ tải glyph latin và mọi chữ
  * có dấu rơi về font hệ thống, khiến "Trần Thị Hường" render bằng hai typeface
  * trong cùng một dòng. Rất khó thấy khi review nhanh, nhưng khách Việt thấy ngay.
+ *
+ * Tiêu đề cần cả 800: thang chữ của thiết kế dùng weight đó cho hero và h1 trang
+ * hồ sơ. Thiếu weight thật thì trình duyệt tự làm đậm giả, nét bị bè và lệch hẳn
+ * so với bản thiết kế.
  */
-const lexend = Lexend({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-lexend',
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-display',
   display: 'swap',
 });
 
-const beVietnam = Be_Vietnam_Pro({
+const sourceSans = Source_Sans_3({
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600'],
-  variable: '--font-be-vietnam',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
   display: 'swap',
 });
 
 // Chỉ dùng cho số (tiền, id giao dịch) nên không cần subset tiếng Việt.
-const jetbrains = JetBrains_Mono({
+const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains',
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
   display: 'swap',
 });
 
@@ -52,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="vi"
-      className={`${lexend.variable} ${beVietnam.variable} ${jetbrains.variable}`}
+      className={`${jakarta.variable} ${sourceSans.variable} ${plexMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
         {/* Header dính: trên trang kết quả dài, khách cuộn giữa chừng vẫn quay

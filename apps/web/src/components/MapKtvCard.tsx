@@ -37,7 +37,7 @@ export function MapKtvCard({
     <li
       onMouseEnter={() => onHover(ktv.id)}
       onMouseLeave={() => onHover(null)}
-      className={`rounded-lg border p-3 transition ${base} ${
+      className={`rounded-xl border p-3 transition ${base} ${
         active ? 'border-brand-500 shadow-card-hover' : 'shadow-card'
       }`}
     >
@@ -48,7 +48,10 @@ export function MapKtvCard({
               href={ktvPath(ktv.slug, ktv.id)}
               // Vị trí trả phí phải khai báo với công cụ tìm kiếm, kể cả trong lớp
               // phủ — link vẫn là link thật và vẫn được crawl nếu lọt ra ngoài.
-              rel={isVip ? 'sponsored' : undefined}
+              //
+              // Điều kiện là `tier`, không phải `isVip`: mọi hạng trả phí đều
+              // phải khai báo, không riêng hạng cao nhất.
+              rel={tier ? 'sponsored' : undefined}
               className="hover:text-brand-600"
             >
               {ktv.fullName}

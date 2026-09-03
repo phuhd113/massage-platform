@@ -86,7 +86,7 @@ export function CertificationsSection({
                   {c.issuedAt && ` · ${new Date(c.issuedAt).toLocaleDateString('vi-VN')}`}
                 </div>
                 {c.verifyStatus === 'REJECTED' && c.rejectionReason && (
-                  <div className="mt-1 text-sm text-red-700">Lý do: {c.rejectionReason}</div>
+                  <div className="mt-1 text-sm text-danger-fg">Lý do: {c.rejectionReason}</div>
                 )}
               </div>
 
@@ -168,7 +168,7 @@ export function CertificationsSection({
 
         {done && <p className="mt-3 text-sm text-brand-700">{done}</p>}
         {error && (
-          <p role="alert" className="mt-3 text-sm text-red-700">
+          <p role="alert" className="mt-3 text-sm text-danger-fg">
             {error}
           </p>
         )}
@@ -182,8 +182,8 @@ function StatusPill({ status }: { status: MyCertification['verifyStatus'] }) {
     status === 'VERIFIED'
       ? 'bg-brand-50 text-brand-700'
       : status === 'REJECTED'
-        ? 'bg-red-50 text-red-700'
-        : 'bg-amber-50 text-amber-800';
+        ? 'bg-red-50 text-danger-fg'
+        : 'bg-amber-50 text-warning-fg';
 
   const label =
     status === 'VERIFIED' ? 'Đã duyệt' : status === 'REJECTED' ? 'Bị từ chối' : 'Chờ duyệt';

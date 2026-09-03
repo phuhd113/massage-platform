@@ -81,16 +81,23 @@ export function SearchFilters({
   );
 
   const isMap = params.get('view') === 'map';
+  const onlineOnly = params.get('isOnline') === 'true';
+
+  // Ô chọn dùng chung một kiểu: viền mảnh, bo 999px, nền trắng. Gom vào hằng thay
+  // vì lặp bốn lần — bốn bản sao sẽ trôi khỏi nhau ngay lần chỉnh đầu tiên.
+  const selectClass =
+    'mt-1 rounded-full border border-ink-300 bg-white px-3.5 py-2 text-ink-700 transition ' +
+    'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20';
 
   return (
-    <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
-      <div className="flex flex-wrap items-end gap-4">
+    <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-card">
+      <div className="flex flex-wrap items-end gap-3">
         <div>
           <button
             type="button"
             onClick={useMyLocation}
             disabled={locating || pending}
-            className="rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+            className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-button transition hover:bg-brand-600 disabled:opacity-60"
           >
             {locating ? 'Đang định vị…' : 'Tìm quanh tôi'}
           </button>
@@ -99,7 +106,7 @@ export function SearchFilters({
         <label className="text-sm">
           <span className="block text-ink-600">Khu vực</span>
           <select
-            className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className={selectClass}
             value={params.get('areaSlug') ?? ''}
             onChange={(e) => setParam('areaSlug', e.target.value)}
           >
@@ -115,7 +122,7 @@ export function SearchFilters({
         <label className="text-sm">
           <span className="block text-ink-600">Dịch vụ</span>
           <select
-            className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className={selectClass}
             value={params.get('service') ?? ''}
             onChange={(e) => setParam('service', e.target.value)}
           >
@@ -132,7 +139,7 @@ export function SearchFilters({
           <label className="text-sm">
             <span className="block text-ink-600">Bán kính</span>
             <select
-              className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className={selectClass}
               value={params.get('radiusKm') ?? '10'}
               onChange={(e) => setParam('radiusKm', e.target.value)}
             >
@@ -145,17 +152,65 @@ export function SearchFilters({
           </label>
         )}
 
+        {/*
+          Bật/tắt được, khác với ba ô chọn phía trên. Trạng thái bật dùng nền
+          success nhạt — cùng ngôn ngữ với chip "Đang nhận khách" trên thẻ, để
+          khách nối được bộ lọc với thứ nó lọc ra.
+        */}
+        <button
+          type="button"
+          aria-pressed={onlineOnly}
+          onClick={() => setParam('isOnline', onlineOnly ? '' : 'true')}
+          className={`self-end rounded-full border px-3.5 py-2 text-sm font-medium transition ${
+            onlineOnly
+              ? 'border-success-bd bg-success-bg text-success-fg'
+              : 'border-ink-300 bg-white text-ink-700 hover:bg-ink-50'
+          }`}
+        >
+          <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />
+          Đang nhận khách
+        </button>
+
+        {/*
+          Nhãn tĩnh, KHÔNG phải nút bật/tắt: `/search` luôn lọc
+          `verification_status = 'VERIFIED'`, nên đây là điều luôn đúng chứ không
+          phải lựa chọn. Làm thành nút tắt được sẽ hứa một hành vi backend không
+          có, và tắt đi cũng chẳng đổi gì — kiểu nút tệ nhất.
+        */}
+        <span className="inline-flex items-center gap-1.5 self-end rounded-full border border-success-bd bg-success-bg px-3.5 py-2 text-sm font-medium text-success-fg">
+          <svg
+            aria-hidden
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m9 12 2 2 4-4" />
+            <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />
+          </svg>
+          Chỉ hồ sơ đã duyệt
+        </span>
+
         <div
           role="group"
           aria-label="Cách hiển thị kết quả"
-          className="ml-auto flex rounded-md border border-ink-300 p-0.5 text-sm"
+          className="ml-auto flex self-end rounded-full border border-ink-300 bg-white p-[3px] text-sm"
         >
+          {/*
+            Trạng thái chọn dùng nền brand đặc, không phải viền hay chữ đậm: hai
+            nút này đổi cả cách đọc trang, nên trạng thái hiện tại phải thấy được
+            từ xa mà không cần so sánh hai nút với nhau.
+          */}
           <button
             type="button"
             aria-pressed={!isMap}
             onClick={() => setView('list')}
-            className={`rounded px-3 py-1.5 font-medium ${
-              isMap ? 'text-ink-600 hover:bg-ink-100' : 'bg-ink-900 text-white'
+            className={`rounded-full px-3.5 py-1.5 font-semibold transition ${
+              isMap ? 'text-ink-600 hover:bg-ink-100' : 'bg-brand-500 text-white'
             }`}
           >
             Danh sách
@@ -164,8 +219,8 @@ export function SearchFilters({
             type="button"
             aria-pressed={isMap}
             onClick={() => setView('map')}
-            className={`rounded px-3 py-1.5 font-medium ${
-              isMap ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100'
+            className={`rounded-full px-3.5 py-1.5 font-semibold transition ${
+              isMap ? 'bg-brand-500 text-white' : 'text-ink-600 hover:bg-ink-100'
             }`}
           >
             Bản đồ
@@ -174,7 +229,7 @@ export function SearchFilters({
       </div>
 
       {geoError && (
-        <p role="alert" className="mt-3 text-sm text-amber-800">
+        <p role="alert" className="mt-3 text-sm text-warning-fg">
           {geoError}
         </p>
       )}

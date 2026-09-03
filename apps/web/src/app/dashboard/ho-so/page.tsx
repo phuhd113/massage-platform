@@ -84,7 +84,7 @@ function StatusBanner({ profile }: { profile: MyKtvProfile }) {
   }
 
   return (
-    <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-warning-fg">
       {profile.verificationStatus === 'PENDING' ? (
         <>Hồ sơ đang chờ duyệt. Trong lúc chờ, hồ sơ chưa hiện trong tìm kiếm.</>
       ) : (

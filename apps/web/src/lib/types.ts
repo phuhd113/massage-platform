@@ -32,6 +32,19 @@ export interface SearchItem {
   score: number;
   lat: number;
   lon: number;
+  /** Giới thiệu ngắn; thẻ tự cắt bớt khi dài. */
+  bio: string | null;
+  /** Chỉ đếm chứng chỉ đã duyệt — hồ sơ chờ xét không được tính. */
+  verifiedCertCount: number;
+  /** Tối đa 2 dịch vụ, giá thấp trước. Rỗng khi KTV chưa khai. */
+  services: SearchItemService[];
+}
+
+export interface SearchItemService {
+  name: string;
+  durationMin: number;
+  /** Giá khởi điểm KTV công bố, không phải giá chốt. */
+  priceFrom: number;
 }
 
 export interface SearchResponse {

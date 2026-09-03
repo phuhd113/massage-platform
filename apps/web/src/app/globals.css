@@ -14,8 +14,8 @@ body {
   @apply bg-ink-50 text-ink-900 antialiased;
 }
 
-/* Tiêu đề dùng Lexend; nội dung chạy dùng Be Vietnam Pro (mặc định qua font-sans).
-   text-wrap: balance vì tên riêng tiếng Việt hay xuống dòng lẻ một chữ. */
+/* Tiêu đề dùng Plus Jakarta Sans; nội dung chạy dùng Source Sans 3 (mặc định qua
+   font-sans). text-wrap: balance vì tên riêng tiếng Việt hay xuống dòng lẻ một chữ. */
 h1,
 h2,
 h3,

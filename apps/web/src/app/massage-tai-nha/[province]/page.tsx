@@ -78,7 +78,7 @@ export default async function ProvincePage({ params }: Props) {
       {results.items.length > 0 && (
         <section className="mt-10">
           <h2 className="text-h2 text-ink-900">Kỹ thuật viên nổi bật tại {area.name}</h2>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-4 grid gap-3">
             {results.items.map((ktv) => (
               <KtvCard key={ktv.id} ktv={ktv} />
             ))}

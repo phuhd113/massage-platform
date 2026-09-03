@@ -60,13 +60,13 @@ export function ContactButtons({ ktvId, ktvName }: { ktvId: string; ktvName: str
 
   return (
     <>
-      <div className="rounded-lg border border-ink-200 bg-white p-4 shadow-card">
+      <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-card">
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => contact('CALL')}
             disabled={pending !== null}
-            className="rounded-md bg-brand-500 px-5 py-2.5 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+            className="rounded-full bg-brand-500 px-5 py-2.5 font-semibold text-white shadow-button transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
           >
             <PendingLabel pending={pending === 'CALL'} label={callLabel} />
           </button>
@@ -75,7 +75,7 @@ export function ContactButtons({ ktvId, ktvName }: { ktvId: string; ktvName: str
             type="button"
             onClick={() => contact('ZALO')}
             disabled={pending !== null}
-            className="rounded-md border border-brand-500 px-5 py-2.5 font-medium text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+            className="rounded-full border border-brand-500 px-5 py-2.5 font-semibold text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
           >
             <PendingLabel pending={pending === 'ZALO'} label="Nhắn Zalo" />
           </button>

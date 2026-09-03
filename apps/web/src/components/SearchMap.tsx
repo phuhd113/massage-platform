@@ -21,6 +21,14 @@ import { showsVipFrame, tierBadgeLabel, tierFromBoost } from '@/lib/promotion-ti
 import { formatDistance, ktvPath } from '@/lib/site';
 import type { SearchItem } from '@/lib/types';
 
+/**
+ * `brand-500` dạng hex. Leaflet vẽ SVG bằng option JS nên không nhận lớp Tailwind
+ * — đây là chỗ duy nhất trong ứng dụng buộc phải lặp lại giá trị màu, nên giữ nó
+ * thành một hằng có tên thay vì rải hex khắp các lời gọi. Đổi bảng màu thương hiệu
+ * thì sửa cả ở đây.
+ */
+const BRAND_500 = '#0e5aa7';
+
 interface Props {
   items: SearchItem[];
   /** Vị trí khách. Null ở chế độ tìm theo khu vực — không có toạ độ để làm gốc. */
@@ -320,8 +328,8 @@ export default function SearchMap({
       if (origin) {
         L.circleMarker([origin.lat, origin.lon], {
           radius: 6,
-          color: '#0f6b5f',
-          fillColor: '#0f6b5f',
+          color: BRAND_500,
+          fillColor: BRAND_500,
           fillOpacity: 1,
           weight: 2,
         })
@@ -331,7 +339,7 @@ export default function SearchMap({
         if (radiusKm) {
           L.circle([origin.lat, origin.lon], {
             radius: radiusKm * 1000,
-            color: '#0f6b5f',
+            color: BRAND_500,
             weight: 1,
             fillOpacity: 0.06,
           }).addTo(layer);
