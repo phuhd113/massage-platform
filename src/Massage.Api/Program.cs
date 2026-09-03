@@ -1,17 +1,21 @@
 using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Hangfire;
 using Massage.Api.Common;
 using Massage.Api.Data;
+using Massage.Api.Modules.Analytics;
 using Massage.Api.Modules.Admin;
 using Massage.Api.Modules.Auth;
 using Massage.Api.Modules.Areas;
+using Massage.Api.Modules.Jobs;
 using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.Leads;
 using Massage.Api.Modules.Reviews;
 using Massage.Api.Modules.Promotions;
 using Massage.Api.Modules.Promotions.Infrastructure;
 using Massage.Api.Modules.Promotions.UseCases;
+using Massage.Api.Modules.PublicSite;
 using Massage.Api.Modules.Search;
 using Massage.Api.Modules.ServiceCatalog;
 using Massage.Api.Modules.Wallets;
@@ -75,6 +79,7 @@ builder.Services.AddExceptionHandler<AppExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddAppSwagger();
 builder.Services.AddAppRateLimiter();
+builder.Services.AddAppCors(builder.Configuration);
 
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<AuthService>();
@@ -83,6 +88,8 @@ builder.Services.AddScoped<CertificationUpload>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<AreaService>();
+builder.Services.AddScoped<SiteStatsService>();
+builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<ReviewService>();
@@ -134,6 +141,22 @@ builder.Services.AddScoped<ConfirmTopUpUseCase>();
 builder.Services.AddScoped<BuyPromotionUseCase>();
 builder.Services.AddScoped<CancelCampaignUseCase>();
 builder.Services.AddScoped<WalletMaintenance>();
+
+// Hangfire chỉ chạy ở tiến trình phục vụ request thật. Hai trường hợp phải loại trừ:
+//
+//   - **Lệnh CLI** (migrate, seed-*, maintenance) chạy rồi thoát ngay. `AddHangfireServer`
+//     khởi động worker nền ngay lúc build host, nên một lượt `migrate` lúc deploy sẽ vừa
+//     áp migration vừa lặng lẽ bắt đầu chạy job — có thể đúng lúc schema đang đổi dở.
+//   - **Test** (`WebApplicationFactory`, môi trường "Testing"): mỗi test dựng một host
+//     riêng, mà worker sẽ giành job từ cùng một hàng đợi Postgres và chạy nghiệp vụ ví
+//     thật xen vào giữa các test.
+var runsBackgroundJobs =
+    args.Length == 0 && !builder.Environment.IsEnvironment("Testing");
+
+if (runsBackgroundJobs)
+{
+    builder.Services.AddJobs(builder.Configuration);
+}
 
 var app = builder.Build();
 
@@ -202,6 +225,10 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads",
 });
 
+// UseCors phải đứng trước auth và rate limiter: preflight OPTIONS không mang
+// credentials, nên nếu để sau thì nó bị chặn trước khi kịp trả header CORS.
+app.UseCors(CorsSetup.PublicSite);
+
 app.UseAuthentication();
 app.UseAuthorization();
 // Sau xác thực để phân vùng giới hạn theo user khi đã đăng nhập; đặt trước đó thì
@@ -209,6 +236,29 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+
+// Dashboard và lịch chỉ tồn tại khi Hangfire được đăng ký — cùng một điều kiện, vì gọi
+// `UseHangfireDashboard` mà không có `AddHangfire` là lỗi lúc khởi động chứ không phải
+// một no-op im lặng.
+if (runsBackgroundJobs)
+{
+    // Sau MapControllers và sau auth: dashboard đọc `ctx.User` để nhận ra ADMIN đã đăng nhập.
+    //
+    // `Jobs:DashboardAnonymous` mặc định **false** — dashboard cho phép kích chạy và xoá
+    // job (kể cả job đối soát ví), nên nó phải là thứ được bật có chủ ý chứ không phải
+    // thứ phải nhớ tắt. Bật ở dev cho tiện; ở production để nguyên và xem qua SSH tunnel.
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization =
+        [
+            new HangfireDashboardAuth(
+                app.Configuration.GetValue("Jobs:DashboardAnonymous", false)),
+        ],
+        DisplayStorageConnectionString = false,
+    });
+
+    app.Services.ScheduleRecurringJobs();
+}
 
 app.Run();
 

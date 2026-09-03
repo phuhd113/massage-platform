@@ -17,8 +17,25 @@ docker compose exec api dotnet Massage.Api.dll seed-packages # seed catalog gói
 docker compose exec api dotnet Massage.Api.dll maintenance   # nhả hold quá hạn, đóng campaign hết hạn, đối soát ví
 ```
 
-`maintenance` thoát với mã khác 0 khi phát hiện ví lệch sổ — chạy nó theo cron và
-coi mã thoát là cảnh báo, đừng chỉ đọc log.
+`maintenance` thoát với mã khác 0 khi phát hiện ví lệch sổ — coi mã thoát là cảnh báo,
+đừng chỉ đọc log.
+
+**Từ Phase 3, ba việc đó đã chạy tự động bằng Hangfire** (`hold:cleanup` mỗi 5 phút,
+`promotion:expire-sweep` mỗi phút, `wallet:reconcile` 3 giờ sáng giờ Việt Nam) — không
+cần cron ngoài nữa. Lệnh CLI vẫn giữ và vẫn gọi đúng cùng logic, để chạy tay khi cần chữa
+sự cố lúc job tự động đang hỏng.
+
+Dashboard ở `/hangfire`. **Mặc định đóng** (401) trừ khi đăng nhập bằng tài khoản ADMIN
+hoặc bật `Jobs:DashboardAnonymous` — nó kích chạy và xoá được job, kể cả job đối soát ví.
+Cờ đó đang bật sẵn trong `appsettings.Development.json`; production để nguyên và xem qua
+SSH tunnel.
+
+Job `wallet:reconcile` **ném lỗi** khi phát hiện ví lệch, nên nó hiện đỏ trong dashboard
+thay vì chỉ để lại một dòng log lúc 3 giờ sáng. Nó cũng không retry: lệch sổ không phải
+lỗi tạm thời.
+
+Lệnh CLI và môi trường `Testing` **không** khởi động Hangfire server — chạy `migrate` lúc
+deploy không được vừa áp migration vừa lặng lẽ bắt đầu chạy job.
 
 Frontend Next.js ở `apps/web` (chạy cùng `docker compose up -d`, cổng 3000) — lệnh build/lint và
 cách kiểm chứng SSR nằm ở [apps/web/CLAUDE.md](apps/web/CLAUDE.md).

@@ -99,7 +99,72 @@ trong skill `ranking-algo-change`.
   buộc Postgres đếm cho **mọi** dòng khớp — "xa" khớp 7.777 khu vực, 57ms và tăng theo số hồ sơ chứ
   không theo số khu vực. Cái giá là `ktv_count` không tham gia xếp hạng, đã cân nhắc và chấp nhận.
 
-Phần Phase 3 còn lại: Hangfire (`promotion:expire`, sweep, `wallet:reconcile`, `hold:cleanup`),
+**Dashboard KTV và trang chủ dựng lại theo artboard** (2026-09-03). Bốn điều đừng vô tình đảo ngược:
+
+- **Route group `(public)` tách khung trang bán hàng khỏi dashboard.** Dashboard có sidebar riêng
+  248px; chồng thêm header/footer công khai lên là hai bộ điều hướng cùng lúc. `(public)` không đi
+  vào URL nên mọi đường dẫn giữ nguyên. `not-found.tsx` phải nằm ở root nên nó **tự bọc**
+  `PublicShell` — bỏ đi là trang 404 thành ngõ cụt không có đường quay lại.
+- **Mọi mốc thời gian hiển thị phải đi qua `formatDate`/`formatDateTime`** (`lib/site.ts`), vốn ghim
+  `timeZone: 'Asia/Ho_Chi_Minh'`. Gọi thẳng `toLocaleDateString('vi-VN')` thì server (UTC trong
+  container) và trình duyệt cho ra hai chuỗi khác nhau: React báo hydration mismatch, và KTV ở múi
+  giờ khác đọc sai ngày hết hạn chiến dịch. Backend vốn đã cắt khung ngày theo đúng múi giờ này.
+- **`profile_views` đếm từ trình duyệt, không đếm ở endpoint đọc hồ sơ.** Trang hồ sơ được Next
+  cache 600 giây, nên đếm ở đường đọc chỉ ghi được một lượt mỗi 10 phút — con số vẫn trông hợp lý
+  nhưng không liên quan gì tới traffic thật. Beacon `POST /ktv/{id}/views` gộp theo cửa sổ 30 phút
+  (rộng hơn lead 5 phút vì F5 không phải một ý định mới) và **nuốt lỗi khoá ngoại**: nó chạy trên
+  trang khách đang xem, ném lỗi ở đó là đổi một dòng thống kê lấy cả trang.
+- **Mọi phần trăm trên dashboard đều nullable và phải xử lý.** Tuần đầu của mọi KTV đều chưa có tuần
+  trước để so, hồ sơ chưa ai xem thì không có mẫu số cho tỉ lệ liên hệ. "+100%" trên hồ sơ mới toanh
+  là kiểu sai nghe rất thuyết phục.
+
+Hai lỗi cùng một hình dạng đã gặp và đã có test canh: **`rating_avg` là `NUMERIC(3,2)`** nên nhân
+với `rating_count` mà giữ nguyên scale sẽ tràn cột ở hồ sơ vài trăm đánh giá — cộng qua `double`
+(xem `AreaService.GetStatsAsync` và `SiteStatsService`). Và **gói theo giờ phải hiển thị theo giờ**:
+Instant Boost khai `duration_hours` với `duration_days=1`, ghi "1 ngày" ở đó là bán sai thứ khách
+trả tiền.
+
+**CORS cho hai endpoint gọi thẳng từ trình duyệt** (2026-09-03, `Common/CorsSetup.cs`). Đây là lỗi
+đã tồn tại từ trước và chỉ lộ ra khi thêm beacon đếm lượt xem: `POST /leads` bị trình duyệt chặn,
+tức khách bấm "Gọi ngay" **không lấy được số điện thoại** — mà server vẫn 200 với curl và mọi test
+service vẫn xanh. `CorsTests` canh cả hai chiều, kể cả việc origin lạ **không** được cấp quyền.
+
+Vì sao hai endpoint đó không đi qua Next.js proxy như phần còn lại: backend cần thấy đúng IP và
+user agent của khách để gộp lead trùng (5 phút) và lượt xem trùng (30 phút). Qua proxy thì mọi khách
+mang chung IP của server và cả hai cơ chế gộp sập thành một nhóm. Đổi lại là phải khai origin tường
+minh — không dùng `AllowAnyOrigin` ở hai endpoint ghi thẳng vào số liệu tính tiền.
+
+**Ba nhóm route, ba khung trang khác nhau** (2026-09-03): `(public)` có header/footer,
+`(auth)` không có gì (màn đăng nhập chiếm trọn màn hình, chia hai cột), `/dashboard` có sidebar
+riêng. Route group không đi vào URL nên mọi đường dẫn giữ nguyên.
+
+**Bố cục mobile** (2026-09-03): khối lọc ở `/tim-kiem` xếp dọc và gộp ba chip thành một hàng cuộn
+ngang dưới `sm` (`sm:contents` trả chúng về hàng wrap ở desktop); nút nổi "Xem bản đồ" chỉ hiện ở
+mobile vì cặp nút trong khối lọc đã cuộn mất khi khách đọc tới hồ sơ thứ ba. Mọi thanh dính đáy phải
+đi kèm `pb-*` tương ứng ở trang — thiếu là che mất nội dung cuối trang.
+
+**Hangfire đã chạy** (2026-09-03, storage Postgres schema `hangfire`, xem `Modules/Jobs/`). Ba job
+định kỳ: `hold:cleanup` (5 phút), `promotion:expire-sweep` (1 phút), `wallet:reconcile` (3 giờ sáng
+giờ VN). Bốn điều đừng đảo ngược:
+
+- **Tầng job cố ý mỏng, nghiệp vụ vẫn ở `WalletMaintenance`.** Lệnh CLI `maintenance` gọi đúng cùng
+  những phương thức đó, nên chạy tay và chạy theo lịch không bao giờ làm hai việc khác nhau — điều
+  quan trọng nhất đúng lúc phải chạy tay để chữa sự cố mà job tự động đang hỏng.
+- **`wallet:reconcile` ném lỗi khi ví lệch, và không retry.** Job đỏ nằm trong dashboard thì người ta
+  thấy; một dòng log Error lúc 3 giờ sáng thì không. Retry chỉ tạo ba lần đỏ cho cùng một sự việc và
+  làm mờ mất thời điểm nó bắt đầu.
+- **Múi giờ phải là id có thật trong tzdata (`Asia/Ho_Chi_Minh`).** Hangfire chỉ lưu *id* xuống DB
+  rồi tra ngược mỗi lần tính lượt kế tiếp, nên `CreateCustomTimeZone("ICT", …)` tạo object hợp lệ
+  trong tiến trình nhưng **làm app chết lúc khởi động** ở container Linux. Đã cắn một lần.
+- **Lệnh CLI và môi trường `Testing` không dựng Hangfire server.** `AddHangfireServer` khởi động
+  worker ngay lúc build host: `migrate` lúc deploy sẽ vừa áp migration vừa lặng lẽ chạy job, còn mỗi
+  test `WebApplicationFactory` sẽ giành job từ cùng hàng đợi và chạy nghiệp vụ ví xen giữa các test.
+
+Dashboard `/hangfire` **mặc định đóng** (401), mở bằng vai ADMIN hoặc cờ `Jobs:DashboardAnonymous` —
+nó kích chạy và xoá được job. Không nối nó vào `[Authorize]` bằng token trên query string: đó là đẩy
+JWT vào lịch sử trình duyệt, log proxy và Referer.
+
+Phần Phase 3 còn lại: job delayed `promotion:expire` (chỉ bắt buộc khi đường đọc sang Redis),
 analytics partition theo tháng, Redis read-path khi số đo đòi hỏi → rồi Phase 4. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
