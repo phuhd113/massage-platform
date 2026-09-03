@@ -60,3 +60,45 @@ Thay đổi xếp hạng ảnh hưởng tới doanh thu, nên cần bằng chứ
 - [ ] Khẳng định: trong mọi khu vực mẫu, không có KTV organic nào vượt lên trên KTV đang có gói VIP Pin còn hiệu lực
 - [ ] Khẳng định: khu vực thưa KTV không trả về danh sách rỗng do trọng số khoảng cách quá gắt
 - [ ] Nếu thay đổi làm giảm khả năng hiển thị của nhóm KTV nào đó, nêu rõ điều này với người dùng trước khi merge — đó là quyết định kinh doanh, không phải quyết định kỹ thuật
+
+## Khai báo quảng cáo: một từ duy nhất, mọi hạng
+
+Vị trí trả phí phải *nhìn ra được là trả phí*, và điều đó không được co giãn theo hạng gói:
+
+- [ ] Mọi hạng đều đọc ra **"Tài trợ"** (`tierBadgeLabel` trả cùng một chuỗi cho mọi `PackageType`).
+      Đừng đặt lại nhãn riêng theo hạng: nhãn kiểu "Đang được đẩy" đọc như một thuộc tính tự nhiên
+      của KTV (đang hot, đang được ưa chuộng) chứ không phải "người này trả tiền để đứng đây" — hai
+      từ khác nhau cho cùng một khái niệm chính là chỗ hở thành quảng cáo trá hình.
+- [ ] `rel="sponsored"` áp cho **mọi** hạng trả phí, điều kiện là `tier` chứ không phải `isVip`.
+      Từng có lỗi đúng chỗ này: chỉ VIP được gắn, nên Instant Boost và Featured Badge thoát ra ngoài
+      như link organic — rủi ro thật với thứ hạng organic của cả site.
+- [ ] Phân biệt hạng bằng **thị giác** (khung champagne + vương miện cho VIP, chip trơn + tia sét cho
+      hạng dưới), không bằng cách làm nhãn chữ mờ nghĩa đi. Thứ KTV mua vẫn phải thấy được.
+- [ ] Dòng khai báo trên trang kết quả chỉ hiện khi trang đó **thực sự có** vị trí trả phí, và nằm
+      **trước** danh sách — nó tồn tại để khách hiểu trước khi đọc kết quả, không phải để dọn dẹp
+      trách nhiệm ở cuối trang.
+
+## Sự cố hiệu năng đã gặp: CTE thiếu MATERIALIZED (2026-09-02)
+
+**Đường search đã đo ở quy mô thật (2026-09-02) và tìm ra một lỗi hiệu năng nghiêm trọng.** Với
+5.000 hồ sơ / 1.117 ứng viên, p50 của `/search` là **2,59 giây**. Nguyên nhân **không phải** geo-search
+— index GiST vẫn đúng và phần lọc toạ độ chỉ mất ~11ms. Thủ phạm là CTE `global` (tiên nghiệm
+Bayesian) thiếu `MATERIALIZED`: Postgres inline nó vào nested loop và **quét lại toàn bảng
+`ktv_profiles` một lần cho mỗi ứng viên** (`Seq Scan ... loops=1117`). Thêm một từ khoá: p50 còn
+**29ms**, nhanh hơn 89 lần, thứ hạng không đổi một dòng nào.
+
+Bài học đáng giữ: **đừng đặt cache lên trước một truy vấn chưa đo**. Kế hoạch ban đầu là làm Redis
+read-path cho search; nếu làm luôn thì Redis đã che mất lỗi này và nó sẽ quay lại nguyên vẹn ở mọi
+cache miss — đúng lúc tải cao nhất. Đo trước, sửa gốc, rồi mới cache.
+
+Vì vậy **Redis read-path cho search tạm hoãn**: 29ms ở 5.000 hồ sơ chưa cần cache, và roadmap cũng
+nói phần này hoãn được khi lượng KTV còn nhỏ. Làm khi số đo thật đòi hỏi, không theo kế hoạch.
+
+Lỗi này **không nhìn thấy được trên dữ liệu test nhỏ** (vài chục hồ sơ thì 1.117 lần quét vẫn xong
+trong mili giây), nên `SearchQueryShapeTests` canh thẳng chuỗi SQL. Đã thử hai cách canh tốt hơn và
+cả hai đều hỏng: EXPLAIN trên DB test cho kế hoạch khác hẳn nên **vẫn xanh kể cả khi bỏ MATERIALIZED**
+(đã kiểm chứng), còn đo thời gian thì phụ thuộc tốc độ máy CI. Test hiện tại yếu nhưng chặn đúng thao
+tác đã gây ra lỗi.
+
+- [ ] Trước khi thêm cache vào bất kỳ đường đọc nào: sinh dữ liệu quy mô thật rồi `EXPLAIN ANALYZE`. Dấu hiệu `loops=<số lớn>` nghĩa là một CTE/subquery bị inline vào nested loop — sửa gốc trước, cache sau.
+- [ ] Nếu sửa SQL của search: `SearchQueryShapeTests` canh chuỗi SQL, đừng gỡ nó ra chỉ vì trông yếu.
