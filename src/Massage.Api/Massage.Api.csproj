@@ -25,6 +25,13 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+<ItemGroup>
+    <!-- Nhúng thay vì copy ra thư mục output: seeder chạy cả từ container đã publish
+         lẫn từ dotnet test, hai nơi có working directory khác nhau. Embedded resource
+         có đúng một đường tra cứu hoạt động giống nhau ở cả hai. -->
+    <EmbeddedResource Include="Data\SeedData\vietnam-areas.json" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Massage.Wallet.Domain\Massage.Wallet.Domain.csproj" />
     <ProjectReference Include="..\Massage.Promotion.Domain\Massage.Promotion.Domain.csproj" />

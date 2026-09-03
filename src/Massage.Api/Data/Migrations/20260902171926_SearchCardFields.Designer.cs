@@ -3,6 +3,7 @@ using System;
 using Massage.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Massage.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902171926_SearchCardFields")]
+    partial class SearchCardFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -140,20 +143,11 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("code");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
-
-                    b.Property<string>("EditorialNote")
-                        .HasColumnType("text")
-                        .HasColumnName("editorial_note");
 
                     b.Property<string>("Level")
                         .IsRequired()
@@ -179,12 +173,11 @@ namespace Massage.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ParentId")
-                        .HasDatabaseName("idx_area_parent");
+                    b.HasIndex("ParentId");
 
-                    b.HasIndex("ParentId", "Slug")
+                    b.HasIndex("Slug", "Level")
                         .IsUnique()
-                        .HasDatabaseName("uq_area_parent_slug");
+                        .HasDatabaseName("uq_area_slug_level");
 
                     b.ToTable("administrative_areas", (string)null);
                 });
@@ -295,15 +288,6 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnType("geography (Point, 4326)")
                         .HasColumnName("base_point");
 
-                    b.Property<string>("BaseStreet")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("base_street");
-
-                    b.Property<Guid?>("BaseWardId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("base_ward_id");
-
                     b.Property<string>("Bio")
                         .HasColumnType("text")
                         .HasColumnName("bio");
@@ -393,9 +377,6 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnName("years_experience");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("BaseWardId")
-                        .HasDatabaseName("idx_ktv_base_ward");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -1064,10 +1045,6 @@ namespace Massage.Api.Data.Migrations
 
             modelBuilder.Entity("Massage.Api.Modules.KtvProfiles.Entities.KtvProfile", b =>
                 {
-                    b.HasOne("Massage.Api.Modules.KtvProfiles.Entities.AdministrativeArea", null)
-                        .WithMany()
-                        .HasForeignKey("BaseWardId");
-
                     b.HasOne("Massage.Api.Modules.Auth.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

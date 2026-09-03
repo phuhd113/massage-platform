@@ -74,9 +74,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Slug).HasColumnName("slug").HasMaxLength(160).IsRequired();
             e.Property(x => x.Level).HasColumnName("level").HasMaxLength(20).IsRequired();
             e.Property(x => x.ParentId).HasColumnName("parent_id");
+            e.Property(x => x.Code).HasColumnName("code").HasMaxLength(10);
+            e.Property(x => x.EditorialNote).HasColumnName("editorial_note");
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
-            e.HasIndex(x => new { x.Slug, x.Level }).IsUnique().HasDatabaseName("uq_area_slug_level");
+            // Duy nhất trong phạm vi cha. Tỉnh có parent_id NULL mà UNIQUE coi mọi NULL
+            // là khác nhau, nên ràng buộc này KHÔNG chặn được hai tỉnh trùng slug —
+            // phần đó do partial index uq_area_root_slug lo, và EF không mô hình hoá
+            // được mệnh đề WHERE nên nó chỉ tồn tại trong migration.
+            e.HasIndex(x => new { x.ParentId, x.Slug }).IsUnique().HasDatabaseName("uq_area_parent_slug");
+            e.HasIndex(x => x.ParentId).HasDatabaseName("idx_area_parent");
         });
 
         b.Entity<KtvProfile>(e =>
@@ -92,6 +99,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Kiểu geography (không phải geometry) để ST_DWithin tính bán kính theo mét.
             e.Property(x => x.BasePoint).HasColumnName("base_point").HasColumnType("geography (Point, 4326)").IsRequired();
             e.Property(x => x.BaseAddress).HasColumnName("base_address").HasMaxLength(255);
+            e.Property(x => x.BaseWardId).HasColumnName("base_ward_id");
+            e.Property(x => x.BaseStreet).HasColumnName("base_street").HasMaxLength(255);
             e.Property(x => x.ServiceRadiusKm).HasColumnName("service_radius_km");
             e.Property(x => x.VerificationStatus).HasColumnName("verification_status").HasMaxLength(20).IsRequired();
             e.Property(x => x.RejectionReason).HasColumnName("rejection_reason");
@@ -110,6 +119,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.Slug).IsUnique();
             e.HasIndex(x => x.VerificationStatus).HasDatabaseName("idx_ktv_verification");
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+            e.HasOne<AdministrativeArea>().WithMany().HasForeignKey(x => x.BaseWardId);
+            e.HasIndex(x => x.BaseWardId).HasDatabaseName("idx_ktv_base_ward");
         });
 
         b.Entity<Certification>(e =>
