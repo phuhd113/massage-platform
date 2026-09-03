@@ -82,6 +82,23 @@ Job đó chỉ trở nên bắt buộc khi đường đọc chuyển sang Redis.
 Toàn bộ chi tiết, bài học "đo trước, cache sau" và lý do `SearchQueryShapeTests` canh chuỗi SQL nằm
 trong skill `ranking-algo-change`.
 
+**Ô search khu vực có gợi ý** (2026-09-03) thay thẻ `<select>` phẳng 696 quận/huyện ở trang chủ và
+`/tim-kiem`. Bốn điều đừng vô tình đảo ngược:
+
+- **`areaSlug` phải đi kèm `provinceSlug` khi nó là slug quận.** Đứng một mình nó là slug **tỉnh**.
+  Đây từng là bug thật: hai ô select cũ gửi slug quận trần, nên chọn "Huyện Châu Thành" (10 tỉnh có)
+  trả về 0 kết quả kể cả khi quận đó có KTV. Mọi đường dựng URL tìm kiếm phải đi qua
+  `lib/area-search.ts` chứ không tự ghép tham số — nó cũng lo việc xoá cặp slug khi chuyển sang toạ độ.
+- **`name_ascii` do trigger `trg_area_name_ascii` trong DB dựng, không do đường ghi ứng dụng.** Bảng
+  có hai đường ghi và một trong hai là `seed-areas` (raw SQL, không qua EF). Bắt cả hai cùng nhớ điền
+  một cột dẫn xuất là chỗ hỏng được đảm bảo: seed báo thành công còn ô gợi ý trả rỗng. EF khai cột
+  này `ValueGeneratedOnAddOrUpdate` để không ghi đè.
+- **Chuỗi khớp bỏ dấu từ chính `name`, không mượn `slug`.** Slug và tên là hai thứ độc lập; khu vực
+  có slug khác tên thì gõ đúng tên đang hiển thị lại không ra gì.
+- **Câu suggest chốt top-N ở CTE `MATERIALIZED` rồi mới đếm KTV.** Cho `ktv_count` vào `ORDER BY`
+  buộc Postgres đếm cho **mọi** dòng khớp — "xa" khớp 7.777 khu vực, 57ms và tăng theo số hồ sơ chứ
+  không theo số khu vực. Cái giá là `ktv_count` không tham gia xếp hạng, đã cân nhắc và chấp nhận.
+
 Phần Phase 3 còn lại: Hangfire (`promotion:expire`, sweep, `wallet:reconcile`, `hold:cleanup`),
 analytics partition theo tháng, Redis read-path khi số đo đòi hỏi → rồi Phase 4. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật

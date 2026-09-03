@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { clearAreaScope } from '@/lib/area-search';
 import { MAX_RADIUS_KM, haversineKm, type LatLon, type Scope } from '@/lib/map';
 import { MapKtvCard } from '@/components/MapKtvCard';
 import type { SearchItem } from '@/lib/types';
@@ -110,13 +111,14 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
   const searchHere = useCallback(
     (target: Scope | null) => {
       if (!target) return;
-      const next = new URLSearchParams(params.toString());
+      // Toạ độ và khu vực là hai chế độ khác nhau — cùng quy tắc với "Tìm quanh tôi".
+      // Dùng clearAreaScope thay vì tự `delete('areaSlug')`: phải xoá cả `provinceSlug`,
+      // vì vế tỉnh còn lại một mình làm backend từ chối nguyên request bằng 400
+      // ("provinceSlug phải đi kèm areaSlug") — bản đồ khi đó không trả về gì cả.
+      const next = clearAreaScope(params);
       next.set('lat', target.lat.toFixed(6));
       next.set('lon', target.lon.toFixed(6));
       next.set('radiusKm', String(target.radiusKm));
-      // Toạ độ và khu vực là hai chế độ khác nhau — cùng quy tắc với "Tìm quanh tôi".
-      next.delete('areaSlug');
-      next.delete('page');
       next.set('view', 'map');
       setUserScope(null);
       startTransition(() => router.push(`/tim-kiem?${next.toString()}`));
