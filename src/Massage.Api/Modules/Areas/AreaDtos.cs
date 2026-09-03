@@ -37,3 +37,29 @@ public record AreaDetailDto(
 /// không mua được gói đẩy tin — nên không có khái niệm số KTV hay "được index".
 /// </summary>
 public record WardDto(Guid Id, string Name, string Slug);
+
+/// <summary>
+/// Một dòng gợi ý trong ô tìm khu vực.
+///
+/// <b>Luôn mang đủ vế cha</b> (<paramref name="ProvinceSlug"/>, <paramref name="DistrictSlug"/>)
+/// chứ không chỉ slug của chính nó. Slug quận chỉ duy nhất trong phạm vi tỉnh — cả nước
+/// có 10 tỉnh cùng chứa "Huyện Châu Thành" — nên một gợi ý thiếu vế tỉnh là thứ frontend
+/// không thể dựng thành URL đúng, và <c>/search</c> sẽ hiểu nó thành slug tỉnh.
+/// </summary>
+/// <param name="ProvinceSlug">NULL khi chính nó là tỉnh.</param>
+/// <param name="DistrictSlug">Chỉ có khi <paramref name="Level"/> là WARD.</param>
+/// <param name="ParentPath">
+/// Đường dẫn cha đã dựng sẵn để hiển thị ("Quận 1, TP. Hồ Chí Minh"). Dựng ở server vì
+/// đây chính là thứ phân biệt mười "Huyện Châu Thành" với nhau trên màn hình — để client
+/// tự ghép thì mười dòng giống hệt nhau và khách chọn ngẫu nhiên.
+/// </param>
+public record AreaSuggestionDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string Level,
+    string? ProvinceSlug,
+    string? DistrictSlug,
+    string ParentPath,
+    int KtvCount,
+    bool Indexable);

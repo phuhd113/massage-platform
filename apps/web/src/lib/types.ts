@@ -17,6 +17,28 @@ export interface AreaDetail extends Omit<AreaNode, 'children'> {
   siblings: AreaNode[];
 }
 
+/**
+ * Một dòng gợi ý trong ô tìm khu vực.
+ *
+ * Luôn mang đủ vế cha, và đó là điểm khác biệt so với việc lọc trên cây khu vực ở
+ * client: slug quận chỉ duy nhất **trong phạm vi tỉnh** — cả nước có 10 tỉnh cùng
+ * chứa "Huyện Châu Thành" — nên một slug trần không dựng được URL đúng.
+ */
+export interface AreaSuggestion {
+  id: string;
+  name: string;
+  slug: string;
+  level: AreaLevel;
+  /** Null khi chính nó là tỉnh. */
+  provinceSlug: string | null;
+  /** Chỉ có khi `level` là WARD. */
+  districtSlug: string | null;
+  /** Đường dẫn cha đã dựng sẵn để hiển thị ("Quận 1, TP. Hồ Chí Minh"). */
+  parentPath: string;
+  ktvCount: number;
+  indexable: boolean;
+}
+
 export interface SearchItem {
   id: string;
   fullName: string;

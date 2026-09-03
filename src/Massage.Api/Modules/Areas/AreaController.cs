@@ -26,6 +26,21 @@ public class AreaController(AreaService service) : ControllerBase
     public async Task<IActionResult> Tree(CancellationToken ct) =>
         Ok(await service.GetTreeAsync(ct));
 
+    /// <summary>
+    /// Gợi ý khu vực cho ô tìm địa chỉ: gõ có dấu hay không dấu đều khớp, và "q7" ra Quận 7.
+    ///
+    /// Mỗi gợi ý mang đủ vế cha để dựng được URL đúng — đó là lý do endpoint này tồn tại
+    /// thay vì để frontend lọc trên cây khu vực: lọc phía client chỉ có slug trần, mà
+    /// slug quận thì trùng nhau giữa các tỉnh.
+    ///
+    /// Đặt **trước** route <c>{provinceSlug}</c> vì "suggest" cũng khớp mẫu đó; ASP.NET ưu
+    /// tiên route literal hơn route có tham số nên thứ tự này chỉ để người đọc thấy rõ.
+    /// </summary>
+    [HttpGet("suggest")]
+    public async Task<IActionResult> Suggest(
+        [FromQuery] string? q, [FromQuery] int? limit, CancellationToken ct) =>
+        Ok(await service.SuggestAsync(q, limit, ct));
+
     /// <summary>Một tỉnh/thành kèm danh sách quận trực thuộc.</summary>
     [HttpGet("{provinceSlug}")]
     public async Task<IActionResult> Province(string provinceSlug, CancellationToken ct) =>

@@ -1,7 +1,10 @@
 using Massage.Api.Common;
 using Massage.Api.Data;
+using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace Massage.Api.Modules.Areas;
 
@@ -130,6 +133,160 @@ public class AreaService(AppDbContext db)
             .Select(a => new WardDto(a.Id, a.Name, a.Slug))
             .ToListAsync(ct);
     }
+
+    /// <summary>Số ký tự tối thiểu để bắt đầu gợi ý.</summary>
+    /// <remarks>
+    /// Một ký tự khớp gần như mọi khu vực trong nước, nên kết quả vô nghĩa với khách mà
+    /// vẫn tốn một lượt quét — chặn ở đây rẻ hơn mọi thứ làm sau đó.
+    /// </remarks>
+    public const int MinSuggestQueryLength = 2;
+
+    private const int DefaultSuggestLimit = 8;
+    private const int MaxSuggestLimit = 20;
+
+    /// <summary>
+    /// Gợi ý khu vực theo từ khoá, gõ có dấu hay không dấu đều khớp.
+    ///
+    /// <b>Cố ý không dùng lại <see cref="GetVerifiedCountsAsync"/>.</b> Hàm đó đếm KTV cho
+    /// **mọi** khu vực trong nước bằng hai lượt quét <c>coverage_areas</c> — chấp nhận được
+    /// khi mỗi trang gọi một lần, nhưng ô gợi ý gọi theo từng phím khách gõ.
+    ///
+    /// Logic đếm vẫn phải trùng khít với hàm kia (tỉnh cộng dồn DISTINCT từ quận con, chỉ
+    /// tính hồ sơ đã duyệt): hai công thức lệch nhau thì cùng một khu vực hiện số KTV khác
+    /// nhau giữa ô gợi ý và trang khu vực, và cờ <c>indexable</c> cũng lệch theo.
+    ///
+    /// <b>Chốt top-N trước, đếm KTV sau</b> — đây là điều đo được chứ không phải suy đoán.
+    /// Bản đầu để <c>ktv_count</c> tham gia ORDER BY, nghĩa là Postgres phải đếm cho **mọi**
+    /// dòng khớp trước khi sắp xếp: từ khoá hai chữ như "xa" khớp 7.777 khu vực, mất 57ms và
+    /// còn tăng theo số hồ sơ chứ không theo số khu vực. Cắt còn 8 dòng trước rồi mới đếm đưa
+    /// nó về 36ms và làm chi phí đếm thành hằng số. Cái mất là <c>ktv_count</c> không còn
+    /// tham gia xếp hạng — chấp nhận được: nó vốn là tiêu chí thứ tư, và truy vấn khớp 7.777
+    /// khu vực là truy vấn khách chưa gõ đủ để phân biệt.
+    /// </summary>
+    public async Task<List<AreaSuggestionDto>> SuggestAsync(
+        string? q, int? limit = null, CancellationToken ct = default)
+    {
+        var needle = NormalizeQuery(q);
+        if (needle.Length < MinSuggestQueryLength)
+            return [];
+
+        var take = Math.Clamp(limit ?? DefaultSuggestLimit, 1, MaxSuggestLimit);
+
+        // Raw SQL vì phần xếp hạng dùng similarity() của pg_trgm và một LATERAL —
+        // cả hai đều nằm ngoài thứ LINQ diễn đạt được.
+        //
+        // Thứ tự xếp hạng, theo đúng cách khách nghĩ:
+        //   1. Khớp từ đầu chuỗi trước ("quan 7" ra Quận 7, không phải Quận 17)
+        //   2. Cấp quận trước tỉnh trước phường — khách tìm massage nghĩ theo quận
+        //   3. Còn lại theo độ giống trigram, rồi tên để thứ tự ổn định giữa các lần gọi
+        //
+        // MATERIALIZED là bắt buộc, không phải tuỳ chọn: thiếu nó Postgres được phép kéo
+        // phép đếm ở LATERAL ngược vào trong CTE và đếm lại cho toàn bộ dòng khớp — đúng
+        // thứ cấu trúc này sinh ra để tránh. Cùng bài học với CTE `global` ở SearchService.
+        var rows = await db.Database
+            .SqlQueryRaw<SuggestRow>(
+                """
+                WITH candidates AS MATERIALIZED (
+                    SELECT a.id, a.name, a.slug, a.level, a.parent_id, a.editorial_note,
+                           -- Thứ hạng phải mang theo dưới dạng cột: LIMIT trong CTE chốt
+                           -- *tập* 8 dòng, nhưng SQL không hứa giữ thứ tự đó qua các phép
+                           -- JOIN bên ngoài. Không có cột này thì gợi ý đúng nhưng xếp sai.
+                           ROW_NUMBER() OVER (
+                               ORDER BY (a.name_ascii LIKE @needle || '%') DESC,
+                                        CASE a.level
+                                             WHEN 'DISTRICT' THEN 0
+                                             WHEN 'PROVINCE' THEN 1 ELSE 2 END,
+                                        similarity(a.name_ascii, @needle) DESC,
+                                        a.name
+                           ) AS rank
+                      FROM administrative_areas a
+                     WHERE a.name_ascii LIKE '%' || @needle || '%'
+                     ORDER BY (a.name_ascii LIKE @needle || '%') DESC,
+                              CASE a.level
+                                   WHEN 'DISTRICT' THEN 0 WHEN 'PROVINCE' THEN 1 ELSE 2 END,
+                              similarity(a.name_ascii, @needle) DESC,
+                              a.name
+                     LIMIT @take
+                )
+                SELECT c.id                                        AS "Id",
+                       c.name                                      AS "Name",
+                       c.slug                                      AS "Slug",
+                       c.level                                     AS "Level",
+                       CASE c.level
+                            WHEN 'PROVINCE' THEN NULL
+                            WHEN 'DISTRICT' THEN p.slug
+                            ELSE gp.slug
+                       END                                         AS "ProvinceSlug",
+                       CASE WHEN c.level = 'WARD' THEN p.slug END   AS "DistrictSlug",
+                       CASE c.level
+                            WHEN 'PROVINCE' THEN ''
+                            WHEN 'DISTRICT' THEN COALESCE(p.name, '')
+                            ELSE COALESCE(p.name, '') || ', ' || COALESCE(gp.name, '')
+                       END                                         AS "ParentPath",
+                       COALESCE(n.ktv_count, 0)::int                AS "KtvCount",
+                       c.editorial_note                             AS "EditorialNote"
+                  FROM candidates c
+                  LEFT JOIN administrative_areas p  ON p.id  = c.parent_id
+                  LEFT JOIN administrative_areas gp ON gp.id = p.parent_id
+                  LEFT JOIN LATERAL (
+                      SELECT CASE WHEN c.level = 'PROVINCE' THEN (
+                                 -- Tỉnh cộng dồn từ quận con, DISTINCT theo ktv_id: một KTV
+                                 -- thường phủ nhiều quận trong cùng thành phố, cộng thẳng sẽ
+                                 -- thổi phồng con số. Chỉ cộng từ cấp DISTRICT — dòng coverage
+                                 -- trỏ vào phường (dữ liệu bẩn) sẽ cộng vào cha nó như thể
+                                 -- quận đó là tỉnh.
+                                 SELECT COUNT(DISTINCT ca.ktv_id)
+                                   FROM coverage_areas ca
+                                   JOIN administrative_areas d
+                                     ON d.id = ca.area_id AND d.level = 'DISTRICT'
+                                   JOIN ktv_profiles k
+                                     ON k.id = ca.ktv_id AND k.verification_status = 'VERIFIED'
+                                  WHERE d.parent_id = c.id
+                             ) ELSE (
+                                 SELECT COUNT(*)
+                                   FROM coverage_areas ca
+                                   JOIN ktv_profiles k
+                                     ON k.id = ca.ktv_id AND k.verification_status = 'VERIFIED'
+                                  WHERE ca.area_id = c.id
+                             ) END AS ktv_count
+                  ) n ON true
+                 ORDER BY c.rank;
+                """,
+                new NpgsqlParameter("needle", NpgsqlDbType.Text) { Value = needle },
+                new NpgsqlParameter("take", NpgsqlDbType.Integer) { Value = take })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => new AreaSuggestionDto(
+                r.Id, r.Name, r.Slug, r.Level,
+                r.ProvinceSlug, r.DistrictSlug, r.ParentPath, r.KtvCount,
+                IsIndexable(r.KtvCount, r.EditorialNote)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Đưa từ khoá về đúng dạng đã lưu ở <c>name_ascii</c>: bỏ dấu, thường hoá, gộp
+    /// khoảng trắng. Dùng lại <see cref="SlugHelper.ToSlug"/> để hai bên không thể lệch
+    /// nhau — chuỗi lưu trong cột cũng sinh từ chính quy tắc bỏ dấu đó.
+    /// </summary>
+    private static string NormalizeQuery(string? q) =>
+        string.IsNullOrWhiteSpace(q) ? string.Empty : SlugHelper.ToSlug(q).Replace('-', ' ').Trim();
+
+    /// <summary>
+    /// Hình dạng thô của một dòng gợi ý. Mang <c>EditorialNote</c> thay vì <c>Indexable</c>
+    /// để cờ index vẫn được tính bằng đúng <see cref="IsIndexable"/> như mọi endpoint khác,
+    /// thay vì lặp lại điều kiện đó trong SQL nơi nó sẽ trôi khỏi bản gốc.
+    /// </summary>
+    private sealed record SuggestRow(
+        Guid Id,
+        string Name,
+        string Slug,
+        string Level,
+        string? ProvinceSlug,
+        string? DistrictSlug,
+        string ParentPath,
+        int KtvCount,
+        string? EditorialNote);
 
     private async Task<AdministrativeArea> FindAsync(string slug, string level, CancellationToken ct) =>
         await db.AdministrativeAreas.FirstOrDefaultAsync(a => a.Slug == slug && a.Level == level, ct)

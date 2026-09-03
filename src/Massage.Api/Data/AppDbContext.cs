@@ -76,6 +76,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ParentId).HasColumnName("parent_id");
             e.Property(x => x.Code).HasColumnName("code").HasMaxLength(10);
             e.Property(x => x.EditorialNote).HasColumnName("editorial_note");
+            // Trigger trong DB dựng cột này ở mọi INSERT/UPDATE, nên EF chỉ được đọc:
+            // để EF ghi thì giá trị nó gửi lên (thường là NULL) sẽ bị trigger đè lại
+            // ngay, và change tracker giữ bản cũ — đọc lại trong cùng context ra sai.
+            e.Property(x => x.NameAscii).HasColumnName("name_ascii").HasMaxLength(400)
+                .ValueGeneratedOnAddOrUpdate();
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
             // Duy nhất trong phạm vi cha. Tỉnh có parent_id NULL mà UNIQUE coi mọi NULL

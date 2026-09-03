@@ -2,18 +2,25 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import type { AreaNode, ServiceItem } from '@/lib/types';
+import { AreaSearchBox } from '@/components/AreaSearchBox';
+import { applyAreaScope, applyCoords, clearAreaScope } from '@/lib/area-search';
+import type { ServiceItem } from '@/lib/types';
 
 /**
  * Bộ lọc là phần tương tác duy nhất của trang tìm kiếm, tách riêng thành client
  * component nhỏ. Danh sách kết quả vẫn render ở server để có mặt trong HTML đầu.
  */
 export function SearchFilters({
-  areas,
   services,
+  areaLabel = '',
 }: {
-  areas: AreaNode[];
   services: ServiceItem[];
+  /**
+   * Nhãn khu vực đang lọc, do server tra từ cặp (provinceSlug, areaSlug). Truyền
+   * xuống thay vì để client tự tra: client chỉ có slug, mà slug quận trùng nhau
+   * giữa các tỉnh nên tra ngược sẽ hiện nhầm tên tỉnh.
+   */
+  areaLabel?: string;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -58,15 +65,11 @@ export function SearchFilters({
     setGeoError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const next = new URLSearchParams(params.toString());
-        next.set('lat', pos.coords.latitude.toFixed(6));
-        next.set('lon', pos.coords.longitude.toFixed(6));
         // Toạ độ và khu vực là hai chế độ khác nhau, giữ cả hai sẽ lọc chồng lên
-        // nhau và ra kết quả rỗng khó hiểu.
-        next.delete('areaSlug');
-        next.delete('page');
+        // nhau và ra kết quả rỗng khó hiểu — applyCoords lo việc xoá cặp
+        // areaSlug/provinceSlug, kể cả vế tỉnh mà bản cũ để sót lại.
         setLocating(false);
-        apply(next);
+        apply(applyCoords(params, pos.coords));
       },
       () => {
         setLocating(false);
@@ -75,10 +78,6 @@ export function SearchFilters({
       { timeout: 10_000 },
     );
   }
-
-  const districts = areas.flatMap((p) =>
-    p.children.map((d) => ({ ...d, provinceName: p.name })),
-  );
 
   const isMap = params.get('view') === 'map';
   const onlineOnly = params.get('isOnline') === 'true';
@@ -105,18 +104,19 @@ export function SearchFilters({
 
         <label className="text-sm">
           <span className="block text-ink-600">Khu vực</span>
-          <select
-            className={selectClass}
-            value={params.get('areaSlug') ?? ''}
-            onChange={(e) => setParam('areaSlug', e.target.value)}
-          >
-            <option value="">Tất cả</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.slug}>
-                {d.name} — {d.provinceName}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1 w-64 max-w-full">
+            <AreaSearchBox
+              initialLabel={areaLabel}
+              placeholder="Nhập quận, huyện hoặc phường…"
+              onSelect={(s) => apply(applyAreaScope(params, s))}
+              onClear={() => apply(clearAreaScope(params))}
+              inputClassName={
+                'w-full rounded-full border border-ink-300 bg-white px-3.5 py-2 pr-9 text-ink-700 ' +
+                'transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none ' +
+                'focus:ring-2 focus:ring-brand-500/20'
+              }
+            />
+          </div>
         </label>
 
         <label className="text-sm">

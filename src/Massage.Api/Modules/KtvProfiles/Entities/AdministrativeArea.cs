@@ -39,6 +39,18 @@ public class AdministrativeArea
     /// </summary>
     public string? EditorialNote { get; set; }
 
+    /// <summary>
+    /// Chuỗi khớp cho ô gợi ý khu vực: tên đã bỏ dấu, nối thêm tên có dấu và các alias
+    /// hay gõ ("q7"). Cột vật chất chứ không tính lúc query vì <c>unaccent()</c> không
+    /// immutable nên không index được, và alias thì không hàm nào suy ra được.
+    ///
+    /// <b>Do DB sinh, không do code ứng dụng ghi</b> — trigger <c>trg_area_name_ascii</c>
+    /// dựng lại cột này ở mọi INSERT/UPDATE. Nếu để đường ghi tự điền thì lệnh
+    /// <c>seed-areas</c> (upsert bằng raw SQL, không đi qua EF) sẽ bỏ trống cột và ô gợi
+    /// ý chết lặng: seed báo thành công, tìm kiếm trả về rỗng.
+    /// </summary>
+    public string? NameAscii { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public AdministrativeArea? Parent { get; set; }

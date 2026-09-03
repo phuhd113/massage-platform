@@ -36,11 +36,17 @@ const numeric = (v: string | undefined) => {
 };
 
 export default async function SearchPage({ searchParams }: Props) {
-  const [areas, services] = await Promise.all([api.areaTree(), api.services()]);
+  // Không còn tải cây khu vực: ô lọc nay gọi /areas/suggest theo từng từ khoá, nên
+  // 63 tỉnh + 696 quận không phải đi kèm mọi lần mở trang tìm kiếm nữa.
+  const services = await api.services();
 
   const lat = one(searchParams.lat);
   const lon = one(searchParams.lon);
   const areaSlug = one(searchParams.areaSlug);
+  // `areaSlug` đứng một mình là slug tỉnh; đi kèm `provinceSlug` mới là slug quận.
+  // Bỏ vế này đi là bug cũ của ô select: chọn "Huyện Châu Thành" gửi slug quận trần,
+  // backend hiểu thành slug tỉnh và trả về kết quả của một trong mười tỉnh cùng tên.
+  const provinceSlug = one(searchParams.provinceSlug);
   const service = one(searchParams.service);
   const radiusKm = one(searchParams.radiusKm) ?? '10';
   const page = Number(one(searchParams.page) ?? '1') || 1;
@@ -59,7 +65,7 @@ export default async function SearchPage({ searchParams }: Props) {
       results = await api.search(
         // Bản đồ và danh sách cố ý dùng chung một `size`: chúng phải luôn hiển thị
         // đúng cùng một tập kết quả, nếu không thì bấm đổi cách nhìn lại ra số khác.
-        { lat, lon, areaSlug, service, radiusKm, isOnline, page, size: 20 },
+        { lat, lon, areaSlug, provinceSlug, service, radiusKm, isOnline, page, size: 20 },
         // Kết quả theo toạ độ là riêng của từng khách, không cache dùng chung.
         0,
       );
@@ -83,14 +89,25 @@ export default async function SearchPage({ searchParams }: Props) {
 
   const showMap = isMapView && results !== null && (results.items.length > 0 || origin !== null);
 
-  // Tên khu vực để dựng tiêu đề ("37 kỹ thuật viên quanh Quận 7"). Tìm trong cây
-  // đã tải sẵn nên không thêm request; tìm theo toạ độ thì không có khu vực nào
-  // để gọi tên, và tiêu đề lùi về dạng chung.
-  const areaName = areaSlug
-    ? (areas
-        .flatMap((p) => [p, ...p.children])
-        .find((a) => a.slug === areaSlug)?.name ?? null)
+  // Tên khu vực để dựng tiêu đề ("37 kỹ thuật viên tại Quận 7").
+  //
+  // Tra theo đúng cặp (tỉnh, quận) chứ không `.find()` theo slug trần trên cả cây:
+  // slug quận chỉ duy nhất trong phạm vi tỉnh, nên bản cũ lấy trúng khu vực đầu tiên
+  // khớp và hiển thị tên tỉnh của một tỉnh khác — sai âm thầm, vì tiêu đề vẫn đọc
+  // xuôi tai.
+  const areaDetail = areaSlug
+    ? provinceSlug
+      ? await api.district(provinceSlug, areaSlug)
+      : await api.province(areaSlug)
     : null;
+
+  const areaName = areaDetail?.name ?? null;
+  // Nhãn đầy đủ cho ô lọc: kèm tên tỉnh để khách thấy mình đang ở quận nào, tỉnh nào.
+  const areaLabel = areaDetail
+    ? areaDetail.parent
+      ? `${areaDetail.name}, ${areaDetail.parent.name}`
+      : areaDetail.name
+    : '';
 
   // Tiêu đề mang luôn số lượng ("6 kỹ thuật viên tại Quận 7"): khách đọc được ngay
   // quy mô kết quả, và đây cũng là dòng chữ đầu tiên trong HTML thô nên nó mô tả
@@ -111,7 +128,7 @@ export default async function SearchPage({ searchParams }: Props) {
   return (
     <>
       <Suspense fallback={<div className="h-14 rounded-xl border border-ink-200 bg-white" />}>
-        <SearchFilters areas={areas} services={services} />
+        <SearchFilters services={services} areaLabel={areaLabel} />
       </Suspense>
 
       <div className="mt-7 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

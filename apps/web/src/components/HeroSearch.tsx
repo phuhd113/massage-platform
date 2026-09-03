@@ -1,41 +1,45 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import type { AreaNode, ServiceItem } from '@/lib/types';
+import { useRef, useState, useTransition } from 'react';
+import { AreaSearchBox } from '@/components/AreaSearchBox';
+import { areaScopeParams } from '@/lib/area-search';
+import type { AreaSuggestion, ServiceItem } from '@/lib/types';
 
 /**
  * Ô tìm kiếm trên trang chủ.
  *
- * Client component nhưng cố ý rất nhỏ: chỉ hai select và một nút. Toàn bộ nội
- * dung Google cần (H1, mô tả, danh sách khu vực, danh sách dịch vụ) vẫn nằm ở
- * server component bọc ngoài, nên vẫn có mặt trong HTML đầu tiên.
+ * Client component nhưng cố ý rất nhỏ. Toàn bộ nội dung Google cần (H1, mô tả,
+ * danh sách khu vực dạng link tĩnh, danh sách dịch vụ) vẫn nằm ở server component
+ * bọc ngoài, nên vẫn có mặt trong HTML đầu tiên — ô này không thay thế chúng.
  *
  * Không tự động định vị khi tải trang: xin quyền GPS ngay khi khách vừa vào là
  * cách nhanh nhất để bị từ chối vĩnh viễn ở cấp trình duyệt. Khách bấm thì mới
  * hỏi, lúc đó họ đã hiểu vì sao cần.
  */
-export function HeroSearch({
-  areas,
-  services,
-}: {
-  areas: AreaNode[];
-  services: ServiceItem[];
-}) {
+export function HeroSearch({ services }: { services: ServiceItem[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
-  const [areaSlug, setAreaSlug] = useState('');
   const [service, setService] = useState('');
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  const districts = areas.flatMap((p) =>
-    p.children.map((d) => ({ ...d, provinceName: p.name })),
-  );
+  // Khu vực đã chọn, không phải chữ đang gõ dở: chỉ gợi ý được chọn mới mang đủ vế
+  // tỉnh để dựng URL đúng.
+  const [area, setArea] = useState<AreaSuggestion | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function submit() {
     const q = new URLSearchParams();
-    if (areaSlug) q.set('areaSlug', areaSlug);
+
+    if (area) {
+      const { areaSlug, provinceSlug } = areaScopeParams(area);
+      q.set('areaSlug', areaSlug);
+      // Slug quận chỉ duy nhất trong phạm vi tỉnh — thiếu vế này thì backend hiểu
+      // nó là slug tỉnh, và mười "Huyện Châu Thành" trở thành một kết quả tuỳ ý.
+      if (provinceSlug) q.set('provinceSlug', provinceSlug);
+    }
+
     if (service) q.set('service', service);
     startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
   }
@@ -71,50 +75,54 @@ export function HeroSearch({
 
   return (
     <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-card sm:p-5">
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-        <label className="block">
-          <span className="mb-1 block text-label uppercase text-ink-500">Khu vực</span>
-          <select
-            value={areaSlug}
-            onChange={(e) => setAreaSlug(e.target.value)}
-            className={selectClass}
-          >
-            <option value="">Tất cả khu vực</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.slug}>
-                {d.name} — {d.provinceName}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/*
+        Form thật với method GET, không phải div: khi JS chưa hydrate (hoặc hỏng), Enter
+        vẫn gửi được sang /tim-kiem. Không có gợi ý thì khách mất khả năng chọn quận
+        chính xác, nhưng vẫn còn danh sách khu vực dạng link tĩnh ở dưới trang.
+      */}
+      <form
+        ref={formRef}
+        action="/tim-kiem"
+        method="GET"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <label className="block">
+            <span className="mb-1 block text-label uppercase text-ink-500">Khu vực</span>
+            <AreaSearchBox onSelect={setArea} onClear={() => setArea(null)} />
+          </label>
 
-        <label className="block">
-          <span className="mb-1 block text-label uppercase text-ink-500">Dịch vụ</span>
-          <select
-            value={service}
-            onChange={(e) => setService(e.target.value)}
-            className={selectClass}
-          >
-            <option value="">Tất cả dịch vụ</option>
-            {services.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block">
+            <span className="mb-1 block text-label uppercase text-ink-500">Dịch vụ</span>
+            <select
+              name="service"
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+              className={selectClass}
+            >
+              <option value="">Tất cả dịch vụ</option>
+              {services.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={submit}
-            disabled={busy}
-            className="h-[46px] w-full rounded-md bg-brand-500 px-6 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60 sm:w-auto"
-          >
-            Tìm KTV
-          </button>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={busy}
+              className="h-[46px] w-full rounded-md bg-brand-500 px-6 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60 sm:w-auto"
+            >
+              Tìm KTV
+            </button>
+          </div>
         </div>
-      </div>
+      </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink-100 pt-3">
         <button

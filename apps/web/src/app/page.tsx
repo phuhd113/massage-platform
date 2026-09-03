@@ -30,7 +30,7 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-6 max-w-3xl">
-            <HeroSearch areas={areas} services={services} />
+            <HeroSearch services={services} />
           </div>
 
           {/* Ba tín hiệu tin cậy đặt ngay dưới ô tìm kiếm — đây là chỗ khách

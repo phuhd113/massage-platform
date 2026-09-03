@@ -145,6 +145,10 @@ public static class TestData
     /// tra quận đòi cặp (tỉnh, quận), nên một quận mồ côi không tra ra được bằng
     /// đường mà production dùng. Truyền <paramref name="parentId"/> để gắn vào tỉnh
     /// có sẵn; bỏ trống thì tự dựng một tỉnh mới.
+    ///
+    /// <paramref name="name"/> chỉ cần truyền khi chính cái tên là thứ đang kiểm (ô gợi ý
+    /// khớp theo tên, không theo slug) — tên mặc định là ngẫu nhiên để test song song
+    /// không thấy nhau.
     /// </summary>
     public static async Task<AdministrativeArea> CreateAreaAsync(
         AppDbContext db,
@@ -152,6 +156,7 @@ public static class TestData
         Guid? parentId = null,
         string? slug = null,
         string? code = null,
+        string? name = null,
         CancellationToken ct = default)
     {
         if (level != AreaLevels.Province && parentId is null)
@@ -164,7 +169,7 @@ public static class TestData
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var area = new AdministrativeArea
         {
-            Name = $"Khu vực {suffix}",
+            Name = name ?? $"Khu vực {suffix}",
             Slug = slug ?? $"khu-vuc-{suffix}",
             Level = level,
             ParentId = parentId,
