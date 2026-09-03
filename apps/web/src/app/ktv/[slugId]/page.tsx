@@ -57,6 +57,13 @@ export default async function KtvPage({ params }: Props) {
   const quận = profile.coverageAreas.find((a) => a.level === 'DISTRICT');
   const path = ktvPath(profile.slug, profile.id);
 
+  // Dịch vụ rẻ nhất làm mức "giá từ" cho khối liên hệ. Lấy min chứ không lấy phần
+  // tử đầu: thứ tự mảng do backend quyết định và không hứa hẹn gì về giá.
+  const cheapest =
+    profile.services.length > 0
+      ? profile.services.reduce((a, b) => (b.priceFrom < a.priceFrom ? b : a))
+      : null;
+
   return (
     <>
       <Breadcrumbs
@@ -72,176 +79,212 @@ export default async function KtvPage({ params }: Props) {
       {/* pb-24 chừa chỗ cho thanh hành động dính đáy trên mobile — thiếu nó,
           nội dung cuối trang (đánh giá) bị thanh che mất. */}
       <article className="pb-24 lg:pb-0">
-        <header className="rounded-xl border border-ink-200 bg-white p-5 shadow-card sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-4">
-              {/* Avatar chữ cái đầu trên nền gradient jade. Cố ý KHÔNG dùng ảnh
-                  stock khi KTV chưa upload: ảnh model vừa tạo kỳ vọng sai về
-                  người sẽ đến nhà, vừa kéo trang về phía cảm giác nhạy cảm mà
-                  cả định vị thương hiệu đang tránh. */}
-              <span
-                aria-hidden
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-300 to-brand-600 font-display text-2xl font-semibold text-white sm:h-20 sm:w-20"
-              >
-                {profile.fullName.trim().charAt(0).toUpperCase()}
+        <header className="flex flex-wrap items-start gap-5">
+          {/* Ô ảnh chân dung — placeholder cùng kiểu với thẻ listing. Backend chưa
+              có cột avatar; khi có thì thay ruột, bố cục quanh nó không đổi.
+              Cố ý KHÔNG dùng ảnh stock: ảnh model vừa tạo kỳ vọng sai về người sẽ
+              đến nhà, vừa kéo trang về phía cảm giác nhạy cảm mà định vị thương
+              hiệu đang tránh. */}
+          <span
+            aria-hidden
+            className="flex h-24 w-24 shrink-0 select-none items-center justify-center rounded-xl border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 sm:h-28 sm:w-28"
+          >
+            {profile.fullName.trim().split(/\s+/).at(-1)?.charAt(0).toUpperCase()}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <h1 className="text-display text-ink-900">{profile.fullName}</h1>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {profile.certifications.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
+                  <ShieldCheckIcon />
+                  {profile.certifications.length} chứng chỉ đã duyệt
+                </span>
+              )}
+
+              {profile.isOnline && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success-fg" />
+                  Đang nhận khách
+                </span>
+              )}
+
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-ink-50 px-2.5 py-1 text-caption font-medium text-ink-600">
+                nhận đi trong <span className="tabular">{profile.serviceRadiusKm}km</span>
               </span>
-
-              <div className="min-w-0">
-                <h1 className="text-h1 text-ink-900 sm:text-display">{profile.fullName}</h1>
-                <p className="mt-1.5 text-body text-ink-600">
-                  {profile.yearsExperience} năm kinh nghiệm · nhận đi trong bán kính{' '}
-                  {profile.serviceRadiusKm}km
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {profile.certifications.length > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
-                      <svg
-                        aria-hidden
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m9 12 2 2 4-4" />
-                        <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />
-                      </svg>
-                      Chứng chỉ đã duyệt
-                    </span>
-                  )}
-
-                  {profile.isOnline && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-brand-100 bg-brand-50 px-2.5 py-1 text-caption font-medium text-brand-700">
-                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success-fg" />
-                      Đang nhận khách
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
 
-            {profile.ratingCount > 0 && (
-              <div className="shrink-0 text-right">
-                <div className="tabular font-display text-h1 text-ink-900">
-                  ★ {profile.ratingAvg.toFixed(1)}
-                </div>
-                <div className="text-body-s text-ink-500">{profile.ratingCount} đánh giá</div>
-              </div>
-            )}
+            <p className="mt-3 text-body-l text-ink-600">
+              {profile.ratingCount > 0 ? (
+                <>
+                  <span aria-hidden>★</span>{' '}
+                  <span className="tabular font-semibold text-ink-900">
+                    {profile.ratingAvg.toFixed(1).replace('.', ',')}
+                  </span>{' '}
+                  · {profile.ratingCount} đánh giá ·{' '}
+                </>
+              ) : (
+                <>Hồ sơ mới · chưa có đánh giá · </>
+              )}
+              {profile.yearsExperience} năm kinh nghiệm
+            </p>
           </div>
-
-          {/* TrustStrip: bốn con số trả lời "người này có đáng tin không" ngay
-              trong khung nhìn đầu, trước khi khách phải cuộn. */}
-          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-ink-200 bg-ink-200 sm:grid-cols-4">
-            {[
-              { k: 'Chứng chỉ đã duyệt', v: String(profile.certifications.length) },
-              { k: 'Năm kinh nghiệm', v: String(profile.yearsExperience) },
-              { k: 'Khu vực nhận khách', v: String(profile.coverageAreas.length) },
-              {
-                k: 'Thành viên từ',
-                v: new Date(profile.createdAt).getFullYear().toString(),
-              },
-            ].map((s) => (
-              <div key={s.k} className="bg-white px-3 py-2.5">
-                <dt className="text-caption text-ink-500">{s.k}</dt>
-                <dd className="tabular mt-0.5 font-display text-h4 text-ink-900">{s.v}</dd>
-              </div>
-            ))}
-          </dl>
         </header>
 
-        <div className="mt-6">
-          <ContactButtons ktvId={profile.id} ktvName={profile.fullName} />
+        {/*
+          Hai cột từ lg: nội dung bên trái, khối liên hệ dính bên phải. Khối giá và
+          nút gọi phải theo khách xuống suốt trang — đó là hành động duy nhất trang
+          này tồn tại để dẫn tới, và bắt khách cuộn ngược lên tìm là mất lượt liên
+          hệ có thật.
+        */}
+        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className="min-w-0">
+            {profile.certifications.length > 0 && (
+              <section>
+                <h2 className="text-h2 text-ink-900">Chứng chỉ hành nghề đã duyệt</h2>
+                <ul className="mt-3 space-y-2">
+                  {profile.certifications.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-start justify-between gap-4 rounded-xl border border-ink-200 bg-white px-4 py-3.5 shadow-card"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-h4 text-ink-900">{c.name}</div>
+                        {(c.issuingOrg || c.issuedAt) && (
+                          <div className="mt-0.5 text-body-s text-ink-500">
+                            {c.issuingOrg}
+                            {c.issuingOrg && c.issuedAt && ' · '}
+                            {c.issuedAt && `cấp ${new Date(c.issuedAt).getFullYear()}`}
+                          </div>
+                        )}
+                      </div>
+
+                      {/*
+                        "Đã đối chiếu" chứ không phải "Đã xác minh": admin so bản
+                        gốc với tổ chức cấp, và nói quá mức việc mình làm là hứa
+                        với khách một sự bảo đảm sàn không đứng ra chịu.
+                      */}
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
+                        <ShieldCheckIcon />
+                        Đã đối chiếu
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {profile.bio && (
+              <section className="mt-8">
+                <h2 className="text-h2 text-ink-900">Giới thiệu</h2>
+                <p className="mt-2 max-w-prose whitespace-pre-line text-body-l text-ink-700">
+                  {profile.bio}
+                </p>
+              </section>
+            )}
+
+            {profile.services.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-h2 text-ink-900">Dịch vụ và bảng giá</h2>
+                <ul className="mt-3 divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card">
+                  {profile.services.map((s) => (
+                    <li
+                      key={s.serviceId}
+                      className="flex items-center justify-between gap-4 px-4 py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <Link
+                          href={`/dich-vu/${s.slug}`}
+                          className="text-h4 text-ink-900 transition hover:text-brand-600"
+                        >
+                          {s.name}
+                        </Link>
+                        <div className="mt-0.5 text-body-s text-ink-500">
+                          <span className="tabular">{s.durationMin}</span> phút
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="tabular text-h4 text-ink-900">{formatVnd(s.priceFrom)}</div>
+                        <div className="text-caption text-ink-500">giá từ</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {profile.coverageAreas.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-h2 text-ink-900">Khu vực nhận khách</h2>
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {profile.coverageAreas.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        href={a.provinceSlug ? areaPath(a.provinceSlug, a.slug) : areaPath(a.slug)}
+                        className="inline-block rounded-full border border-ink-200 bg-white px-3.5 py-2 text-body-s text-ink-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600"
+                      >
+                        {a.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="mt-8">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="text-h2 text-ink-900">Đánh giá của khách</h2>
+                {profile.ratingCount > 0 && (
+                  <p className="text-body-s text-ink-500">
+                    <span aria-hidden>★</span>{' '}
+                    <span className="tabular font-semibold text-ink-700">
+                      {profile.ratingAvg.toFixed(1).replace('.', ',')}
+                    </span>{' '}
+                    từ {profile.ratingCount} đánh giá
+                  </p>
+                )}
+              </div>
+
+              {reviews.items.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {reviews.items.map((r) => (
+                    <li
+                      key={r.id}
+                      className="rounded-xl border border-ink-200 bg-white px-4 py-3.5 shadow-card"
+                    >
+                      <div className="text-body-s">
+                        <span className="text-champagne-500" aria-hidden>
+                          {'★'.repeat(r.rating)}
+                        </span>
+                        <span className="text-ink-300" aria-hidden>
+                          {'★'.repeat(5 - r.rating)}
+                        </span>
+                        <span className="sr-only">{r.rating} trên 5 sao</span>
+                      </div>
+                      {r.comment && (
+                        <p className="mt-1.5 max-w-prose text-body text-ink-700">{r.comment}</p>
+                      )}
+                      <time className="mt-1.5 block text-caption text-ink-400" dateTime={r.createdAt}>
+                        {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-body text-ink-500">Chưa có đánh giá nào.</p>
+              )}
+            </section>
+          </div>
+
+          <aside className="lg:sticky lg:top-24">
+            <ContactButtons
+              ktvId={profile.id}
+              ktvName={profile.fullName}
+              cheapestService={cheapest}
+            />
+          </aside>
         </div>
-
-        {profile.bio && (
-          <section className="mt-8">
-            <h2 className="text-h2 text-ink-900">Giới thiệu</h2>
-            <p className="mt-2 max-w-prose whitespace-pre-line text-body-l text-ink-700">{profile.bio}</p>
-          </section>
-        )}
-
-        {profile.services.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-h2 text-ink-900">Dịch vụ và bảng giá</h2>
-            <ul className="mt-3 divide-y divide-ink-100 rounded-lg border border-ink-200 bg-white shadow-card">
-              {profile.services.map((s) => (
-                <li key={s.serviceId} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <Link href={`/dich-vu/${s.slug}`} className="font-medium hover:text-brand-600">
-                      {s.name}
-                    </Link>
-                    <div className="text-body-s text-ink-500">{s.durationMin} phút</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="tabular font-display font-semibold text-ink-900">{formatVnd(s.priceFrom)}</div>
-                    <div className="text-caption text-ink-500">giá từ</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {profile.certifications.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-h2 text-ink-900">Chứng chỉ hành nghề đã duyệt</h2>
-            <ul className="mt-3 space-y-2">
-              {profile.certifications.map((c) => (
-                <li key={c.id} className="rounded-md border border-ink-200 bg-white px-4 py-3 shadow-card">
-                  <div className="font-display text-h4 text-ink-900">{c.name}</div>
-                  {c.issuingOrg && <div className="mt-0.5 text-body-s text-ink-500">{c.issuingOrg}</div>}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {profile.coverageAreas.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-h2 text-ink-900">Khu vực nhận khách</h2>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {profile.coverageAreas.map((a) => (
-                <li key={a.id}>
-                  <Link
-                    href={
-                      a.provinceSlug ? areaPath(a.provinceSlug, a.slug) : areaPath(a.slug)
-                    }
-                    className="inline-block rounded-full border border-ink-200 bg-white px-3 py-1.5 text-body-s text-ink-700 shadow-card transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
-                  >
-                    {a.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <section className="mt-8">
-          <h2 className="text-h2 text-ink-900">Đánh giá của khách</h2>
-          {reviews.items.length > 0 ? (
-            <ul className="mt-3 space-y-3">
-              {reviews.items.map((r) => (
-                <li key={r.id} className="rounded-md border border-ink-200 bg-white px-4 py-3 shadow-card">
-                  <div className="text-sm font-medium">
-                    {'★'.repeat(r.rating)}
-                    <span className="text-ink-300">{'★'.repeat(5 - r.rating)}</span>
-                  </div>
-                  {r.comment && <p className="mt-1.5 max-w-prose text-body text-ink-700">{r.comment}</p>}
-                  <time className="mt-1.5 block text-caption text-ink-400" dateTime={r.createdAt}>
-                    {new Date(r.createdAt).toLocaleDateString('vi-VN')}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-body text-ink-500">Chưa có đánh giá nào.</p>
-          )}
-        </section>
       </article>
 
       <JsonLd
@@ -286,5 +329,25 @@ export default async function KtvPage({ params }: Props) {
         }}
       />
     </>
+  );
+}
+
+/** Khiên có dấu tích — chứng chỉ đã được đối chiếu với tổ chức cấp. */
+function ShieldCheckIcon() {
+  return (
+    <svg
+      aria-hidden
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 12 2 2 4-4" />
+      <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />
+    </svg>
   );
 }
