@@ -29,3 +29,6 @@ Thumbs.db
 .vs/
 .vscode/*
 !.vscode/extensions.json
+
+# Bản sao lưu do trình soạn thảo sinh ra, không phải thứ cần theo dõi lịch sử.
+*.bak
