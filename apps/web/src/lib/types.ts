@@ -15,6 +15,21 @@ export interface AreaDetail extends Omit<AreaNode, 'children'> {
   parent: AreaNode | null;
   children: AreaNode[];
   siblings: AreaNode[];
+  stats: AreaStats;
+}
+
+/**
+ * Số liệu tóm tắt của một khu vực — nội dung riêng cho phần đầu trang landing.
+ *
+ * Mọi trường đều nullable: khu vực chưa có KTV nào khai giá hay chưa ai đánh giá
+ * là trạng thái bình thường, không phải lỗi. Trang phải đọc được khi cả ba đều rỗng.
+ */
+export interface AreaStats {
+  priceFromMin: number | null;
+  priceFromMax: number | null;
+  ratingAvg: number | null;
+  ratingCount: number;
+  topServiceName: string | null;
 }
 
 /**
@@ -82,6 +97,20 @@ export interface ServiceItem {
   slug: string;
   description: string | null;
   sortOrder: number;
+  /** Giá thấp nhất đang có trên sàn. null khi chưa KTV nào khai giá cho dịch vụ này. */
+  priceFrom: number | null;
+}
+
+/**
+ * Số liệu toàn sàn cho đầu trang chủ.
+ *
+ * ratingAvg null khi chưa có đánh giá nào — sàn mới mở là trạng thái bình thường,
+ * không phải lỗi.
+ */
+export interface SiteStats {
+  verifiedKtvCount: number;
+  ratingAvg: number | null;
+  ratingCount: number;
 }
 
 export interface KtvServiceItem {
@@ -138,6 +167,31 @@ export interface Sitemap {
   minKtvForIndex: number;
 }
 
+/**
+ * Số liệu 7 ngày cho dashboard KTV.
+ *
+ * Hai trường phần trăm nullable và phải được xử lý: tuần đầu của mọi KTV đều chưa
+ * có tuần trước để so, và hồ sơ chưa ai xem thì không có mẫu số cho tỉ lệ liên hệ.
+ */
+export interface KtvStats {
+  profileViews: number;
+  /** null khi tuần trước bằng 0 — không có phần trăm nào đúng ở đó. */
+  profileViewsChangePct: number | null;
+  leads: number;
+  /** null khi chưa có lượt xem nào. */
+  leadRatePct: number | null;
+  /**
+   * Số lần hồ sơ xuất hiện trong kết quả tìm kiếm. Bậc đầu của phễu và là thứ gói
+   * đẩy tin trực tiếp mua — thiếu nó thì KTV chỉ thấy "ít khách" mà không biết mình
+   * không được hiện ra, hay được hiện ra mà không ai bấm.
+   */
+  impressions: number;
+  /** null khi tuần trước bằng 0. */
+  impressionsChangePct: number | null;
+  /** Trong số lần hiện ra, bao nhiêu phần trăm dẫn tới mở hồ sơ. null khi chưa hiện ra lần nào. */
+  clickRatePct: number | null;
+}
+
 export interface WalletBalance {
   balance: number;
   /** Đang bị giữ cho lần mua chưa chốt — nằm trong `balance`, không cộng thêm. */
@@ -171,6 +225,14 @@ export interface PromotionPackage {
   type: PackageType;
   price: number;
   durationDays: number;
+  /**
+   * Chỉ có ở gói bán theo **khung giờ** (Instant Boost); gói theo ngày để null.
+   * Phải hiển thị theo đúng đơn vị của gói: một gói 3 giờ mà ghi "1 ngày" là bán
+   * sai thứ khách trả tiền — DB ép bất biến này bằng CHECK chk_package_duration_unit.
+   */
+  durationHours: number | null;
+  /** Khung giờ gói bắt đầu chạy. Chỉ có nghĩa với gói theo giờ. */
+  startsAt: string | null;
   maxSlotsPerArea: number;
   boostPoints: number;
   /**

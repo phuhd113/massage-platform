@@ -18,6 +18,15 @@ public class PostgresFixture : IAsyncLifetime
 
     private NpgsqlDataSource _dataSource = null!;
 
+    /// <summary>
+    /// Data source dùng chung cho cả test và ứng dụng dựng trong <c>ApiFactory</c>.
+    ///
+    /// Phải là **một** instance: Npgsql tra data source theo chuỗi kết nối trong cache
+    /// dùng chung cả process, nên hai bản cho cùng chuỗi sẽ tranh nhau chỗ đó và bản nào
+    /// thiếu plugin NetTopologySuite thắng thì mọi lệnh ghi Point đều hỏng.
+    /// </summary>
+    public NpgsqlDataSource DataSource => _dataSource;
+
     public string ConnectionString { get; private set; } = null!;
 
     private static string AdminConnectionString =>

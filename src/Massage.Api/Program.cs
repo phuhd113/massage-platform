@@ -27,6 +27,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,10 +46,26 @@ if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
         "Jwt:Secret phải được cấu hình và dài tối thiểu 32 ký tự.");
 }
 
+// Data source dựng tường minh, **một lần**, có plugin NetTopologySuite.
+//
+// Không truyền chuỗi kết nối thẳng vào `UseNpgsql`: khi làm vậy Npgsql tự dựng data
+// source và tra nó trong một cache dùng chung cả process, khoá theo chuỗi kết nối —
+// nên bản nào mở kết nối trước sẽ chiếm chỗ. Nếu bản đó thiếu plugin NTS thì mọi thứ
+// dựng sau nhận lại bản thiếu, và cột `geography` không đọc thành `Point` được nữa:
+// `/ktv/profile/me` trả 500 trong khi `/search` (raw SQL, tự đọc lat/lon thành double)
+// vẫn 200 — hỏng một nửa, rất khó lần ra.
+//
+// Đã xảy ra thật khi AnalyticsWriter (BackgroundService, mở kết nối riêng để COPY) chạy
+// trước request đầu tiên. Cùng cái bẫy mà PostgresFixture đã ghi chú ở tầng test.
+var dataSourceBuilder =
+    new NpgsqlDataSourceBuilder(builder.Configuration.GetConnectionString("Default"));
+// UseNetTopologySuite trả về type mapper chứ không phải builder, nên không nối chuỗi được.
+dataSourceBuilder.UseNetTopologySuite();
+var dataSource = dataSourceBuilder.Build();
+
+builder.Services.AddSingleton(dataSource);
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(
-        builder.Configuration.GetConnectionString("Default"),
-        npgsql => npgsql.UseNetTopologySuite()));
+    opt.UseNpgsql(dataSource, npgsql => npgsql.UseNetTopologySuite()));
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

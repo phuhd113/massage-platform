@@ -7,8 +7,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Massage.Api.Tests;
 
@@ -25,7 +27,8 @@ namespace Massage.Api.Tests;
 /// collection: fixture đó xoá và tạo lại database mỗi lần chạy, và xUnit chạy
 /// các collection khác nhau song song.
 /// </summary>
-public class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = null)
+    : WebApplicationFactory<Program>
 {
     protected override IHost CreateHost(IHostBuilder builder)
     {
@@ -49,6 +52,25 @@ public class ApiFactory(string connectionString) : WebApplicationFactory<Program
         builder.UseEnvironment("Testing");
 
         builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(Errors)));
+
+        // Dùng chung data source với PostgresFixture thay vì để app tự dựng bản riêng.
+        //
+        // Npgsql tra data source theo chuỗi kết nối trong một cache dùng chung cả
+        // process. Hai bản cho cùng chuỗi sẽ tranh nhau chỗ đó, và nếu bản thắng thiếu
+        // plugin NetTopologySuite thì mọi lệnh ghi Point hỏng — test upload chứng chỉ
+        // và mua gói đỏ với 500, trong khi /health vẫn OK vì nó không chạm geography.
+        //
+        // Đã cắn đúng lỗi này khi Program.cs chuyển sang dựng data source tường minh.
+        if (dataSource is not null)
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<DbContextOptions<AppDbContext>>();
+                services.RemoveAll<AppDbContext>();
+                services.AddDbContext<AppDbContext>(opt =>
+                    opt.UseNpgsql(dataSource, npgsql => npgsql.UseNetTopologySuite()));
+            });
+        }
 
         return base.CreateHost(builder);
     }

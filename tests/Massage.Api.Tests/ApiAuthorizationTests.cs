@@ -21,7 +21,7 @@ public class ApiAuthorizationTests(PostgresFixture fixture) : IAsyncLifetime
 
     public Task InitializeAsync()
     {
-        _api = new ApiFactory(fixture.ConnectionString);
+        _api = new ApiFactory(fixture.ConnectionString, fixture.DataSource);
         return Task.CompletedTask;
     }
 

@@ -1,7 +1,5 @@
 using System.Threading.Channels;
-using Massage.Api.Data;
 using Massage.Api.Modules.Analytics.Entities;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -43,7 +41,7 @@ public interface IAnalyticsQueue
 ///    500 INSERT là 500 vòng, và ở đúng bảng ghi nhiều nhất hệ thống.
 /// </summary>
 public class AnalyticsWriter(
-    IServiceScopeFactory scopes,
+    NpgsqlDataSource dataSource,
     ILogger<AnalyticsWriter> logger) : BackgroundService, IAnalyticsQueue
 {
     /// <summary>
@@ -150,11 +148,11 @@ public class AnalyticsWriter(
 
     private async Task WriteBatchAsync(List<AnalyticsEvent> batch, CancellationToken ct)
     {
-        using var scope = scopes.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        var conn = (NpgsqlConnection)db.Database.GetDbConnection();
-        if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync(ct);
+        // Mở kết nối riêng từ data source dùng chung, không mượn connection của DbContext:
+        // COPY chiếm trọn kết nối trong suốt thời gian ghi, nên dùng chung với một context
+        // đang phục vụ request là tự tạo tranh chấp. Data source lấy từ DI (đã có plugin
+        // NetTopologySuite) chứ không tự dựng từ chuỗi kết nối — xem ghi chú ở Program.cs.
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
 
         // COPY ghi thẳng vào bảng cha; Postgres tự định tuyến từng hàng về đúng partition
         // theo created_at. Không tự chọn tên partition ở tầng ứng dụng — làm vậy là chép
