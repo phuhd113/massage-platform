@@ -25,7 +25,7 @@ namespace Massage.Api.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Massage.Api.Modules.Analytics.Entities.ProfileView", b =>
+            modelBuilder.Entity("Massage.Api.Modules.Analytics.Entities.AnalyticsEvent", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -39,21 +39,35 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<Guid?>("AreaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("area_id");
+
                     b.Property<Guid>("KtvId")
                         .HasColumnType("uuid")
                         .HasColumnName("ktv_id");
+
+                    b.Property<int?>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
 
                     b.Property<string>("ViewerHash")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("viewer_hash");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id", "CreatedAt");
 
-                    b.HasIndex("KtvId", "CreatedAt")
-                        .HasDatabaseName("idx_profile_view_ktv_time");
+                    b.HasIndex("KtvId", "Type", "CreatedAt")
+                        .HasDatabaseName("idx_analytics_ktv_type_time");
 
-                    b.ToTable("profile_views", (string)null);
+                    b.ToTable("analytics_events", (string)null);
                 });
 
             modelBuilder.Entity("Massage.Api.Modules.Auth.Entities.OtpCode", b =>
@@ -1062,15 +1076,6 @@ namespace Massage.Api.Data.Migrations
                         .HasDatabaseName("idx_wallet_txn_wallet");
 
                     b.ToTable("wallet_transactions", (string)null);
-                });
-
-            modelBuilder.Entity("Massage.Api.Modules.Analytics.Entities.ProfileView", b =>
-                {
-                    b.HasOne("Massage.Api.Modules.KtvProfiles.Entities.KtvProfile", null)
-                        .WithMany()
-                        .HasForeignKey("KtvId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Massage.Api.Modules.KtvProfiles.Entities.AdministrativeArea", b =>

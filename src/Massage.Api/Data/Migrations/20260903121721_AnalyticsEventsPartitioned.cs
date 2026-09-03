@@ -31,7 +31,7 @@ namespace Massage.Api.Data.Migrations
     ///    partition, kể cả partition tạo sau. Khai riêng ở từng partition là tự nhận việc
     ///    giữ chúng khớp nhau.
     /// </summary>
-    public partial class ProfileViews : Migration
+    public partial class AnalyticsEventsPartitioned : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
