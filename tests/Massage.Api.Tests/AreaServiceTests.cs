@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Massage.Api.Common;
 using Massage.Api.Modules.Areas;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -475,5 +476,172 @@ public class AreaServiceTests(PostgresFixture fixture)
 
         củaA.Select(w => w.Id).Should().Contain(phườngA.Id);
         củaA.Select(w => w.Id).Should().NotContain(phườngB.Id);
+    }
+
+    [Fact]
+    public async Task Số_liệu_khu_vực_chỉ_tính_trên_KTV_đã_duyệt()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        var duyệt = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 4.60m, ratingCount: 10);
+        var chưaDuyệt = await TestData.CreateKtvAsync(
+            db, lat, lon, status: VerificationStatuses.Pending, ratingAvg: 1.00m, ratingCount: 500);
+        await TestData.CoverAsync(db, duyệt.Id, quận.Id);
+        await TestData.CoverAsync(db, chưaDuyệt.Id, quận.Id);
+
+        var dv = await TestData.CreateServiceAsync(db);
+        await TestData.LinkServiceAsync(db, duyệt.Id, dv.Id, priceFrom: 300_000m);
+        // Hồ sơ chưa duyệt khai giá rẻ hơn hẳn — nếu lọt vào thống kê, trang khu vực
+        // quảng cáo một mức giá không ai gọi được.
+        await TestData.LinkServiceAsync(db, chưaDuyệt.Id, dv.Id, priceFrom: 50_000m);
+
+        var stats = (await Service().GetDistrictAsync(tỉnh.Slug, quận.Slug)).Stats;
+
+        stats.PriceFromMin.Should().Be(300_000m, "giá phải lấy từ hồ sơ khách gọi được");
+        stats.RatingAvg.Should().Be(4.6m);
+        stats.RatingCount.Should().Be(10, "500 đánh giá của hồ sơ chưa duyệt không được tính");
+    }
+
+    [Fact]
+    public async Task Số_liệu_trang_tỉnh_gộp_từ_các_quận_trực_thuộc()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 4.80m, ratingCount: 20);
+        await TestData.CoverAsync(db, ktv.Id, quận.Id);
+        var dv = await TestData.CreateServiceAsync(db);
+        await TestData.LinkServiceAsync(db, ktv.Id, dv.Id, priceFrom: 420_000m);
+
+        // KTV khai coverage ở mức quận, nên lọc thẳng theo id tỉnh luôn rỗng — trang
+        // tỉnh phải gộp từ các quận, giống như cách KtvCount đã làm.
+        var stats = (await Service().GetProvinceAsync(tỉnh.Slug)).Stats;
+
+        stats.PriceFromMin.Should().Be(420_000m);
+        stats.RatingAvg.Should().Be(4.8m);
+        stats.TopServiceName.Should().Be(dv.Name);
+    }
+
+    [Fact]
+    public async Task Khu_vực_chưa_có_dữ_liệu_trả_số_liệu_rỗng_chứ_không_lỗi()
+    {
+        await using var db = fixture.CreateContext();
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        var stats = (await Service().GetDistrictAsync(tỉnh.Slug, quận.Slug)).Stats;
+
+        // Khu vực trắng là trạng thái bình thường của một sàn đang lớn. Frontend bỏ
+        // hẳn ô nào rỗng, nên null ở đây là hợp đồng chứ không phải thiếu sót.
+        stats.PriceFromMin.Should().BeNull();
+        stats.RatingAvg.Should().BeNull();
+        stats.RatingCount.Should().Be(0);
+        stats.TopServiceName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Toạ_độ_GPS_dò_ra_quận_gần_nhất_kèm_đủ_vế_tỉnh()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var gần = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        var xa = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        await TestData.SetCentroidAsync(db, gần.Id, TestData.LatOffsetKm(lat, 2), lon);
+        await TestData.SetCentroidAsync(db, xa.Id, TestData.LatOffsetKm(lat, 25), lon);
+
+        var kết = await Service().ResolveAsync(lat, lon);
+
+        kết.Should().NotBeNull();
+        kết!.Id.Should().Be(gần.Id);
+
+        // Vế tỉnh là thứ khiến kết quả này dùng được: `areaSlug` đứng một mình bị backend
+        // hiểu là slug **tỉnh**, và mười tỉnh cùng có "Huyện Châu Thành". Thiếu nó thì ô
+        // khu vực điền xong nhưng bấm tìm lại ra kết quả của một tỉnh nào khác.
+        kết.ProvinceSlug.Should().Be(tỉnh.Slug);
+        kết.ParentPath.Should().Be(tỉnh.Name);
+    }
+
+    [Fact]
+    public async Task Toạ_độ_ngoài_mọi_khu_vực_trả_null_chứ_không_đoán_bừa()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        await TestData.SetCentroidAsync(db, quận.Id, lat, lon);
+
+        // Xa hơn ngưỡng 60km rất nhiều: khách ở nước ngoài, hoặc GPS trôi ra giữa biển.
+        // Trả về quận gần nhất bất kể xa bao nhiêu sẽ cho ra một cái tên nghe rất thuyết
+        // phục mà sai hoàn toàn — tệ hơn hẳn một ô để trống.
+        var kết = await Service().ResolveAsync(TestData.LatOffsetKm(lat, 500), lon);
+
+        kết.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Dò_ngược_chỉ_trả_về_cấp_quận_dù_tỉnh_có_tâm_gần_hơn()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        // Tỉnh đặt ngay tại chỗ khách đứng, quận cách 10km — nếu truy vấn không lọc cấp
+        // thì tỉnh thắng. Trả về tỉnh nghĩa là gán một khu vực rộng hàng trăm km cho một
+        // câu hỏi "tôi đang ở quận nào", và ô khu vực sẽ tìm ra kết quả của cả tỉnh.
+        await TestData.SetCentroidAsync(db, tỉnh.Id, lat, lon);
+        await TestData.SetCentroidAsync(db, quận.Id, TestData.LatOffsetKm(lat, 10), lon);
+
+        var kết = await Service().ResolveAsync(lat, lon);
+
+        kết.Should().NotBeNull();
+        kết!.Level.Should().Be(AreaLevels.District);
+        kết.Id.Should().Be(quận.Id);
+    }
+
+    [Fact]
+    public async Task Khu_vực_chưa_có_toạ_độ_tâm_không_bao_giờ_được_dò_ra()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var khôngTâm = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        var cóTâm = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+
+        // Hai huyện đảo cố ý không có tâm, và mọi phường/xã cũng vậy. Chúng phải vô hình
+        // với việc dò ngược chứ không được rơi vào một nhánh xử lý nào khác.
+        await TestData.SetCentroidAsync(db, cóTâm.Id, TestData.LatOffsetKm(lat, 30), lon);
+
+        var kết = await Service().ResolveAsync(lat, lon);
+
+        kết.Should().NotBeNull();
+        kết!.Id.Should().Be(cóTâm.Id, "khu vực không có tâm phải bị bỏ qua hoàn toàn");
+        kết.Id.Should().NotBe(khôngTâm.Id);
+    }
+
+    [Theory]
+    [InlineData(91, 0)]
+    [InlineData(-91, 0)]
+    [InlineData(0, 181)]
+    [InlineData(double.NaN, 0)]
+    public async Task Toạ_độ_không_hợp_lệ_bị_từ_chối_ở_biên(double lat, double lon)
+    {
+        // Bắt ở biên thay vì để PostGIS tự xử: ST_MakePoint nhận mọi số và cho ra một
+        // điểm hợp lệ về mặt hình học, nên toạ độ rác sẽ lặng lẽ trả về null như thể
+        // khách đang ở ngoài lãnh thổ — che mất lỗi thật của phía gọi.
+        var lỗi = async () => await Service().ResolveAsync(lat, lon);
+
+        await lỗi.Should().ThrowAsync<BadRequestException>();
     }
 }

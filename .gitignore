@@ -32,3 +32,9 @@ Thumbs.db
 
 # Bản sao lưu do trình soạn thảo sinh ra, không phải thứ cần theo dõi lịch sử.
 *.bak
+
+# Dữ liệu nguồn tải về của tools/area-dataset — tái tạo bằng curl theo README,
+# không commit (vn-raw ~2MB, GADM ~2,4MB, và cả hai đều là bản chụp của bên thứ ba).
+tools/area-dataset/vn-raw.json
+tools/area-dataset/gadm41_VNM_2.json
+tools/area-dataset/*.zip

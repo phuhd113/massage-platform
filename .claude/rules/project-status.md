@@ -99,6 +99,33 @@ trong skill `ranking-algo-change`.
   buộc Postgres đếm cho **mọi** dòng khớp — "xa" khớp 7.777 khu vực, 57ms và tăng theo số hồ sơ chứ
   không theo số khu vực. Cái giá là `ktv_count` không tham gia xếp hạng, đã cân nhắc và chấp nhận.
 
+**"Tìm quanh tôi" tự điền khu vực đang đứng** (2026-09-04, `GET /areas/resolve`). Cột
+`administrative_areas.centroid` (geography, index GiST partial) giữ tâm 63 tỉnh và 694/696
+quận, seed từ polygon GADM 4.1 qua `tools/area-dataset/centroids.js`. Năm điều đừng đảo ngược:
+
+- **Đây là "gần tâm nhất", KHÔNG phải "nằm trong ranh giới".** Bảng chỉ có centroid nên quận
+  trả về có thể sai ở rìa những huyện dài hoặc lõm. Chấp nhận được vì nó chỉ là **cái nhãn**:
+  kết quả tìm kiếm vẫn lọc theo bán kính quanh toạ độ thật, `resolve` không đụng vào đó. Hệ quả
+  bắt buộc nhớ: **đừng dùng nó để quyết định KTV nào được boost ở khu vực nào** — giới hạn "tìm
+  theo toạ độ thì mọi gói đang chạy đều được tính" vẫn còn nguyên, và gỡ nó cần polygon thật
+  chứ không phải điểm gần nhất.
+- **Trả đúng hình dạng của `/areas/suggest`.** Frontend dùng chung `lib/area-search.ts` để dựng
+  URL; một DTO thứ hai mang cùng thông tin sẽ đẻ ra đường dựng URL thứ hai — đúng chỗ cặp
+  `areaSlug`/`provinceSlug` từng bị gửi thiếu vế.
+- **Chỉ trả cấp DISTRICT, và chỉ trong bán kính 60km.** Rơi về tỉnh khi không quận nào đủ gần
+  là gán một khu vực rộng hàng trăm km cho câu hỏi "tôi đang ở quận nào"; bỏ ngưỡng thì khách
+  ở nước ngoài nhận một tên quận nghe rất thuyết phục. Không dò ra thì **204, không phải 404** —
+  GPS trôi ra biển là trạng thái bình thường, và 404 sẽ hiện thành báo đỏ cho một tiện ích phụ.
+- **Nhãn dò được phải biến mất khi rời chế độ toạ độ.** `SearchFilters` xoá nó ngay khi URL
+  không còn `lat` — giữ lại nghĩa là ô hiện tên quận khách đang đứng trong khi kết quả là của
+  quận họ vừa chọn tay. Sai rất khó thấy vì cả hai đều là tên quận thật.
+- **Việc dò theo dõi toạ độ trong URL, không nằm trong hàm bấm nút.** Trang có ba lối vào cùng
+  mang `lat`/`lon`: bấm nút tại chỗ, đến từ trang chủ, và mở lại link đã lưu. Đặt trong handler
+  chỉ đúng lối đầu.
+
+Hai huyện đảo Hoàng Sa/Trường Sa **cố ý không có tâm** (GADM không có polygon), và phường/xã
+cũng không cần — partial index chỉ phủ dòng có tâm nên hàng nghìn NULL không phình cây.
+
 **Dashboard KTV và trang chủ dựng lại theo artboard** (2026-09-03). Bốn điều đừng vô tình đảo ngược:
 
 - **Route group `(public)` tách khung trang bán hàng khỏi dashboard.** Dashboard có sidebar riêng

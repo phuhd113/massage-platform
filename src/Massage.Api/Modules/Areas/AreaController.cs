@@ -41,6 +41,24 @@ public class AreaController(AreaService service) : ControllerBase
         [FromQuery] string? q, [FromQuery] int? limit, CancellationToken ct) =>
         Ok(await service.SuggestAsync(q, limit, ct));
 
+    /// <summary>
+    /// Tra ngược toạ độ GPS ra quận/huyện gần nhất, cho nút "Tìm quanh tôi" điền sẵn
+    /// ô khu vực thay vì để nó trống trong khi kết quả đã lọc theo vị trí.
+    ///
+    /// Trả về <c>null</c> (200, thân rỗng) khi không quận nào đủ gần — khách ở ngoài
+    /// lãnh thổ hoặc GPS trôi ra biển là trạng thái bình thường, không phải lỗi, và
+    /// 404 ở đây sẽ hiện thành thông báo đỏ cho một tiện ích phụ trợ.
+    ///
+    /// Trả đúng hình dạng của một dòng gợi ý (<see cref="Suggest"/>) để frontend dùng
+    /// lại nguyên đường dựng URL đã có, thay vì mọc thêm một đường thứ hai.
+    ///
+    /// Đặt <b>trước</b> route <c>{provinceSlug}</c>, cùng lý do với "suggest".
+    /// </summary>
+    [HttpGet("resolve")]
+    public async Task<IActionResult> Resolve(
+        [FromQuery] double lat, [FromQuery] double lon, CancellationToken ct) =>
+        Ok(await service.ResolveAsync(lat, lon, ct));
+
     /// <summary>Một tỉnh/thành kèm danh sách quận trực thuộc.</summary>
     [HttpGet("{provinceSlug}")]
     public async Task<IActionResult> Province(string provinceSlug, CancellationToken ct) =>

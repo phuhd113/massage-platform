@@ -12,6 +12,10 @@ export function TopUpForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ô nhập tay chỉ hiện khi khách chọn "Số khác". Bốn mức có sẵn phủ gần hết nhu
+  // cầu thật, nên bày sẵn một ô số trống bên cạnh chúng chỉ làm khối này rối hơn.
+  const [custom, setCustom] = useState(false);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
@@ -46,52 +50,87 @@ export function TopUpForm() {
   const valid = amount >= MIN && amount <= MAX && Number.isInteger(amount);
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-4">
-      <div className="flex flex-wrap gap-2">
-        {PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            onClick={() => setAmount(preset)}
-            className={`rounded-full border px-4 py-1.5 text-sm ${
-              amount === preset
-                ? 'border-brand-500 bg-brand-50 text-brand-700'
-                : 'border-ink-300 text-ink-700 hover:border-brand-500'
-            }`}
-          >
-            {formatVnd(preset)}
-          </button>
-        ))}
+    <form onSubmit={submit} className="rounded-xl border border-ink-200 bg-white p-5">
+      <h2 className="font-display text-h3 text-ink-900">Nạp tiền</h2>
+
+      <div className="mt-3.5 flex flex-wrap gap-2">
+        {PRESETS.map((preset) => {
+          const selected = !custom && amount === preset;
+          return (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => {
+                setCustom(false);
+                setAmount(preset);
+              }}
+              className={`tabular rounded-md font-mono text-body transition ${
+                selected
+                  ? // Viền 2px khi chọn, bù lại bằng padding nhỏ hơn 1px để chip
+                    // không nhảy kích thước giữa hai trạng thái.
+                    'border-2 border-brand-500 bg-brand-100 px-[15px] py-2 font-medium text-brand-600'
+                  : 'border border-ink-200 bg-white px-4 py-[9px] text-ink-700 hover:border-brand-500'
+              }`}
+            >
+              {formatVnd(preset)}
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          aria-pressed={custom}
+          onClick={() => setCustom(true)}
+          className={`rounded-md border border-dashed px-4 py-[9px] text-body transition ${
+            custom
+              ? 'border-brand-500 bg-brand-50 text-brand-600'
+              : 'border-ink-200 bg-white text-ink-600 hover:border-brand-500'
+          }`}
+        >
+          Số khác
+        </button>
       </div>
 
-      <label className="mt-4 block text-sm">
-        <span className="text-ink-700">Hoặc nhập số tiền (VND)</span>
-        <input
-          type="number"
-          min={MIN}
-          max={MAX}
-          step={1000}
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          className="mt-1 w-full max-w-xs rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
-        />
-      </label>
+      {custom && (
+        <label className="mt-3.5 block">
+          <span className="text-body text-ink-700">Số tiền muốn nạp (VND)</span>
+          <input
+            type="number"
+            min={MIN}
+            max={MAX}
+            step={1000}
+            autoFocus
+            value={amount}
+            onChange={(e) => setAmount(Number(e.target.value))}
+            className="tabular mt-1 w-full max-w-xs rounded-md border border-ink-200 bg-white px-3 py-2 font-mono transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          />
+          <span className="mt-1.5 block text-caption text-ink-500">
+            Từ {formatVnd(MIN)} đến {formatVnd(MAX)}.
+          </span>
+        </label>
+      )}
 
-      <p className="mt-2 text-xs text-ink-500">
-        Từ {formatVnd(MIN)} đến {formatVnd(MAX)}. Tiền vào ví sau khi cổng thanh toán xác nhận, có
-        thể chậm vài giây so với lúc bạn thanh toán xong.
-      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3.5 border-t border-ink-100 pt-4">
+        <button
+          type="submit"
+          disabled={pending || !valid}
+          className="shrink-0 rounded-md bg-brand-500 px-6 py-3 text-body-l font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
+        >
+          {pending ? 'Đang mở cổng thanh toán…' : `Nạp ${formatVnd(amount)}`}
+        </button>
 
-      <button
-        type="submit"
-        disabled={pending || !valid}
-        className="mt-4 rounded-md bg-brand-500 px-5 py-2.5 font-medium text-white hover:bg-brand-600 disabled:opacity-60"
-      >
-        {pending ? 'Đang mở cổng thanh toán…' : `Nạp ${formatVnd(amount)}`}
-      </button>
+        {/*
+          Nói rõ tiền vào ví theo IPN chứ không theo lúc trình duyệt quay lại: KTV
+          nạp xong thấy số dư chưa đổi sẽ nạp lại lần nữa nếu không được báo trước.
+        */}
+        <span className="text-body text-ink-600">
+          Tiền vào ví sau khi cổng thanh toán xác nhận — thường trong vài giây.
+        </span>
+      </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-sm text-danger-fg">
+        <p role="alert" className="mt-3 text-body text-danger-fg">
           {error}
         </p>
       )}

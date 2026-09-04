@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   });
 
   const data = (await res.json().catch(() => null)) as
-    | { debugCode?: string; title?: string }
+    | { debugCode?: string; expiresAt?: string; title?: string }
     | null;
 
   if (!res.ok) {
@@ -36,5 +36,12 @@ export async function POST(request: Request) {
   // debugCode chỉ tồn tại khi OTP đang ở chế độ stub. Chuyển tiếp nguyên trạng để
   // môi trường dev khỏi phải mở log server; production tắt stub thì trường này
   // không có và màn hình đăng nhập tự bỏ phần hiển thị.
-  return NextResponse.json({ ok: true, debugCode: data?.debugCode });
+  // expiresAt để màn hình đếm ngược theo **hạn thật của server**, không phải một
+  // con số đếm lùi tự đặt ở client: đếm sai thì hoặc mời khách gửi lại khi backend
+  // còn từ chối, hoặc bắt họ chờ thêm khi mã đã hết hạn từ lâu.
+  return NextResponse.json({
+    ok: true,
+    debugCode: data?.debugCode,
+    expiresAt: data?.expiresAt,
+  });
 }

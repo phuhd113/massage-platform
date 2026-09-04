@@ -4,6 +4,8 @@ using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.ServiceCatalog.Entities;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace Massage.Api.Tests;
 
@@ -199,6 +201,26 @@ public static class TestData
         AppDbContext db, Guid areaId, string note, CancellationToken ct = default) =>
         await db.AdministrativeAreas.Where(a => a.Id == areaId)
             .ExecuteUpdateAsync(u => u.SetProperty(a => a.EditorialNote, note), ct);
+
+    /// <summary>
+    /// Đặt toạ độ tâm cho một khu vực — thứ mà <c>AreaService.ResolveAsync</c> dò ngược
+    /// từ vị trí GPS của khách. Dữ liệu thật do <c>seed-areas</c> nạp; test tự đặt để
+    /// không phụ thuộc vào việc DB test đã seed toàn quốc hay chưa.
+    /// </summary>
+    public static async Task SetCentroidAsync(
+        AppDbContext db, Guid areaId, double lat, double lon, CancellationToken ct = default) =>
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE administrative_areas
+               SET centroid = ST_SetSRID(ST_MakePoint(@lon, @lat), 4326)::geography
+             WHERE id = @id
+            """,
+            [
+                new NpgsqlParameter("lon", NpgsqlDbType.Double) { Value = lon },
+                new NpgsqlParameter("lat", NpgsqlDbType.Double) { Value = lat },
+                new NpgsqlParameter("id", NpgsqlDbType.Uuid) { Value = areaId },
+            ],
+            ct);
 
     public static async Task CoverAsync(
         AppDbContext db, Guid ktvId, Guid areaId, CancellationToken ct = default)

@@ -13,6 +13,34 @@ node generate.js          # ghi ../../src/Massage.Api/Data/SeedData/vietnam-area
 `uq_area_parent_slug`, `uq_area_level_code`) và **thoát khác 0 nếu vi phạm** — bắt ở
 đây thì thấy tên khu vực cụ thể, bắt lúc seed chỉ thấy mã lỗi 23505.
 
+## Toạ độ tâm khu vực
+
+`vietnam-area-centroids.json` sinh riêng, từ **nguồn khác**: `provinces.open-api.vn`
+không có hình học, nên centroid lấy từ polygon cấp 2 của GADM 4.1.
+
+```bash
+curl -sL "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_VNM_2.json.zip" -o gadm2.zip
+unzip -o gadm2.zip && node centroids.js
+```
+
+GADM cũng theo **cơ cấu trước sáp nhập** — đúng cơ cấu mà file danh mục cố ý giữ.
+Nhưng nó **không mang mã GSO** (`CC_2` toàn `"NA"`), nên khớp phải dựa vào tên: GADM
+viết dính liền không dấu cách (`"AnPhú"`) và bỏ tiền tố loại đơn vị. Chuỗi khớp vì vậy
+bỏ hết dấu gạch và thử cả bản có/không tiền tố — được 685/696 quận.
+
+11 quận còn lại nằm trong `DISTRICT_OVERRIDE`, **mỗi dòng có lý do riêng** và phần lớn
+là chênh lệch thời điểm chụp thật (GADM chụp 2022): Nghi Sơn/Phú Mỹ là huyện cũ vừa
+lên thị xã, Quảng Hoà và Long Đất là hai huyện nhập lại, Chũ mới tách năm 2024, Huế
+tách làm hai quận năm 2025. Hai huyện đảo Hoàng Sa và Trường Sa **cố ý để NULL**: GADM
+không có polygon cho chúng, và toạ độ đoán sẽ hút mọi khách ven biển miền Trung về một
+huyện không có KTV nào.
+
+Script **thoát khác 0** khi có quận không khớp hoặc khi toạ độ rơi ra ngoài khung
+102–110°E / 8–24°N. Vế thứ hai canh đúng một lỗi: đảo `lon`/`lat` cho ra điểm giữa Ấn
+Độ Dương mà vẫn là số hợp lệ, và cột này chỉ máy đọc nên sẽ không ai nhìn thấy.
+
+**Nếu đổi nguồn hoặc đổi cách khớp, kiểm lại hai con số 694/696 và 63 tỉnh trước.**
+
 ## Đã đối chiếu chéo (2026-09-03)
 
 `kenzouno1/DiaGioiHanhChinhVN` là nguồn độc lập thứ hai: **63 tỉnh và toàn bộ 696 mã

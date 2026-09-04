@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
+import { NearMeIcon, SearchIcon } from '@/components/icons';
 import { areaScopeParams } from '@/lib/area-search';
 import type { AreaSuggestion, ServiceItem } from '@/lib/types';
 
@@ -70,11 +71,18 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
   }
 
   const busy = pending || locating;
-  const selectClass =
-    'w-full rounded-md border border-ink-200 bg-white px-3 py-2.5 text-body text-ink-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20';
+
+  // Hai ô nằm trong **một** khung viền chung, mỗi ô không có viền riêng: khung ngoài
+  // là ô tìm kiếm, hai ô trong là hai phần của nó. Vẽ viền cho từng ô sẽ đọc thành
+  // ba điều khiển rời rạc đặt cạnh nhau.
+  const fieldClass =
+    'flex flex-col gap-0.5 rounded-lg px-3.5 py-2.5 transition hover:bg-brand-50 focus-within:bg-brand-50';
+  const labelClass = 'text-label uppercase text-ink-500';
+  const controlClass =
+    'w-full border-0 bg-transparent p-0 pr-7 text-body-l font-medium text-ink-900 placeholder:font-normal placeholder:text-ink-500 focus:outline-none focus:ring-0';
 
   return (
-    <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-card sm:p-5">
+    <div>
       {/*
         Form thật với method GET, không phải div: khi JS chưa hydrate (hoặc hỏng), Enter
         vẫn gửi được sang /tim-kiem. Không có gợi ý thì khách mất khả năng chọn quận
@@ -88,20 +96,30 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
           e.preventDefault();
           submit();
         }}
+        className="rounded-2xl border border-ink-200 bg-white p-2 shadow-card"
       >
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-          <label className="block">
-            <span className="mb-1 block text-label uppercase text-ink-500">Khu vực</span>
-            <AreaSearchBox onSelect={setArea} onClear={() => setArea(null)} />
+        {/* Ô khu vực rộng hơn ô dịch vụ: tên dịch vụ ngắn và nằm trong tập đóng,
+            còn ô khu vực phải chứa được "Phường Bến Nghé, Quận 1" mà không cắt chữ. */}
+        <div className="grid items-stretch gap-1.5 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto]">
+          <label className={fieldClass}>
+            <span className={labelClass}>Khu vực</span>
+            <AreaSearchBox
+              onSelect={setArea}
+              onClear={() => setArea(null)}
+              placeholder="Quận, huyện…"
+              inputClassName={controlClass}
+            />
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-label uppercase text-ink-500">Dịch vụ</span>
+          {/* Vạch ngăn mảnh thay cho viền: chỉ để mắt biết đây là hai ô, không đóng
+              khung cho từng ô. Ẩn ở mobile vì lúc đó hai ô xếp chồng. */}
+          <label className={`${fieldClass} sm:border-l sm:border-ink-100`}>
+            <span className={labelClass}>Dịch vụ</span>
             <select
               name="service"
               value={service}
               onChange={(e) => setService(e.target.value)}
-              className={selectClass}
+              className={`${controlClass} cursor-pointer`}
             >
               <option value="">Tất cả dịch vụ</option>
               {services.map((s) => (
@@ -112,46 +130,39 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
             </select>
           </label>
 
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={busy}
-              className="h-[46px] w-full rounded-md bg-brand-500 px-6 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60 sm:w-auto"
-            >
-              Tìm KTV
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-500 px-6 py-3 text-body-l font-semibold text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
+          >
+            <SearchIcon size={16} className="h-4 w-4 shrink-0" />
+            Tìm KTV
+          </button>
         </div>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink-100 pt-3">
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-2">
         <button
           type="button"
           onClick={nearMe}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body-s font-medium text-brand-700 transition hover:bg-brand-50 disabled:opacity-60"
+          className="inline-flex items-center gap-[7px] rounded-full border border-ink-200 bg-white px-3.5 py-2 text-body-s font-semibold text-brand-500 transition hover:border-brand-500 hover:bg-brand-50 disabled:opacity-60"
         >
-          <svg
-            aria-hidden
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 1v3M12 20v3M1 12h3M20 12h3" />
-          </svg>
+          <NearMeIcon size={16} className="h-4 w-4 shrink-0" />
           {locating ? 'Đang định vị…' : 'Tìm quanh tôi'}
         </button>
 
-        {geoError && (
+        {/*
+          Câu này là một cam kết, không phải chú thích: nó trả lời đúng câu hỏi khách
+          đang nghĩ khi nhìn thấy nút xin vị trí, ngay tại chỗ họ nghĩ ra nó.
+        */}
+        {geoError ? (
           <span role="alert" className="text-body-s text-danger-fg">
             {geoError}
+          </span>
+        ) : (
+          <span className="text-body-s text-ink-500">
+            Chỉ hỏi vị trí khi bạn bấm — không tự xin quyền.
           </span>
         )}
       </div>

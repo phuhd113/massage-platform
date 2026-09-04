@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
@@ -126,5 +127,56 @@ public class ApiContractTests(PostgresFixture fixture) : IAsyncLifetime
         (await res.ProblemTitleAsync()).Should().NotBeEmpty("thông điệp lỗi phải nói được nguyên nhân");
     }
 
+    [Fact]
+    public async Task Dò_khu_vực_ngoài_lãnh_thổ_trả_204_chứ_không_phải_404()
+    {
+        // Khách ở nước ngoài hoặc GPS trôi ra biển là chuyện bình thường, không phải
+        // lỗi: nút "Tìm quanh tôi" vẫn cho ra kết quả đúng theo bán kính, chỉ là không
+        // gắn được cái nhãn khu vực. 404 ở đây sẽ hiện thành thông báo đỏ cho một tiện
+        // ích phụ trợ, đúng lúc khách đã có kết quả trong tay.
+        var res = await _api.CreateClient().GetAsync("/api/v1/areas/resolve?lat=0&lon=160");
+
+        res.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task Dò_khu_vực_với_toạ_độ_rác_trả_400()
+    {
+        var res = await _api.CreateClient().GetAsync("/api/v1/areas/resolve?lat=999&lon=0");
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await res.ProblemTitleAsync()).Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Dò_khu_vực_trả_về_đúng_hình_dạng_của_một_gợi_ý()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+
+        var tỉnh = await TestData.CreateAreaAsync(db, AreaLevels.Province);
+        var quận = await TestData.CreateAreaAsync(db, AreaLevels.District, tỉnh.Id);
+        await TestData.SetCentroidAsync(db, quận.Id, lat, lon);
+
+        var res = await _api.CreateClient().GetAsync(
+            $"/api/v1/areas/resolve?lat={lat.ToString(CultureInfo.InvariantCulture)}" +
+            $"&lon={lon.ToString(CultureInfo.InvariantCulture)}");
+
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await res.ReadAsync<AreaResolveDto>();
+
+        // Hình dạng phải trùng khít với `/areas/suggest`: frontend dùng chung một đường
+        // dựng URL cho cả hai (`lib/area-search.ts`). Thiếu `provinceSlug` ở đây thì ô
+        // khu vực điền xong nhưng bấm tìm lại rơi vào một tỉnh khác — và cả hai endpoint
+        // vẫn trả 200, nên không có gì khác báo động.
+        dto!.Id.Should().Be(quận.Id);
+        dto.Level.Should().Be(AreaLevels.District);
+        dto.Slug.Should().Be(quận.Slug);
+        dto.ProvinceSlug.Should().Be(tỉnh.Slug);
+    }
+
     private sealed record WalletBalanceDto(decimal Balance, decimal Held, decimal Available);
+
+    private sealed record AreaResolveDto(
+        Guid Id, string Name, string Slug, string Level, string? ProvinceSlug);
 }

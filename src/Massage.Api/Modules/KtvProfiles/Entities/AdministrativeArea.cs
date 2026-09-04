@@ -1,3 +1,5 @@
+using NetTopologySuite.Geometries;
+
 namespace Massage.Api.Modules.KtvProfiles.Entities;
 
 public static class AreaLevels
@@ -50,6 +52,22 @@ public class AdministrativeArea
     /// ý chết lặng: seed báo thành công, tìm kiếm trả về rỗng.
     /// </summary>
     public string? NameAscii { get; set; }
+
+    /// <summary>
+    /// Toạ độ tâm của khu vực, để suy ngược từ vị trí GPS của khách ra quận/huyện họ
+    /// đang đứng ("Tìm quanh tôi" điền sẵn ô khu vực).
+    ///
+    /// <b>Là centroid, không phải ranh giới.</b> Quận gần tâm nhất không phải lúc nào
+    /// cũng là quận chứa điểm đó — sai ở rìa những huyện dài hoặc lõm (Cần Giờ, Củ Chi).
+    /// Chấp nhận được vì cột này chỉ dùng để **hiển thị** khu vực đang đứng; kết quả tìm
+    /// kiếm vẫn lọc theo bán kính quanh toạ độ thật. Đừng dùng nó để quyết định KTV nào
+    /// được boost ở khu vực nào — đó là chuyện tiền bạc và cần ranh giới thật.
+    ///
+    /// NULL với phường/xã (không có trang khu vực nên không cần) và với hai huyện đảo
+    /// Hoàng Sa/Trường Sa — nguồn dữ liệu không có hình học cho chúng, và toạ độ đoán sẽ
+    /// hút nhầm mọi khách ven biển miền Trung về một huyện không có KTV nào.
+    /// </summary>
+    public Point? Centroid { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

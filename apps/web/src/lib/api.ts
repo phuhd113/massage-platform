@@ -5,6 +5,7 @@ import type {
   ReviewList,
   SearchResponse,
   ServiceItem,
+  SiteStats,
   Sitemap,
 } from './types';
 
@@ -59,6 +60,8 @@ export const api = {
     ),
 
   services: () => get<ServiceItem[]>('/services', AREA_REVALIDATE),
+
+  siteStats: () => get<SiteStats>('/public/stats', AREA_REVALIDATE),
 
   service: (slug: string) =>
     getOrNull<ServiceItem>(`/services/${encodeURIComponent(slug)}`, AREA_REVALIDATE),

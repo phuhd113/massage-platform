@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { formatDate } from '@/lib/site';
 import type { MyCertification } from '@/lib/types';
 
 const MAX_MB = 5;
@@ -83,7 +84,7 @@ export function CertificationsSection({
                 <div className="font-medium">{c.name}</div>
                 <div className="text-sm text-ink-500">
                   {c.issuingOrg ?? 'Chưa ghi nơi cấp'}
-                  {c.issuedAt && ` · ${new Date(c.issuedAt).toLocaleDateString('vi-VN')}`}
+                  {c.issuedAt && ` · ${formatDate(c.issuedAt)}`}
                 </div>
                 {c.verifyStatus === 'REJECTED' && c.rejectionReason && (
                   <div className="mt-1 text-sm text-danger-fg">Lý do: {c.rejectionReason}</div>

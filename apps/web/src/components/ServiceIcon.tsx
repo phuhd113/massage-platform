@@ -1,3 +1,5 @@
+import { ACCENT, iconStrokeWidth } from './icon-tokens';
+
 /**
  * Icon cho từng dịch vụ, tra theo `ServiceItem.slug`.
  *
@@ -8,89 +10,98 @@
  * Slug lạ (dịch vụ mới seed sau) rơi về icon mặc định thay vì vỡ layout, nên
  * thêm dịch vụ ở backend không bao giờ làm hỏng frontend.
  *
+ * Hình lấy từ bộ icon "Huyệt" (`design/Bo icon Huyet - standalone.html`).
  * Nguyên tắc chọn hình: mô tả **bộ phận cơ thể hoặc kỹ thuật**, không mô tả cảm
  * giác. Định vị là y học cổ truyền và phục hồi chức năng, nên tuyệt đối không
  * dùng hình thân người, nến, hay hoa.
+ *
+ * Mỗi icon dịch vụ mang **đúng một** điểm huyệt vàng đặt tại chỗ bàn tay tác
+ * động — đó là dấu nhận diện của sản phẩm. Hai điểm trong một hình làm mất
+ * trọng tâm và trông như lỗi vẽ, nên đừng thêm.
  */
 const PATHS: Record<string, React.ReactNode> = {
-  // Trị liệu chung — bàn tay tác động
   'massage-tri-lieu': (
     <>
-      <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12" />
-      <path d="M11 11.5v-2a1.5 1.5 0 0 1 3 0V12" />
-      <path d="M14 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6v-1a1.5 1.5 0 0 1 3 0" />
+      <path d="M8 12.5V5.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M11 10.5v-1a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M14 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6 6 6 0 0 1-6-6v-1a1.5 1.5 0 0 1 3 0" />
+      <circle cx="11" cy="15.5" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
-  // Cổ vai gáy — đốt sống cổ
   'massage-co-vai-gay': (
     <>
-      <path d="M12 3v5M9 5.5h6" />
+      <path d="M12 3v6M9 5.5h6" />
       <path d="M5 12h14" />
-      <path d="M7 12a5 5 0 0 0 5 5 5 5 0 0 0 5-5" />
+      <path d="M7 12a5 5 0 0 0 10 0" />
       <path d="M12 17v4" />
+      <circle cx="12" cy="12" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
-  // Bấm huyệt — điểm huyệt chính xác
   'bam-huyet': (
     <>
-      <circle cx="12" cy="12" r="3" />
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 2v2M12 20v2M2 12h2M20 12h2" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21" />
+      <circle cx="12" cy="12" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
-  // Massage Thái — kéo giãn
   'massage-thai': (
     <>
-      <path d="M4 20 20 4" />
-      <path d="M4 12v8h8" />
-      <path d="M20 12V4h-8" />
+      <path d="M5 19 19 5" />
+      <path d="M5 13.5V19h5.5" />
+      <path d="M19 10.5V5h-5.5" />
+      <circle cx="12" cy="12" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
-  // Toàn thân
-  'massage-body': (
-    <>
-      <path d="M12 21a9 9 0 0 0 9-9 9 9 0 0 0-9-9 9 9 0 0 0-9 9 9 9 0 0 0 9 9z" />
-      <path d="M8 12a4 4 0 0 1 8 0M8 12a4 4 0 0 0 8 0" />
-    </>
-  ),
-  // Chân — bàn chân
-  'massage-chan': (
-    <>
-      <path d="M7 21V10a4 4 0 0 1 8 0v3h1a3 3 0 0 1 0 6h-1v2" />
-      <path d="M7 14h8" />
-    </>
-  ),
-  // Bà bầu — nhẹ, trung tính, không có hình thân người
-  'massage-ba-bau': (
-    <>
-      <path d="M12 21c4.5-3 8-6.5 8-11a8 8 0 0 0-16 0c0 4.5 3.5 8 8 11z" />
-      <circle cx="12" cy="10" r="3" />
-    </>
-  ),
-  // Cột sống
-  'tri-lieu-cot-song': (
-    <>
-      <path d="M12 2v20" />
-      <path d="M8 5h8M8 9h8M8 13h8M8 17h8" />
-    </>
-  ),
-  // Giác hơi — cốc giác
   'giac-hoi': (
     <>
-      <path d="M6 4h12l-1.5 11a4.5 4.5 0 0 1-9 0L6 4z" />
-      <path d="M9 20h6" />
+      <path d="M9 3.5h6l-1 5.5h-4L9 3.5z" />
+      <path d="M10 9h4l1.5 8a3.5 3.5 0 0 1-7 0L10 9z" />
+      <path d="M8.5 20.5h7" />
+      <circle cx="12" cy="14" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
-  // Xông hơi thảo dược — hơi nóng bốc lên
+  'tri-lieu-cot-song': (
+    <>
+      <path d="M12 3v18" />
+      <path d="M8.5 5h7M8.5 9h7M8.5 13h7M8.5 17h7" />
+      <circle cx="12" cy="13" r="1.7" fill={ACCENT} stroke="none" />
+    </>
+  ),
+  'massage-chan': (
+    <>
+      <path d="M7.5 21v-9.5a4.5 4.5 0 0 1 9 0V13h.5a3 3 0 0 1 0 6h-1.5v2" />
+      <path d="M7.5 15h8" />
+      <circle cx="11" cy="11" r="1.7" fill={ACCENT} stroke="none" />
+    </>
+  ),
+  'massage-body': (
+    <>
+      <path d="M4 8.5h16" />
+      <path d="M6 8.5V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2.5" />
+      <path d="M5.5 8.5 6.5 20h11l1-11.5" />
+      <circle cx="12" cy="14" r="1.7" fill={ACCENT} stroke="none" />
+    </>
+  ),
+  'massage-ba-bau': (
+    <>
+      <path d="M4.5 14.5C4.5 8.7 8 5 12 5s7.5 3.7 7.5 9.5" />
+      <path d="M8 14.5c0-3.3 1.8-5.5 4-5.5s4 2.2 4 5.5" />
+      <path d="M4 17.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1z" />
+      <circle cx="12" cy="12" r="1.7" fill={ACCENT} stroke="none" />
+    </>
+  ),
   'xong-hoi-thao-duoc': (
     <>
-      <path d="M4 20v-5a8 8 0 0 1 16 0v5" />
-      <path d="M2 20h20" />
-      <path d="M9 8c0-1.5 1-2 1.5-3M14 8c0-1.5-1-2-1.5-3" />
+      <path d="M4.5 20.5V16a7.5 7.5 0 0 1 15 0v4.5" />
+      <path d="M2.5 20.5h19" />
+      <path d="M10 9.5c0-1.6 1.2-2.1 1.2-3.5M14 9.5c0-1.6-1.2-2.1-1.2-3.5" />
+      <circle cx="12" cy="16.5" r="1.7" fill={ACCENT} stroke="none" />
     </>
   ),
 };
 
+/** Dịch vụ mới seed ở backend chưa có hình: khung tròn trung tính, không điểm huyệt. */
 const FALLBACK = (
   <>
     <circle cx="12" cy="12" r="9" />
@@ -98,14 +109,23 @@ const FALLBACK = (
   </>
 );
 
-export function ServiceIcon({ slug, className }: { slug: string; className?: string }) {
+export function ServiceIcon({
+  slug,
+  className,
+  size = 24,
+}: {
+  slug: string;
+  className?: string;
+  /** Dùng để suy ra độ dày nét — xem `iconStrokeWidth`. */
+  size?: number;
+}) {
   return (
     <svg
       aria-hidden
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      strokeWidth={iconStrokeWidth(size)}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}

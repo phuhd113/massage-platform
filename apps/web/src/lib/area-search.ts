@@ -1,6 +1,32 @@
 import type { AreaSuggestion } from './types';
 
 /**
+ * Tra ngược toạ độ GPS ra quận/huyện gần nhất, để "Tìm quanh tôi" nói được khách đang
+ * ở đâu thay vì để ô khu vực trống.
+ *
+ * Trả `null` khi không dò ra (ngoài lãnh thổ, GPS trôi, mạng hỏng) — đó là trạng thái
+ * bình thường, không phải lỗi cần báo. Kết quả tìm kiếm **không** phụ thuộc vào giá
+ * trị này: nó vẫn lọc theo toạ độ thật, còn đây chỉ là cái nhãn.
+ *
+ * Vì vậy nơi gọi phải hiển thị kết quả ngay khi có toạ độ, đừng chờ hàm này xong.
+ */
+export async function resolveArea(coords: {
+  latitude: number;
+  longitude: number;
+}): Promise<AreaSuggestion | null> {
+  try {
+    const res = await fetch(
+      `/api/areas/resolve?lat=${coords.latitude.toFixed(6)}&lon=${coords.longitude.toFixed(6)}`,
+      { headers: { Accept: 'application/json' } },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as AreaSuggestion | null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Chuyển một gợi ý khu vực thành cặp tham số mà `/search` hiểu.
  *
  * Backend quy định: `areaSlug` đứng một mình là slug **tỉnh**; là slug **quận** chỉ khi

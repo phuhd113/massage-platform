@@ -11,7 +11,7 @@ Hạ tầng và dữ liệu:
 ```bash
 docker compose up -d                              # Postgres 16 + PostGIS 3.4, Redis 7, API
 docker compose exec api dotnet Massage.Api.dll migrate      # áp migration
-docker compose exec api dotnet Massage.Api.dll seed-areas   # seed quận/huyện (idempotent)
+docker compose exec api dotnet Massage.Api.dll seed-areas   # seed quận/huyện + toạ độ tâm (idempotent)
 docker compose exec api dotnet Massage.Api.dll seed-services # seed danh mục dịch vụ (idempotent)
 docker compose exec api dotnet Massage.Api.dll seed-packages # seed catalog gói đẩy tin (idempotent)
 docker compose exec api dotnet Massage.Api.dll maintenance   # nhả hold quá hạn, đóng campaign hết hạn, đối soát ví

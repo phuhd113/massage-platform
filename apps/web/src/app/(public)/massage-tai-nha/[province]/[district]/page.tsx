@@ -5,6 +5,7 @@ import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { JsonLd } from '@/components/JsonLd';
 import { KtvCard } from '@/components/KtvCard';
 import { AREA_REVALIDATE, api } from '@/lib/api';
+import { buildStatCards } from '@/lib/area-stats';
 import { SITE_NAME, absolute, areaPath, ktvPath } from '@/lib/site';
 
 export const revalidate = AREA_REVALIDATE;
@@ -41,9 +42,16 @@ export default async function DistrictPage({ params }: Props) {
   const area = await api.district(params.province, params.district);
   if (!area) notFound();
 
-  const results = await api.search({ areaSlug: area.slug, size: 20 });
+  // Slug quận chỉ duy nhất trong phạm vi tỉnh — riêng "huyen-chau-thanh" có ở 10
+  // tỉnh — nên phải gửi kèm tỉnh, không thì trang gộp KTV của cả mười.
+  const results = await api.search({
+    areaSlug: area.slug,
+    provinceSlug: params.province,
+    size: 20,
+  });
   const tỉnh = area.parent;
   const path = areaPath(params.province, params.district);
+  const statCards = buildStatCards(area.stats);
 
   return (
     <>
@@ -55,7 +63,7 @@ export default async function DistrictPage({ params }: Props) {
         ]}
       />
 
-      <h1 className="text-h1 text-ink-900 sm:text-display">
+      <h1 className="mt-4 max-w-[24ch] text-display text-ink-900">
         Massage trị liệu tại nhà {area.name}
       </h1>
 
@@ -74,8 +82,20 @@ export default async function DistrictPage({ params }: Props) {
         )}
       </p>
 
+      {/* Cùng khối số liệu với trang tỉnh — xem buildStatCards. */}
+      {statCards.length > 0 && (
+        <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-3 rounded-xl border border-ink-200 bg-white px-5 py-4 shadow-card">
+          {statCards.map((s) => (
+            <div key={s.label}>
+              <dt className="text-caption text-ink-500">{s.label}</dt>
+              <dd className="tabular mt-0.5 text-h4 text-ink-900">{s.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       {!area.indexable && area.ktvCount > 0 && (
-        <p className="mt-4 rounded-md border border-warning-bd bg-warning-bg px-4 py-3 text-body-s text-warning-fg">
+        <p className="mt-4 rounded-lg border border-warning-bd bg-warning-bg px-4 py-3 text-body-s text-warning-fg">
           Khu vực này còn ít kỹ thuật viên. Thử mở rộng sang quận lân cận để có nhiều lựa chọn hơn.
         </p>
       )}

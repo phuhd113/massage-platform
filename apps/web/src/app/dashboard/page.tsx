@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { CheckIcon } from '@/components/icons';
 import { api } from '@/lib/api';
 import { packageLabel } from '@/lib/labels';
 import { UnauthenticatedError, authFetch, authFetchOrNull } from '@/lib/session';
@@ -322,19 +323,7 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
     return (
       <div className="mt-[18px] flex flex-wrap items-center gap-3.5 rounded-xl border border-success-bd bg-success-bg px-[18px] py-3.5">
         <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-white text-success-fg">
-          <svg
-            aria-hidden
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m5 13 4 4L19 7" />
-          </svg>
+          <CheckIcon size={20} className="h-[18px] w-[18px]" />
         </span>
 
         <div className="min-w-0">

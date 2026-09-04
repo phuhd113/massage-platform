@@ -1,5 +1,6 @@
 using Massage.Api.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -17,6 +18,7 @@ public class LeadController(LeadService service) : ControllerBase
     /// </summary>
     [HttpPost]
     [AllowAnonymous]
+    [EnableCors(CorsSetup.PublicSite)]
     [EnableRateLimiting(RateLimitPolicies.Leads)]
     public async Task<IActionResult> Create(CreateLeadDto dto, CancellationToken ct)
     {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { KtvCard } from '@/components/KtvCard';
+import { MapViewFab } from '@/components/MapViewFab';
 import { SearchFilters } from '@/components/SearchFilters';
 import { SearchMapPanel } from '@/components/SearchMapPanel';
 import { api } from '@/lib/api';
@@ -125,11 +126,20 @@ export default async function SearchPage({ searchParams }: Props) {
         : `${results.total} kỹ thuật viên`
     : 'Tìm kỹ thuật viên';
 
+  // Nút nổi chỉ có nghĩa khi thật sự có gì để đặt lên bản đồ.
+  const canShowMap = results !== null && (results.items.length > 0 || origin !== null);
+
   return (
     <>
       <Suspense fallback={<div className="h-14 rounded-xl border border-ink-200 bg-white" />}>
         <SearchFilters services={services} areaLabel={areaLabel} />
       </Suspense>
+
+      {canShowMap && (
+        <Suspense fallback={null}>
+          <MapViewFab />
+        </Suspense>
+      )}
 
       <div className="mt-7 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-h1 text-ink-900">{heading}</h1>
@@ -147,7 +157,9 @@ export default async function SearchPage({ searchParams }: Props) {
         )}
       </div>
 
-      <section className="mt-4">
+      {/* pb-24 ở mobile chừa chỗ cho nút nổi: thiếu nó thì nút che mất thẻ KTV cuối
+          cùng, và thẻ cuối là thứ khách cuộn hết trang mới tới được. */}
+      <section className={`mt-4 ${canShowMap ? 'pb-24 sm:pb-0' : ''}`}>
         {!hasScope && (
           <p className="text-ink-600">
             Bấm <strong>Tìm quanh tôi</strong> để tìm theo vị trí hiện tại, hoặc chọn quận/huyện.

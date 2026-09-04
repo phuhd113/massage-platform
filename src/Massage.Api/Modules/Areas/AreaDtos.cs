@@ -15,6 +15,24 @@ public record AreaNodeDto(
     bool Indexable,
     List<AreaNodeDto> Children);
 
+/// <summary>
+/// Ba con số tóm tắt một khu vực, dùng cho phần đầu trang landing.
+///
+/// Đây là **nội dung riêng** của từng trang khu vực, không phải trang trí: trang
+/// tỉnh/quận nào cũng có cùng bộ khung chữ, nên nếu không có số liệu thật thì hàng
+/// trăm trang chỉ khác nhau đúng cái địa danh — đúng định nghĩa thin content mà
+/// Google hạ hạng.
+/// </summary>
+/// <param name="PriceFromMin">Giá khởi điểm thấp nhất trong khu vực; null khi chưa KTV nào khai giá.</param>
+/// <param name="RatingAvg">Trung bình có trọng số theo số đánh giá, không phải trung bình của các trung bình.</param>
+/// <param name="TopServiceName">Dịch vụ nhiều KTV cung cấp nhất.</param>
+public record AreaStatsDto(
+    decimal? PriceFromMin,
+    decimal? PriceFromMax,
+    decimal? RatingAvg,
+    int RatingCount,
+    string? TopServiceName);
+
 /// <param name="EditorialNote">
 /// Nội dung biên tập riêng cho khu vực. Rỗng nghĩa là trang chưa được index —
 /// ~760 trang khu vực sinh từ cùng một mẫu chỉ thay tên là doorway page.
@@ -29,7 +47,8 @@ public record AreaDetailDto(
     string? EditorialNote,
     AreaNodeDto? Parent,
     List<AreaNodeDto> Children,
-    List<AreaNodeDto> Siblings);
+    List<AreaNodeDto> Siblings,
+    AreaStatsDto Stats);
 
 /// <summary>
 /// Phường/xã. Cố ý không dùng lại <see cref="AreaNodeDto"/>: phường chỉ là nhãn cho

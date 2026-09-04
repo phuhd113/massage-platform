@@ -83,6 +83,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // ngay, và change tracker giữ bản cũ — đọc lại trong cùng context ra sai.
             e.Property(x => x.NameAscii).HasColumnName("name_ascii").HasMaxLength(400)
                 .ValueGeneratedOnAddOrUpdate();
+            e.Property(x => x.Centroid).HasColumnName("centroid")
+                .HasColumnType("geography (Point, 4326)");
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
             // Duy nhất trong phạm vi cha. Tỉnh có parent_id NULL mà UNIQUE coi mọi NULL

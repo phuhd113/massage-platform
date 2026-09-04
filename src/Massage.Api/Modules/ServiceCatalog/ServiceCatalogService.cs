@@ -1,5 +1,6 @@
 using Massage.Api.Common;
 using Massage.Api.Data;
+using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.ServiceCatalog.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,4 +60,33 @@ public class ServiceCatalogService(AppDbContext db)
         db.ChangeTracker.Clear();
         return await ListForKtvAsync(ktvId, ct);
     }
+
+    /// <summary>
+    /// Giá khởi điểm thấp nhất của **một** dịch vụ, chỉ tính KTV đã duyệt.
+    /// Null khi chưa ai khai giá.
+    ///
+    /// Bỏ qua giá 0: một dòng khai thiếu sẽ kéo cả thẻ xuống "từ 0 ₫" và đọc như
+    /// dịch vụ miễn phí — sai lệch hơn hẳn so với không hiện giá nào.
+    /// </summary>
+    public async Task<decimal?> GetPriceFloorAsync(Guid serviceId, CancellationToken ct = default) =>
+        await db.KtvServices
+            .Where(s => s.ServiceId == serviceId && s.PriceFrom > 0)
+            .Where(s => db.KtvProfiles.Any(k =>
+                k.Id == s.KtvId && k.VerificationStatus == VerificationStatuses.Verified))
+            .MinAsync(s => (decimal?)s.PriceFrom, ct);
+
+    /// <summary>
+    /// Giá khởi điểm thấp nhất của **từng** dịch vụ trong danh mục.
+    ///
+    /// Một truy vấn gộp chứ không phải mỗi thẻ một lần: trang chủ hiện toàn bộ danh
+    /// mục, nên gọi <see cref="GetPriceFloorAsync"/> cho từng thẻ là đúng hình N+1.
+    /// </summary>
+    public async Task<Dictionary<Guid, decimal>> GetPriceFloorsAsync(CancellationToken ct = default) =>
+        await db.KtvServices
+            .Where(s => s.PriceFrom > 0)
+            .Where(s => db.KtvProfiles.Any(k =>
+                k.Id == s.KtvId && k.VerificationStatus == VerificationStatuses.Verified))
+            .GroupBy(s => s.ServiceId)
+            .Select(g => new { ServiceId = g.Key, Min = g.Min(x => x.PriceFrom) })
+            .ToDictionaryAsync(x => x.ServiceId, x => x.Min, ct);
 }

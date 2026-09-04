@@ -32,6 +32,7 @@
          lẫn từ dotnet test, hai nơi có working directory khác nhau. Embedded resource
          có đúng một đường tra cứu hoạt động giống nhau ở cả hai. -->
     <EmbeddedResource Include="Data\SeedData\vietnam-areas.json" />
+    <EmbeddedResource Include="Data\SeedData\vietnam-area-centroids.json" />
   </ItemGroup>
 
   <ItemGroup>

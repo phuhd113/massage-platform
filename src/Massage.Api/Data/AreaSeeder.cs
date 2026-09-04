@@ -26,11 +26,27 @@ public static class AreaSeeder
     private const string ResourceName = "Massage.Api.Data.SeedData.vietnam-areas.json";
 
     /// <summary>
+    /// Toạ độ tâm, tách khỏi file danh mục vì đến từ nguồn khác (polygon GADM 4.1) và
+    /// sinh lại theo nhịp khác — xem <c>tools/area-dataset/centroids.js</c>. Gộp chung
+    /// một file sẽ buộc phải chạy lại cả pipeline khớp tên mỗi lần chỉ muốn sửa một slug.
+    /// </summary>
+    private const string CentroidResourceName =
+        "Massage.Api.Data.SeedData.vietnam-area-centroids.json";
+
+    /// <summary>
     /// Chia lô cho pass phường. Một câu INSERT ~10.000 dòng vẫn chạy được, nhưng lô nhỏ
     /// giữ kích thước mảng tham số và bản ghi WAL ở mức hợp lý mà gần như không tốn thêm
     /// vòng round trip nào đáng kể.
     /// </summary>
     private const int BatchSize = 1000;
+
+    /// <param name="Level">PROVINCE hoặc DISTRICT — khớp cùng <c>Code</c>, vì mã quận và
+    /// mã phường đụng nhau ở 226 chỗ trong dữ liệu thật.</param>
+    private sealed record CentroidJson(
+        [property: JsonPropertyName("level")] string Level,
+        [property: JsonPropertyName("code")] string Code,
+        [property: JsonPropertyName("lon")] double Lon,
+        [property: JsonPropertyName("lat")] double Lat);
 
     private sealed record WardJson(
         [property: JsonPropertyName("code")] string Code,
@@ -79,9 +95,61 @@ public static class AreaSeeder
             wards.Select(x => new Row(
                 x.Ward.Code, x.Ward.Name, x.Ward.Slug, x.District.Code)).ToList(), ct);
 
+        var centroidRows = await SeedCentroidsAsync(db, logger, ct);
+
         logger.LogInformation(
-            "Seed khu vực xong: {Provinces} tỉnh, {Districts} quận/huyện, {Wards} phường/xã",
-            provinceRows, districtRows, wardRows);
+            "Seed khu vực xong: {Provinces} tỉnh, {Districts} quận/huyện, {Wards} phường/xã, {Centroids} toạ độ tâm",
+            provinceRows, districtRows, wardRows, centroidRows);
+    }
+
+    /// <summary>
+    /// Điền toạ độ tâm cho tỉnh và quận/huyện từ <c>vietnam-area-centroids.json</c>
+    /// (sinh bằng <c>tools/area-dataset/centroids.js</c> từ polygon GADM 4.1).
+    ///
+    /// Chạy <b>sau</b> các pass upsert vì nó khớp theo <c>(level, code)</c> — mã phải
+    /// tồn tại trước. Tách thành pass riêng chứ không nhét vào câu upsert: toạ độ đến từ
+    /// một nguồn dữ liệu khác và có thể vắng mặt (hai huyện đảo), nên gộp vào sẽ bắt câu
+    /// upsert mang theo một mảng NULL rời rạc chỉ để chiều một cột không bắt buộc.
+    ///
+    /// Ghi đè khu vực có trong file, và <b>không đụng tới</b> khu vực không có trong đó:
+    /// hai huyện đảo cố ý để trống, còn phường/xã thì không bao giờ cần tâm. Chạy lại
+    /// seed nhiều lần cho ra cùng kết quả.
+    /// </summary>
+    private static async Task<int> SeedCentroidsAsync(
+        AppDbContext db, ILogger logger, CancellationToken ct)
+    {
+        await using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream(CentroidResourceName);
+
+        if (stream is null)
+        {
+            // Không ném lỗi: toạ độ tâm chỉ phục vụ việc điền sẵn ô khu vực khi khách
+            // bấm "Tìm quanh tôi". Thiếu nó thì ô để trống, còn seed danh mục hành chính
+            // — thứ mà mọi khoá ngoại phụ thuộc — vẫn phải chạy xong.
+            logger.LogWarning(
+                "Không có {Resource}; bỏ qua bước điền toạ độ tâm khu vực", CentroidResourceName);
+            return 0;
+        }
+
+        var rows = await JsonSerializer.DeserializeAsync<List<CentroidJson>>(
+            stream, cancellationToken: ct) ?? [];
+
+        if (rows.Count == 0) return 0;
+
+        return await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE administrative_areas a
+               SET centroid = ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography
+              FROM unnest(@levels, @codes, @lons, @lats) AS t(level, code, lon, lat)
+             WHERE a.level = t.level AND a.code = t.code;
+            """,
+            [
+                TextArray("levels", rows.Select(r => r.Level)),
+                TextArray("codes", rows.Select(r => r.Code)),
+                DoubleArray("lons", rows.Select(r => r.Lon)),
+                DoubleArray("lats", rows.Select(r => r.Lat)),
+            ],
+            ct);
     }
 
     private static async Task<List<ProvinceJson>> LoadAsync(CancellationToken ct)
@@ -207,4 +275,7 @@ public static class AreaSeeder
 
     private static NpgsqlParameter TextArray(string name, IEnumerable<string?> values) =>
         new(name, NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = values.ToArray() };
+
+    private static NpgsqlParameter DoubleArray(string name, IEnumerable<double> values) =>
+        new(name, NpgsqlDbType.Array | NpgsqlDbType.Double) { Value = values.ToArray() };
 }

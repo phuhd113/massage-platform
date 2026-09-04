@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { ContactButtons } from '@/components/ContactButtons';
 import { JsonLd } from '@/components/JsonLd';
+import { CertifiedIcon } from '@/components/icons';
+import { ProfileViewBeacon } from '@/components/ProfileViewBeacon';
 import { PROFILE_REVALIDATE, api } from '@/lib/api';
-import { absolute, areaPath, formatVnd, ktvPath, parseKtvSlugId } from '@/lib/site';
+import { absolute, areaPath, formatDate, formatVnd, ktvPath, parseKtvSlugId } from '@/lib/site';
 import type { PublicKtvProfile, ReviewList } from '@/lib/types';
 
 export const revalidate = PROFILE_REVALIDATE;
@@ -66,6 +68,10 @@ export default async function KtvPage({ params }: Props) {
 
   return (
     <>
+      {/* Đếm lượt xem từ trình duyệt — trang này được cache nên đếm ở server sẽ
+          chỉ ghi được một lượt mỗi 10 phút. Xem ghi chú trong component. */}
+      <ProfileViewBeacon ktvId={profile.id} />
+
       <Breadcrumbs
         items={[
           { name: 'Trang chủ', href: '/' },
@@ -76,9 +82,9 @@ export default async function KtvPage({ params }: Props) {
         ]}
       />
 
-      {/* pb-24 chừa chỗ cho thanh hành động dính đáy trên mobile — thiếu nó,
-          nội dung cuối trang (đánh giá) bị thanh che mất. */}
-      <article className="pb-24 lg:pb-0">
+      {/* pb-32 chừa chỗ cho thanh hành động dính đáy trên mobile (nút + dòng giá) —
+          thiếu nó, nội dung cuối trang (đánh giá) bị thanh che mất. */}
+      <article className="pb-32 lg:pb-0">
         <header className="flex flex-wrap items-start gap-5">
           {/* Ô ảnh chân dung — placeholder cùng kiểu với thẻ listing. Backend chưa
               có cột avatar; khi có thì thay ruột, bố cục quanh nó không đổi.
@@ -266,7 +272,7 @@ export default async function KtvPage({ params }: Props) {
                         <p className="mt-1.5 max-w-prose text-body text-ink-700">{r.comment}</p>
                       )}
                       <time className="mt-1.5 block text-caption text-ink-400" dateTime={r.createdAt}>
-                        {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                        {formatDate(r.createdAt)}
                       </time>
                     </li>
                   ))}
@@ -334,20 +340,5 @@ export default async function KtvPage({ params }: Props) {
 
 /** Khiên có dấu tích — chứng chỉ đã được đối chiếu với tổ chức cấp. */
 function ShieldCheckIcon() {
-  return (
-    <svg
-      aria-hidden
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 12 2 2 4-4" />
-      <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />
-    </svg>
-  );
+  return <CertifiedIcon size={16} className="h-3 w-3" />;
 }

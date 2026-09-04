@@ -78,22 +78,38 @@ export default {
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
 
-      // Thang chữ lấy nguyên từ artboard (px → rem ở 16px gốc). Tiêu đề dùng
-      // letter-spacing âm tăng dần theo cỡ chữ: cỡ càng lớn thì khoảng cách mặc
-      // định càng trông rời rạc.
+      // Thang chữ gốc lấy từ artboard (px → rem ở 16px gốc); **nhóm tiêu đề đã
+      // được nâng 14–18%** so với artboard theo yêu cầu, thân chữ giữ nguyên.
+      // Hiện là 20 / 23 / 26 / 32 / 48 / 60px.
+      //
+      // Nâng đều cả sáu bậc chứ không chỉ bậc lớn: thang này là một chuỗi tỉ lệ,
+      // kéo riêng h1 lên sẽ làm h1 và h2 gần như bằng nhau và mất luôn thứ bậc
+      // thị giác giữa chúng.
+      //
+      // Ba ràng buộc đi kèm cỡ chữ, sửa cỡ mà quên chúng là hỏng:
+      // - line-height *tương đối* giảm dần khi cỡ tăng (h4 1.40× xuống display-l
+      //   1.07×) — giữ nguyên bội số của cỡ nhỏ ở cỡ lớn thì hai dòng của một
+      //   tiêu đề rời hẳn ra, đọc thành hai câu riêng.
+      // - line-height tuyệt đối luôn là **bội số của 4px** để không lệch nhịp dọc
+      //   với phần còn lại của trang.
+      // - letter-spacing âm dần theo cỡ, vì khoảng cách mặc định càng trông rời
+      //   rạc khi chữ càng lớn.
+      //
+      // Hai ràng buộc đầu xung khắc nhau ở vài cỡ; cỡ chữ được chọn là số chẵn
+      // "sạch" để cả hai cùng thoả, thay vì bám đúng một tỉ lệ phần trăm.
       fontSize: {
         label: ['0.6875rem', { lineHeight: '0.9375rem', letterSpacing: '0.075em', fontWeight: '600' }],
         caption: ['0.75rem', { lineHeight: '1.0625rem', letterSpacing: '0.005em' }],
         'body-s': ['0.8125rem', { lineHeight: '1.25rem' }],
         body: ['0.9375rem', { lineHeight: '1.4375rem' }],
         'body-l': ['1rem', { lineHeight: '1.5625rem' }],
-        h4: ['1.0625rem', { lineHeight: '1.4375rem', letterSpacing: '-0.01em', fontWeight: '600' }],
-        h3: ['1.25rem', { lineHeight: '1.625rem', letterSpacing: '-0.014em', fontWeight: '700' }],
-        h2: ['1.375rem', { lineHeight: '1.75rem', letterSpacing: '-0.018em', fontWeight: '700' }],
-        h1: ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.02em', fontWeight: '700' }],
+        h4: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.011em', fontWeight: '600' }],
+        h3: ['1.4375rem', { lineHeight: '2rem', letterSpacing: '-0.016em', fontWeight: '700' }],
+        h2: ['1.625rem', { lineHeight: '2.25rem', letterSpacing: '-0.02em', fontWeight: '700' }],
+        h1: ['2rem', { lineHeight: '2.5rem', letterSpacing: '-0.022em', fontWeight: '700' }],
         // Hero trang chủ và h1 trang hồ sơ — weight 800, phải có font thật.
-        display: ['2.625rem', { lineHeight: '3rem', letterSpacing: '-0.026em', fontWeight: '800' }],
-        'display-l': ['3.25rem', { lineHeight: '3.5rem', letterSpacing: '-0.028em', fontWeight: '800' }],
+        display: ['3rem', { lineHeight: '3.5rem', letterSpacing: '-0.028em', fontWeight: '800' }],
+        'display-l': ['3.75rem', { lineHeight: '4rem', letterSpacing: '-0.03em', fontWeight: '800' }],
       },
 
       borderRadius: {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CheckIcon as DoneIcon } from '@/components/icons';
 import { formatVnd } from '@/lib/site';
 import type { KtvServiceItem } from '@/lib/types';
 
@@ -67,7 +68,11 @@ export function ContactButtons({
     }
   }
 
-  const callLabel = `Gọi ${ktvName}`;
+  // Chỉ tên riêng (từ cuối), không phải cả họ tên: "Gọi Trần Thị Hường" tràn hai
+  // dòng trong khối liên hệ hẹp ở cột phải, và nút cao gấp đôi các nút khác.
+  // Người Việt cũng gọi nhau bằng tên chứ không bằng họ.
+  const firstName = ktvName.trim().split(/\s+/).at(-1) ?? ktvName;
+  const callLabel = `Gọi ${firstName}`;
 
   return (
     <>
@@ -142,7 +147,23 @@ export function ContactButtons({
           khách vào từ Google thường quyết định trong màn hình đầu tiên.
           padding-bottom cộng safe-area — thiếu nó, nút nằm dưới thanh gạt home
           của iPhone và khách chạm trúng viền màn hình thay vì nút. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-ink-200 bg-white px-4 pt-3 shadow-sticky [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-200 bg-white px-4 pt-3 shadow-sticky [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        {/* Giá đứng ngay trên nút gọi: ở mobile khối "Giá từ" của cột phải đã cuộn
+            mất từ lâu, nên nếu không nhắc lại ở đây thì khách bấm gọi mà không biết
+            mình sắp hỏi giá bao nhiêu. "Trả sau" trả lời nốt câu hỏi đi kèm. */}
+        {cheapestService && (
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <span className="text-body text-ink-600">
+              Giá từ{' '}
+              <strong className="tabular font-mono font-medium text-ink-900">
+                {formatVnd(cheapestService.priceFrom)}
+              </strong>
+            </span>
+            <span className="text-caption text-ink-500">Trả sau buổi trị liệu</span>
+          </div>
+        )}
+
+        <div className="flex gap-2">
         <button
           type="button"
           onClick={() => contact('CALL')}
@@ -160,6 +181,7 @@ export function ContactButtons({
         >
           <PendingLabel pending={pending === 'ZALO'} label="Zalo" />
         </button>
+        </div>
       </div>
     </>
   );
@@ -199,20 +221,5 @@ function PendingLabel({ pending, label }: { pending: boolean; label: string }) {
 
 /** Dấu tích cho các dòng cam kết cạnh nút liên hệ. */
 function CheckIcon() {
-  return (
-    <svg
-      aria-hidden
-      className="mt-1 shrink-0 text-success-fg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m5 13 4 4L19 7" />
-    </svg>
-  );
+  return <DoneIcon size={16} className="mt-1 h-3.5 w-3.5 shrink-0 text-success-fg" />;
 }

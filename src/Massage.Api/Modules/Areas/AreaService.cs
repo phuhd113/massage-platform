@@ -1,3 +1,4 @@
+using System.Globalization;
 using Massage.Api.Common;
 using Massage.Api.Data;
 using Massage.Api.Modules.KtvProfiles;
@@ -86,7 +87,10 @@ public class AreaService(AppDbContext db)
             province.EditorialNote,
             Parent: null,
             Children: districts.Select(d => ToNode(d, counts)).ToList(),
-            Siblings: []);
+            Siblings: [],
+            // Trang tỉnh gộp thống kê của toàn bộ quận trực thuộc: KTV khai coverage
+            // ở mức quận, nên lọc thẳng theo id tỉnh sẽ luôn rỗng.
+            Stats: await GetStatsAsync(districts.Select(d => d.Id).ToList(), ct));
     }
 
     public async Task<AreaDetailDto> GetDistrictAsync(
@@ -111,7 +115,8 @@ public class AreaService(AppDbContext db)
             district.EditorialNote,
             Parent: ToNode(province, counts),
             Children: [],
-            Siblings: siblings.Select(s => ToNode(s, counts)).ToList());
+            Siblings: siblings.Select(s => ToNode(s, counts)).ToList(),
+            Stats: await GetStatsAsync([district.Id], ct));
     }
 
     /// <summary>
@@ -265,6 +270,115 @@ public class AreaService(AppDbContext db)
     }
 
     /// <summary>
+    /// Bán kính tối đa chấp nhận một quận là "khách đang đứng ở đây", tính từ tâm quận.
+    ///
+    /// 60km xấp xỉ nửa chiều ngang của huyện lớn nhất. Rộng hơn thì khách ở ngoài khơi
+    /// hoặc bên kia biên giới vẫn được gán một quận nghe rất thuyết phục; hẹp hơn thì
+    /// khách đứng ở rìa những huyện miền núi rộng lại không được gán gì, mà tâm quận
+    /// cách họ xa là chuyện bình thường ở đó.
+    /// </summary>
+    private const int ResolveMaxDistanceMeters = 60_000;
+
+    /// <summary>
+    /// Tra ngược toạ độ GPS ra quận/huyện gần nhất — cho nút "Tìm quanh tôi" điền sẵn ô
+    /// khu vực, để khách thấy mình đang tìm ở đâu thay vì một ô trống.
+    ///
+    /// <b>Đây là "gần tâm nhất", không phải "nằm trong ranh giới".</b> Bảng khu vực chỉ
+    /// có centroid; nhập polygon ranh giới thật cho 696 quận là ~20–50MB dữ liệu địa lý
+    /// cho một cái nhãn. Chấp nhận được vì kết quả tìm kiếm <b>không</b> phụ thuộc vào
+    /// câu trả lời này — nó vẫn lọc theo bán kính quanh toạ độ thật. Hệ quả phải nhớ:
+    /// đừng dùng hàm này để quyết định KTV nào được boost ở khu vực nào. Boost là tiền,
+    /// và nó cần ranh giới thật chứ không phải điểm gần nhất.
+    ///
+    /// Chỉ xét cấp DISTRICT: tỉnh cũng có tâm nhưng trả về tỉnh khi không quận nào đủ gần
+    /// nghĩa là gán một khu vực rộng hàng trăm km cho người đang ở ngoài lãnh thổ. Không
+    /// tìm được thì trả về null và ô khu vực để trống — trạng thái đúng, không phải lỗi.
+    /// </summary>
+    public async Task<AreaSuggestionDto?> ResolveAsync(
+        double lat, double lon, CancellationToken ct = default)
+    {
+        if (double.IsNaN(lat) || double.IsNaN(lon) ||
+            lat is < -90 or > 90 || lon is < -180 or > 180)
+        {
+            throw new BadRequestException("Toạ độ không hợp lệ.");
+        }
+
+        // KNN bằng toán tử <-> để dùng được index GiST: ST_Distance(...) < x trong WHERE
+        // buộc Postgres tính khoảng cách cho mọi dòng. Lọc bán kính đặt ở ST_DWithin —
+        // dạng duy nhất mà index cũng phục vụ được.
+        var id = await db.Database
+            .SqlQueryRaw<Guid>(
+                """
+                SELECT a.id AS "Value"
+                  FROM administrative_areas a
+                 WHERE a.level = 'DISTRICT'
+                   AND a.centroid IS NOT NULL
+                   AND ST_DWithin(a.centroid, @point::geography, @radius)
+                 ORDER BY a.centroid <-> @point::geography
+                 LIMIT 1
+                """,
+                new NpgsqlParameter("point", NpgsqlDbType.Text)
+                {
+                    Value = $"SRID=4326;POINT({lon.ToString(CultureInfo.InvariantCulture)} " +
+                            $"{lat.ToString(CultureInfo.InvariantCulture)})",
+                },
+                new NpgsqlParameter("radius", NpgsqlDbType.Double) { Value = (double)ResolveMaxDistanceMeters })
+            .FirstOrDefaultAsync(ct);
+
+        return id == Guid.Empty ? null : await DescribeAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Dựng một <see cref="AreaSuggestionDto"/> cho khu vực đã biết id.
+    ///
+    /// Trả về đúng hình dạng của ô gợi ý, không phải một DTO riêng: frontend đã có sẵn
+    /// đường dựng URL từ hình dạng đó (<c>lib/area-search.ts</c>), và một kiểu thứ hai
+    /// mang cùng thông tin sẽ đẻ ra đường dựng URL thứ hai — đúng chỗ mà cặp
+    /// <c>areaSlug</c>/<c>provinceSlug</c> từng bị gửi thiếu vế.
+    /// </summary>
+    private async Task<AreaSuggestionDto?> DescribeAsync(Guid id, CancellationToken ct)
+    {
+        var row = await db.Database
+            .SqlQueryRaw<SuggestRow>(
+                """
+                SELECT a.id                                        AS "Id",
+                       a.name                                      AS "Name",
+                       a.slug                                      AS "Slug",
+                       a.level                                     AS "Level",
+                       CASE a.level
+                            WHEN 'PROVINCE' THEN NULL
+                            WHEN 'DISTRICT' THEN p.slug
+                            ELSE gp.slug
+                       END                                         AS "ProvinceSlug",
+                       CASE WHEN a.level = 'WARD' THEN p.slug END   AS "DistrictSlug",
+                       CASE a.level
+                            WHEN 'PROVINCE' THEN ''
+                            WHEN 'DISTRICT' THEN COALESCE(p.name, '')
+                            ELSE COALESCE(p.name, '') || ', ' || COALESCE(gp.name, '')
+                       END                                         AS "ParentPath",
+                       (SELECT COUNT(*)
+                          FROM coverage_areas ca
+                          JOIN ktv_profiles k
+                            ON k.id = ca.ktv_id AND k.verification_status = 'VERIFIED'
+                         WHERE ca.area_id = a.id)::int              AS "KtvCount",
+                       a.editorial_note                             AS "EditorialNote"
+                  FROM administrative_areas a
+                  LEFT JOIN administrative_areas p  ON p.id  = a.parent_id
+                  LEFT JOIN administrative_areas gp ON gp.id = p.parent_id
+                 WHERE a.id = @id
+                """,
+                new NpgsqlParameter("id", NpgsqlDbType.Uuid) { Value = id })
+            .FirstOrDefaultAsync(ct);
+
+        return row is null
+            ? null
+            : new AreaSuggestionDto(
+                row.Id, row.Name, row.Slug, row.Level,
+                row.ProvinceSlug, row.DistrictSlug, row.ParentPath, row.KtvCount,
+                IsIndexable(row.KtvCount, row.EditorialNote));
+    }
+
+    /// <summary>
     /// Đưa từ khoá về đúng dạng đã lưu ở <c>name_ascii</c>: bỏ dấu, thường hoá, gộp
     /// khoảng trắng. Dùng lại <see cref="SlugHelper.ToSlug"/> để hai bên không thể lệch
     /// nhau — chuỗi lưu trong cột cũng sinh từ chính quy tắc bỏ dấu đó.
@@ -318,6 +432,74 @@ public class AreaService(AppDbContext db)
     /// Mở toàn quốc **không** làm truy vấn này đắt thêm: nó quét theo số hồ sơ chứ
     /// không theo số khu vực. Đo lại khi số hồ sơ tăng, đừng cache trước khi đo.
     /// </summary>
+    /// <summary>
+    /// Ba con số tóm tắt cho phần đầu trang khu vực.
+    ///
+    /// Nhận sẵn tập id quận thay vì tự suy: trang tỉnh phải gộp toàn bộ quận trực
+    /// thuộc (KTV khai coverage ở mức quận, nên lọc thẳng theo id tỉnh luôn rỗng),
+    /// còn trang quận chỉ lấy đúng một id. Gọi bên ngoài đã biết mình đang ở cấp nào.
+    ///
+    /// Tất cả đều tính trên KTV **đã duyệt** — cùng tập với <c>KtvCount</c>, nếu
+    /// không thì trang hiện "12 KTV" nhưng giá lại lấy từ một hồ sơ chưa duyệt.
+    /// </summary>
+    private async Task<AreaStatsDto> GetStatsAsync(IReadOnlyList<Guid> areaIds, CancellationToken ct)
+    {
+        if (areaIds.Count == 0) return new AreaStatsDto(null, null, null, 0, null);
+
+        // Id của KTV đã duyệt phủ các khu vực này. Distinct vì một KTV thường phủ
+        // nhiều quận trong cùng thành phố.
+        var ktvIds = db.CoverageAreas
+            .Where(c => areaIds.Contains(c.AreaId))
+            .Where(c => db.KtvProfiles.Any(k =>
+                k.Id == c.KtvId && k.VerificationStatus == VerificationStatuses.Verified))
+            .Select(c => c.KtvId)
+            .Distinct();
+
+        var priceRange = await db.KtvServices
+            .Where(s => ktvIds.Contains(s.KtvId) && s.PriceFrom > 0)
+            .GroupBy(_ => 1)
+            .Select(g => new { Min = (decimal?)g.Min(x => x.PriceFrom), Max = (decimal?)g.Max(x => x.PriceFrom) })
+            .FirstOrDefaultAsync(ct);
+
+        // Trung bình có trọng số theo số đánh giá, không phải trung bình của các
+        // trung bình: một hồ sơ đúng một review 5 sao không được kéo cả khu vực lên
+        // ngang với một hồ sơ 200 review 4.8 sao.
+        //
+        // Cộng bằng double chứ không decimal: `rating_avg` là NUMERIC(3,2) — tối đa
+        // 9,99 — nên Postgres giữ nguyên scale đó cho tích và `4.60 * 500` tràn cột
+        // ngay ở một hồ sơ có vài trăm đánh giá. Đây là lỗi chỉ lộ ra khi có dữ liệu
+        // thật; sai số dấu phẩy động không đáng kể vì kết quả làm tròn về 1 chữ số.
+        var rating = await db.KtvProfiles
+            .Where(k => ktvIds.Contains(k.Id) && k.RatingCount > 0)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Weighted = (double?)g.Sum(k => (double)k.RatingAvg * k.RatingCount),
+                Count = g.Sum(k => k.RatingCount),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        var topService = await db.KtvServices
+            .Where(s => ktvIds.Contains(s.KtvId))
+            .Join(db.Services.Where(sv => sv.IsActive), s => s.ServiceId, sv => sv.Id, (s, sv) => sv.Name)
+            .GroupBy(name => name)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .Select(g => g.Key)
+            .FirstOrDefaultAsync(ct);
+
+        var ratingCount = rating?.Count ?? 0;
+
+        return new AreaStatsDto(
+            priceRange?.Min,
+            priceRange?.Max,
+            ratingCount > 0 && rating?.Weighted is { } w
+                ? Math.Round((decimal)(w / ratingCount), 1)
+                : null,
+            ratingCount,
+            topService);
+    }
+
     private async Task<Dictionary<Guid, int>> GetVerifiedCountsAsync(CancellationToken ct)
     {
         var verified = db.CoverageAreas.Where(c => db.KtvProfiles.Any(k =>

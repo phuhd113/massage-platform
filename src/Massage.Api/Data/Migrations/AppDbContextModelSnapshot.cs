@@ -185,6 +185,10 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<Point>("Centroid")
+                        .HasColumnType("geography (Point, 4326)")
+                        .HasColumnName("centroid");
+
                     b.Property<string>("Code")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")

@@ -51,7 +51,7 @@ export function CancelCampaignButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="text-sm text-ink-600 hover:text-danger-fg"
+        className="rounded-md border border-danger-bd bg-white px-3.5 py-2.5 text-body-s font-semibold text-danger-fg transition hover:bg-danger-bg"
       >
         Huỷ
       </button>

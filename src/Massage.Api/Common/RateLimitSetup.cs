@@ -7,6 +7,7 @@ public static class RateLimitPolicies
 {
     public const string Leads = "leads";
     public const string Reviews = "reviews";
+    public const string ProfileViews = "profile-views";
 }
 
 public static class RateLimitSetup
@@ -29,6 +30,16 @@ public static class RateLimitSetup
                 RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = 30,
+                    Window = TimeSpan.FromMinutes(1),
+                }));
+
+            // Rộng hơn lead nhiều: một khách xem vài chục hồ sơ trong một phiên là
+            // hành vi bình thường của người đang chọn KTV. Ngưỡng này chỉ chặn kịch
+            // bản bơm số tự động, không chạm tới người dùng thật.
+            opt.AddPolicy(RateLimitPolicies.ProfileViews, ctx =>
+                RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 120,
                     Window = TimeSpan.FromMinutes(1),
                 }));
 
