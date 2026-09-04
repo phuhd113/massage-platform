@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AccountNavLink } from '@/components/AccountNavLink';
 import { LogoMark } from '@/components/icons';
 import { SITE_NAME } from '@/lib/site';
 
@@ -58,16 +59,14 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
             >
               Cách chúng tôi duyệt hồ sơ
             </Link>
-            {/* Đăng nhập là chữ trần, "Dành cho KTV" có viền: hai đường vào khác
-                nhau về đối tượng chứ không về mức quan trọng, nhưng khách vãng lai
-                không cần tài khoản để tìm và gọi — nên lời mời đăng nhập không được
-                trông như hành động chính của trang. */}
-            <Link
-              href="/dang-nhap"
-              className="hidden shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
-            >
-              Đăng nhập
-            </Link>
+            {/* Chữ trần, không viền như "Dành cho KTV": hai đường vào khác nhau về
+                đối tượng chứ không về mức quan trọng, nhưng khách vãng lai không cần
+                tài khoản để tìm và gọi — nên lời mời đăng nhập không được trông như
+                hành động chính của trang.
+
+                Client component vì nó đổi theo phiên: đọc cookie ở đây sẽ ép mọi
+                trang trong (public) thành dynamic. Xem ghi chú trong component. */}
+            <AccountNavLink className="hidden shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block" />
             {/* Trỏ thẳng vào cửa đăng ký KTV chứ không vào /dashboard: người bấm từ
                 trang công khai gần như luôn chưa đăng nhập, nên /dashboard chỉ là một
                 lần chuyển hướng thừa tới đúng chỗ này. KTV đã đăng nhập vào dashboard

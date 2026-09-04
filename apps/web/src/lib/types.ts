@@ -160,6 +160,25 @@ export interface ReviewList {
   total: number;
 }
 
+/**
+ * Đánh giá do chính người đang đăng nhập viết.
+ *
+ * Khác `ReviewItem` ở hai chỗ, cả hai đều có lý do: kèm tên và slug KTV để dựng
+ * link `/ktv/{slug}-{id}` mà không phải gọi thêm một lượt cho mỗi dòng, và có
+ * `rejectionReason` vì người viết phải biết vì sao đánh giá của mình bị gỡ.
+ */
+export interface MyReview {
+  id: string;
+  ktvId: string;
+  ktvFullName: string;
+  ktvSlug: string;
+  rating: number;
+  comment: string | null;
+  status: string;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
 export interface Sitemap {
   ktv: { path: string; lastModified: string }[];
   areas: { path: string; province: string; district: string | null; ktvCount: number }[];

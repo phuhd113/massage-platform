@@ -33,3 +33,28 @@ public class ReviewController(ReviewService service) : ControllerBase
     public async Task<IActionResult> Create(Guid ktvId, CreateReviewDto dto, CancellationToken ct) =>
         Ok(await service.CreateAsync(ktvId, User.GetUserId(), dto, ct));
 }
+
+/// <summary>Dữ liệu của chính tài khoản đang đăng nhập.</summary>
+/// <remarks>
+/// Controller riêng vì route không nằm dưới <c>ktv/{ktvId}</c>: đây là dữ liệu theo
+/// **người dùng**, không theo KTV.
+/// </remarks>
+[ApiController]
+[Route("me")]
+[Tags("Reviews")]
+[Authorize]
+public class MyReviewController(ReviewService service) : ControllerBase
+{
+    /// <summary>
+    /// Đánh giá tôi đã viết, mới nhất trước.
+    /// </summary>
+    /// <remarks>
+    /// Không phân trang: ràng buộc <c>UNIQUE (ktv_id, author_user_id)</c> giới hạn
+    /// mỗi tài khoản một đánh giá cho mỗi KTV, nên danh sách này tăng theo số KTV
+    /// khách từng dùng — vài chục dòng là nhiều. Thêm phân trang bây giờ là thêm
+    /// tham số phải giữ mãi cho một vấn đề chưa tồn tại.
+    /// </remarks>
+    [HttpGet("reviews")]
+    public async Task<IActionResult> Mine(CancellationToken ct) =>
+        Ok(await service.ListMineAsync(User.GetUserId(), ct));
+}

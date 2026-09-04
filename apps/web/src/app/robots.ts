@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
         '/tim-kiem',
         '/dang-nhap',
         '/dang-ky-ktv',
+        '/tai-khoan',
         '/nap-tien',
       ],
     },

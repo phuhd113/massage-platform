@@ -210,6 +210,29 @@ khách, vốn trước đó đăng nhập xong không dùng được vào việc
   là người sẵn sàng viết nhất, và vị trí đó nằm ngoài màn hình đầu tiên nên việc nó xuất hiện muộn
   (sau khi hỏi phiên) không gây nhảy bố cục dưới mắt ai.
 
+**Trang tài khoản khách `/tai-khoan`** (2026-09-04) + `GET /me/reviews`. Ba điều đừng đảo ngược:
+
+- **Nằm trong `(public)` chứ không phải `/dashboard`.** Khách không có sidebar riêng và vẫn đang
+  trong luồng duyệt site — vào từ header rồi quay ra tìm tiếp. KTV mở `/tai-khoan` bị đưa về
+  `/dashboard`: họ đã có màn làm việc đầy đủ hơn hẳn.
+- **`/me/reviews` trả về **mọi** trạng thái, khác endpoint công khai.** Người viết phải thấy đánh
+  giá của mình đang bị gỡ và lý do; nếu không nó chỉ biến mất khỏi trang hồ sơ, họ viết lại, rồi
+  nhận 409 vì ràng buộc một-tài-khoản-một-KTV. Endpoint lấy id người dùng **từ token**, không nhận
+  tham số — một id trên query string là đường đọc đánh giá của người khác.
+- **Link "Đăng nhập/Tài khoản" trên header là client component** (`AccountNavLink`). Gọi `cookies()`
+  trong `PublicShell` sẽ ép **mọi** trang dưới nhóm `(public)` thành dynamic — đánh đổi ISR của
+  những trang sống nhờ SEO lấy một chữ trên thanh điều hướng.
+
+Lịch sử liên hệ cố ý **chưa** đưa vào trang này: `leads` ghi cả lượt bấm của khách chưa đăng nhập,
+nên phần lớn lịch sử của một người sẽ không có trong đó — một danh sách khuyết quá nửa còn khó hiểu
+hơn là không có.
+
+**Đã biết, chưa sửa**: `/`, `/ktv/{slugId}`, `/massage-tai-nha/*` và `/dich-vu/{slug}` hiện build ra
+`ƒ (Dynamic)` chứ **không** phải ISR, dù đều khai `export const revalidate`. Đã kiểm chứng bằng cách
+build lại commit `3791f70`: tình trạng có từ trước, không do các thay đổi auth/review. Nghĩa là mỗi
+request đều gọi backend thật — đúng dữ liệu nhưng mất phần lớn lợi ích ISR trên chính nhóm trang
+SEO. Đáng truy nguyên nhân trước khi mở traffic thật.
+
 **Bố cục mobile** (2026-09-03): khối lọc ở `/tim-kiem` xếp dọc và gộp ba chip thành một hàng cuộn
 ngang dưới `sm` (`sm:contents` trả chúng về hàng wrap ở desktop); nút nổi "Xem bản đồ" chỉ hiện ở
 mobile vì cặp nút trong khối lọc đã cuộn mất khi khách đọc tới hồ sơ thứ ba. Mọi thanh dính đáy phải

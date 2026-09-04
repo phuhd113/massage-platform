@@ -124,7 +124,12 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
         role="status"
         className="mt-5 rounded-xl border border-success-bd bg-success-bg px-4 py-3.5 text-body text-success-fg"
       >
-        Cảm ơn bạn đã đánh giá {ktvName}. Nhận xét của bạn đã hiển thị công khai.
+        Cảm ơn bạn đã đánh giá {ktvName}. Nhận xét của bạn đã hiển thị công khai.{' '}
+        {/* Đường tới nơi xem lại — và là chỗ duy nhất người viết biết được nếu sau
+            này đánh giá bị gỡ, vì trên trang hồ sơ nó chỉ đơn giản biến mất. */}
+        <Link href="/tai-khoan" className="font-semibold underline underline-offset-4">
+          Xem đánh giá đã viết
+        </Link>
       </div>
     );
   }

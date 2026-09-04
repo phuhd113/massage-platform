@@ -66,6 +66,36 @@ public class ReviewService(AppDbContext db)
         return new ReviewListDto(items.Select(ToDto).ToList(), page, size, total);
     }
 
+    /// <summary>
+    /// Đánh giá do chính người đang đăng nhập viết.
+    ///
+    /// Trả về **mọi** trạng thái, khác <see cref="ListPublishedAsync"/>: người viết
+    /// phải thấy được đánh giá của mình đang bị gỡ và vì sao, nếu không nó chỉ đơn
+    /// giản biến mất khỏi trang hồ sơ và họ sẽ viết lại — rồi nhận 409 vì ràng buộc
+    /// một-tài-khoản-một-KTV.
+    ///
+    /// Lọc theo <paramref name="authorUserId"/> lấy từ token chứ không nhận id từ
+    /// ngoài: đây là dữ liệu riêng, và một tham số id trên query string là đường để
+    /// đọc đánh giá của người khác.
+    /// </summary>
+    public async Task<IReadOnlyList<MyReviewDto>> ListMineAsync(
+        Guid authorUserId, CancellationToken ct = default) =>
+        await db.Reviews
+            .Where(r => r.AuthorUserId == authorUserId)
+            .Join(db.KtvProfiles, r => r.KtvId, k => k.Id, (r, k) => new { Review = r, Ktv = k })
+            .OrderByDescending(x => x.Review.CreatedAt)
+            .Select(x => new MyReviewDto(
+                x.Review.Id,
+                x.Review.KtvId,
+                x.Ktv.FullName,
+                x.Ktv.Slug,
+                x.Review.Rating,
+                x.Review.Comment,
+                x.Review.Status,
+                x.Review.RejectionReason,
+                x.Review.CreatedAt))
+            .ToListAsync(ct);
+
     public async Task<ReviewDto> ModerateAsync(
         Guid reviewId, Guid adminUserId, ModerateReviewDto dto, CancellationToken ct = default)
     {

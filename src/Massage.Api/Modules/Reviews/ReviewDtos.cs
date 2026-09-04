@@ -42,3 +42,26 @@ public record ReviewDto(
     DateTimeOffset CreatedAt);
 
 public record ReviewListDto(IReadOnlyList<ReviewDto> Items, int Page, int Size, int Total);
+
+/// <summary>
+/// Một đánh giá do chính người đang đăng nhập viết, kèm đủ thông tin để dựng link
+/// ngược về hồ sơ KTV.
+/// </summary>
+/// <param name="KtvSlug">
+/// Đi cùng <paramref name="KtvId"/> vì URL hồ sơ là <c>/ktv/{slug}-{id}</c> — cần cả
+/// hai. Trả kèm ở đây thay vì để frontend gọi thêm một lượt cho mỗi dòng.
+/// </param>
+/// <param name="Status">
+/// Có trả về, khác endpoint công khai vốn chỉ trả review đã đăng: người viết phải
+/// thấy được đánh giá của mình vừa bị gỡ, nếu không họ chỉ thấy nó biến mất.
+/// </param>
+public record MyReviewDto(
+    Guid Id,
+    Guid KtvId,
+    string KtvFullName,
+    string KtvSlug,
+    short Rating,
+    string? Comment,
+    string Status,
+    string? RejectionReason,
+    DateTimeOffset CreatedAt);

@@ -115,4 +115,73 @@ public class ReviewServiceTests(PostgresFixture fixture)
         list.Total.Should().Be(1);
         list.Items.Should().ContainSingle().Which.Comment.Should().Be("tốt");
     }
+
+    [Fact]
+    public async Task Người_viết_vẫn_thấy_đánh_giá_của_mình_sau_khi_bị_gỡ()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var khách = await TestData.CreateUserAsync(db, UserRoles.Customer);
+        var admin = await TestData.CreateUserAsync(db, UserRoles.Admin);
+
+        var đánhGiá = await Service().CreateAsync(ktv.Id, khách.Id, new CreateReviewDto(2, "không hài lòng"));
+        await Service().ModerateAsync(đánhGiá.Id, admin.Id,
+            new ModerateReviewDto(ReviewStatuses.Rejected, "Ngôn từ không phù hợp"));
+
+        var củaTôi = await Service().ListMineAsync(khách.Id);
+
+        var dòng = củaTôi.Should().ContainSingle().Subject;
+        dòng.Status.Should().Be(
+            ReviewStatuses.Rejected,
+            "đánh giá bị gỡ mà biến mất khỏi trang tài khoản thì người viết sẽ viết lại — "
+            + "rồi nhận 409 vì ràng buộc một tài khoản một KTV");
+        dòng.RejectionReason.Should().Be("Ngôn từ không phù hợp");
+    }
+
+    [Fact]
+    public async Task Chỉ_thấy_đánh_giá_của_chính_mình()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var tôi = await TestData.CreateUserAsync(db, UserRoles.Customer);
+        var ngườiKhác = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        await Service().CreateAsync(ktv.Id, tôi.Id, new CreateReviewDto(5, "của tôi"));
+        await Service().CreateAsync(ktv.Id, ngườiKhác.Id, new CreateReviewDto(3, "của người khác"));
+
+        var củaTôi = await Service().ListMineAsync(tôi.Id);
+
+        củaTôi.Should().ContainSingle().Which.Comment.Should().Be("của tôi");
+    }
+
+    [Fact]
+    public async Task Đánh_giá_kèm_tên_và_slug_KTV_để_dựng_được_link_ngược()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var khách = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        await Service().CreateAsync(ktv.Id, khách.Id, new CreateReviewDto(4, null));
+
+        var dòng = (await Service().ListMineAsync(khách.Id)).Should().ContainSingle().Subject;
+
+        // URL hồ sơ là /ktv/{slug}-{id} nên thiếu một trong hai là dòng đánh giá
+        // không bấm về được hồ sơ đã đánh giá.
+        dòng.KtvFullName.Should().Be(ktv.FullName);
+        dòng.KtvSlug.Should().Be(ktv.Slug);
+    }
+
+    [Fact]
+    public async Task Chưa_đánh_giá_ai_thì_trả_về_danh_sách_rỗng()
+    {
+        await using var db = fixture.CreateContext();
+        var mới = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        var củaTôi = await Service().ListMineAsync(mới.Id);
+
+        củaTôi.Should().BeEmpty("tài khoản mới chưa viết gì là trạng thái bình thường, không phải lỗi");
+    }
 }
