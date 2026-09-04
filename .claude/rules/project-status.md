@@ -227,11 +227,25 @@ Lịch sử liên hệ cố ý **chưa** đưa vào trang này: `leads` ghi cả
 nên phần lớn lịch sử của một người sẽ không có trong đó — một danh sách khuyết quá nửa còn khó hiểu
 hơn là không có.
 
-**Đã biết, chưa sửa**: `/`, `/ktv/{slugId}`, `/massage-tai-nha/*` và `/dich-vu/{slug}` hiện build ra
-`ƒ (Dynamic)` chứ **không** phải ISR, dù đều khai `export const revalidate`. Đã kiểm chứng bằng cách
-build lại commit `3791f70`: tình trạng có từ trước, không do các thay đổi auth/review. Nghĩa là mỗi
-request đều gọi backend thật — đúng dữ liệu nhưng mất phần lớn lợi ích ISR trên chính nhóm trang
-SEO. Đáng truy nguyên nhân trước khi mở traffic thật.
+**`ƒ (Dynamic)` trong output của `next build` KHÔNG có nghĩa là mất cache** (đo ngày 2026-09-04).
+Các trang SEO — `/`, `/ktv/{slugId}`, `/massage-tai-nha/*`, `/dich-vu/{slug}` — đều hiện `ƒ` chứ
+không phải `○`, và điều đó **đúng như thiết kế**, không phải lỗi:
+
+- Chữ `ƒ` chỉ nói "không prerender lúc build". Trang chủ khai `force-dynamic` tường minh để **build
+  không phụ thuộc vào một API đang chạy** — nếu không, CI phải dựng cả stack chỉ để đóng gói
+  frontend. Ba trang còn lại là route động không có `generateStaticParams`, nên Next cũng không thể
+  dựng sẵn danh sách đường dẫn lúc build.
+- **Cache fetch vẫn sống nguyên**, kể cả dưới `force-dynamic`: `next: { revalidate }` trong
+  `lib/api.ts` là thứ quyết định, và nó độc lập với việc trang có được prerender hay không. Đo bằng
+  `pg_stat_user_tables`: 10 lần tải trang chủ → **0** lần chạm DB; 3 lần tải trang hồ sơ → **1** lần.
+- Chi phí render HTML mỗi request là không đáng kể: trang `ƒ` mất ~25–45ms, trang tĩnh thật `○`
+  (`/dang-ky-ktv`) mất ~20–45ms — không phân biệt được.
+- Nội dung SEO vẫn nằm đủ trong HTML thô: `ProfessionalService` + `AggregateRating` ở trang hồ sơ,
+  `BreadcrumbList` ở trang khu vực, `canonical` ở cả ba.
+
+Đừng "sửa" bằng cách thêm `generateStaticParams` để đổi `ƒ` thành `○`: nó buộc build phải gọi API
+liệt kê toàn bộ KTV và 696 quận/huyện, đánh đổi tính độc lập của CI lấy một chữ cái trong bảng
+output mà số đo cho thấy không mua được gì thêm.
 
 **Bố cục mobile** (2026-09-03): khối lọc ở `/tim-kiem` xếp dọc và gộp ba chip thành một hàng cuộn
 ngang dưới `sm` (`sm:contents` trả chúng về hàng wrap ở desktop); nút nổi "Xem bản đồ" chỉ hiện ở

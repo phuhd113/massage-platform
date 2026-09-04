@@ -8,8 +8,15 @@ import { SITE_NAME, absolute, areaPath, formatVnd } from '@/lib/site';
 
 // Render theo request thay vì prerender lúc build: build không được phụ thuộc vào
 // một API đang chạy, nếu không CI phải dựng cả stack chỉ để đóng gói frontend.
-// Dữ liệu vẫn đi qua cache fetch (revalidate trong lib/api) nên API không bị gọi
-// lại mỗi request.
+//
+// Dữ liệu vẫn đi qua cache fetch (`next: { revalidate }` trong lib/api) nên API
+// KHÔNG bị gọi lại mỗi request — `force-dynamic` bỏ prerender, nó không vô hiệu
+// hoá cache của từng fetch. Đã đo ngày 2026-09-04 bằng pg_stat_user_tables: 10 lần
+// tải trang này sinh đúng 0 lần chạm DB, và độ trễ ngang trang tĩnh thật.
+//
+// Vì vậy `ƒ (Dynamic)` trong bảng output của `next build` ở đây là đúng thiết kế.
+// Đừng thêm generateStaticParams để đổi nó thành `○`: xem ghi chú trong
+// .claude/rules/project-status.md.
 export const dynamic = 'force-dynamic';
 
 /** Ba bước duyệt hồ sơ — nội dung tĩnh, là chính sách chứ không phải dữ liệu. */
