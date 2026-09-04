@@ -376,7 +376,14 @@ không đợi Phase 4:
 
 - Kiểm duyệt ảnh đại diện và `bio` trước khi hiển thị công khai — mở rộng luồng duyệt hồ sơ đã có ở
   Phase 0, đừng làm mới.
-- Nút báo cáo vi phạm trên trang hồ sơ công khai + hàng đợi xử lý cho admin.
+- ✅ **Nút báo cáo vi phạm trên trang hồ sơ công khai + hàng đợi xử lý cho admin** (2026-09-04,
+  `Modules/Reports`). Báo cáo **không** tự ẩn hồ sơ: một nút ẩn được bằng vài lần bấm là vũ khí để
+  KTV đối thủ hạ nhau, và hồ sơ bị ẩn oan là doanh thu mất thật. Nó chỉ đưa hồ sơ vào hàng đợi, còn
+  việc gỡ đi qua đúng đường duyệt hồ sơ đã có (`PATCH /admin/ktv/{id}/verify`) — nhân bản logic đổi
+  trạng thái hồ sơ vào đây sẽ tạo ra hai đường phải giữ cho khớp nhau mãi mãi. Hàng đợi xếp theo số
+  báo cáo còn chờ của **hồ sơ**, không theo thời gian: một hồ sơ bị hai mươi người báo cáo khác hẳn
+  về mức độ so với hai mươi hồ sơ mỗi cái một báo cáo, mà danh sách phẳng theo thời gian thì hai
+  trường hợp trông giống hệt nhau.
 - Bắt buộc chứng chỉ hành nghề đã duyệt mới được xuất hiện trong search — biến việc xác minh thành hàng
   rào chất lượng, đồng thời là điểm bán hàng.
 

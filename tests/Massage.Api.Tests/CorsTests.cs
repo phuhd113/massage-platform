@@ -4,13 +4,12 @@ using FluentAssertions;
 namespace Massage.Api.Tests;
 
 /// <summary>
-/// CORS cho hai endpoint mà trang công khai gọi **thẳng** từ trình duyệt.
+/// CORS cho các endpoint mà trang công khai gọi **thẳng** từ trình duyệt.
 ///
 /// Đây là loại lỗi không nhìn thấy được từ phía server: <c>curl</c> vẫn 200, mọi test
-/// service vẫn xanh, chỉ trình duyệt thật mới chặn. Và hai endpoint này là
-/// <c>POST /leads</c> — đơn vị doanh thu của sàn — cùng <c>POST /ktv/{id}/views</c>.
-/// Thiếu CORS thì khách bấm "Gọi ngay" không lấy được số điện thoại, mà không có
-/// dòng log nào ở server báo hỏng.
+/// service vẫn xanh, chỉ trình duyệt thật mới chặn. Trong số đó có <c>POST /leads</c>
+/// — đơn vị doanh thu của sàn: thiếu CORS thì khách bấm "Gọi ngay" không lấy được số
+/// điện thoại, mà không có dòng log nào ở server báo hỏng.
 /// </summary>
 [Collection(PostgresCollection.Name)]
 public class CorsTests(PostgresFixture fixture) : IAsyncLifetime
@@ -30,6 +29,7 @@ public class CorsTests(PostgresFixture fixture) : IAsyncLifetime
     [Theory]
     [InlineData("/api/v1/leads")]
     [InlineData("/api/v1/ktv/11111111-1111-1111-1111-111111111111/views")]
+    [InlineData("/api/v1/reports")]
     public async Task Preflight_từ_trang_web_được_chấp_nhận(string path)
     {
         var client = _api.CreateClient();

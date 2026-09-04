@@ -36,6 +36,7 @@ public class ApiAuthorizationTests(PostgresFixture fixture) : IAsyncLifetime
         { "GET", "/api/v1/ktv/profile/services" },
         { "GET", "/api/v1/admin/ktv" },
         { "GET", "/api/v1/admin/revenue" },
+        { "GET", "/api/v1/admin/reports" },
     };
 
     [Theory]

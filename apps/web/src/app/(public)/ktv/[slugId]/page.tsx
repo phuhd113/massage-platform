@@ -6,6 +6,7 @@ import { ContactButtons } from '@/components/ContactButtons';
 import { JsonLd } from '@/components/JsonLd';
 import { CertifiedIcon } from '@/components/icons';
 import { ProfileViewBeacon } from '@/components/ProfileViewBeacon';
+import { ReportProfileButton } from '@/components/ReportProfileButton';
 import { PROFILE_REVALIDATE, api } from '@/lib/api';
 import { absolute, areaPath, formatDate, formatVnd, ktvPath, parseKtvSlugId } from '@/lib/site';
 import type { PublicKtvProfile, ReviewList } from '@/lib/types';
@@ -281,6 +282,10 @@ export default async function KtvPage({ params }: Props) {
                 <p className="mt-2 text-body text-ink-500">Chưa có đánh giá nào.</p>
               )}
             </section>
+
+            {/* Cuối cột nội dung, sau đánh giá: lối thoát hiểm cho thiểu số, đặt ở
+                nơi không cạnh tranh với hành động chính của trang là liên hệ. */}
+            <ReportProfileButton ktvId={profile.id} />
           </div>
 
           <aside className="lg:sticky lg:top-24">

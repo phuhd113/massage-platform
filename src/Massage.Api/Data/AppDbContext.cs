@@ -3,6 +3,7 @@ using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Analytics.Entities;
 using Massage.Api.Modules.Leads.Entities;
 using Massage.Api.Modules.Promotions.Entities;
+using Massage.Api.Modules.Reports.Entities;
 using Massage.Api.Modules.Reviews.Entities;
 using Massage.Api.Modules.ServiceCatalog.Entities;
 using Massage.Api.Modules.Wallets.Entities;
@@ -23,6 +24,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ProfileReport> ProfileReports => Set<ProfileReport>();
     public DbSet<WalletRow> Wallets => Set<WalletRow>();
     public DbSet<WalletTransactionRow> WalletTransactions => Set<WalletTransactionRow>();
     public DbSet<WalletHoldRow> WalletHolds => Set<WalletHoldRow>();
@@ -253,6 +255,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne<User>().WithMany().HasForeignKey(x => x.AuthorUserId);
             e.HasIndex(x => new { x.KtvId, x.AuthorUserId }).IsUnique().HasDatabaseName("uq_review_ktv_author");
             e.HasIndex(x => new { x.KtvId, x.Status }).HasDatabaseName("idx_review_ktv_status");
+        });
+
+        b.Entity<ProfileReport>(e =>
+        {
+            e.ToTable("profile_reports");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.KtvId).HasColumnName("ktv_id");
+            e.Property(x => x.ReporterUserId).HasColumnName("reporter_user_id");
+            e.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(30).IsRequired();
+            e.Property(x => x.Detail).HasColumnName("detail");
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.Ip).HasColumnName("ip").HasMaxLength(45);
+            e.Property(x => x.UserAgent).HasColumnName("user_agent");
+            e.Property(x => x.DeviceHash).HasColumnName("device_hash").HasMaxLength(64);
+            e.Property(x => x.ReviewedBy).HasColumnName("reviewed_by");
+            e.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+            e.Property(x => x.ResolutionNote).HasColumnName("resolution_note");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.HasOne<KtvProfile>().WithMany().HasForeignKey(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ReporterUserId);
+            e.HasIndex(x => new { x.Status, x.CreatedAt }).HasDatabaseName("idx_report_status_time");
+            e.HasIndex(x => new { x.KtvId, x.Status }).HasDatabaseName("idx_report_ktv_status");
         });
 
         ConfigureMoney(b);

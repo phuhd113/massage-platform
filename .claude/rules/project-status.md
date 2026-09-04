@@ -217,8 +217,31 @@ tháng. Job **ném lỗi** khi `analytics_events_default` có dữ liệu — h�
 thiếu partition, và chúng **chặn** việc tạo partition cho chính tháng chúng thuộc về, nên lỗi tự khoá
 lại và càng để lâu càng khó gỡ. Job không tự dọn: dọn tức là xoá số liệu thật.
 
-Phần Phase 3 còn lại: job delayed `promotion:expire` (chỉ bắt buộc khi đường đọc sang Redis),
-analytics partition theo tháng, Redis read-path khi số đo đòi hỏi → rồi Phase 4. Chi tiết ở
+**Báo cáo vi phạm đã chạy** (2026-09-04, `Modules/Reports` + bảng `profile_reports`). Roadmap xếp
+việc này vào "cần chuẩn bị từ Phase 1, không đợi Phase 4" vì nó chạm đúng hai trụ cột của dự án:
+pháp lý, và kênh acquisition chính — Google hạ hạng mạnh tên miền bị phân loại là nội dung người
+lớn. Bốn điều đừng đảo ngược:
+
+- **Báo cáo không tự ẩn hồ sơ.** Một nút ẩn được bằng vài lần bấm là vũ khí để KTV đối thủ hạ nhau,
+  và hồ sơ bị ẩn oan là doanh thu mất thật. Việc gỡ hồ sơ đi qua đúng đường duyệt hồ sơ đã có
+  (`PATCH /admin/ktv/{id}/verify`), nơi đã ghi sẵn ai quyết định và vì sao — nhân bản logic đó vào
+  module Reports sẽ tạo ra hai đường đổi trạng thái hồ sơ phải giữ cho khớp nhau mãi mãi.
+- **Hàng đợi xếp theo số báo cáo còn chờ của hồ sơ, không theo thời gian.** Một hồ sơ bị hai mươi
+  người báo cáo khác hẳn về mức độ so với hai mươi hồ sơ mỗi cái một báo cáo, mà danh sách phẳng
+  theo thời gian thì hai trường hợp trông giống hệt nhau. Con số đó đếm bằng subquery tương quan:
+  EF **không dịch được** left-join tới `GroupBy`, và bản viết bằng join chỉ nổ lúc chạy.
+- **Nhận báo cáo cho mọi hồ sơ tồn tại, không chỉ hồ sơ đã duyệt** (khác `leads`). Hồ sơ vừa bị gỡ
+  xuống PENDING vì nghi vấn chính là hồ sơ cần thêm bằng chứng nhất.
+- **`POST /reports` gọi thẳng từ trình duyệt như `/leads`**, nên nằm trong danh sách CORS. Cửa sổ
+  gộp là 24 giờ theo thiết bị — rộng hơn hẳn lead (5 phút) vì người báo cáo lại cùng hồ sơ sau mười
+  phút gần như chắc chắn vẫn đang nói về đúng chuyện đó, và để một người tự bơm số báo cáo lên là
+  làm hỏng chính thước đo mức độ nghiêm trọng ở gạch đầu dòng trên.
+
+Phần Phase 3 còn lại: job delayed `promotion:expire` và Redis read-path — cả hai chỉ trở nên bắt
+buộc khi đường đọc chuyển sang Redis, mà số đo hiện tại (`/search` 28,6ms ở 5.000 hồ sơ) chưa đòi
+hỏi điều đó. `promotion:activate` và `instant-boost:golden-hour` trong roadmap gốc **không còn cần**:
+campaign ACTIVE ngay trong transaction mua và search đọc thẳng Postgres, nên độ trễ hiệu lực đã bằng
+0 mà không cần job nào. Chi tiết ở
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
 

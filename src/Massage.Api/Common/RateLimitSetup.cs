@@ -7,6 +7,7 @@ public static class RateLimitPolicies
 {
     public const string Leads = "leads";
     public const string Reviews = "reviews";
+    public const string Reports = "reports";
     public const string ProfileViews = "profile-views";
 }
 
@@ -41,6 +42,16 @@ public static class RateLimitSetup
                 {
                     PermitLimit = 120,
                     Window = TimeSpan.FromMinutes(1),
+                }));
+
+            // Chặt như đánh giá và vì cùng một lý do: đây là hàng đợi người thật phải
+            // đọc bằng mắt. Một người báo cáo vài hồ sơ trong mười phút là bình thường;
+            // hai mươi hồ sơ thì không phải đang tố giác mà đang bơm việc cho admin.
+            opt.AddPolicy(RateLimitPolicies.Reports, ctx =>
+                RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(10),
                 }));
 
             opt.AddPolicy(RateLimitPolicies.Reviews, ctx =>

@@ -16,6 +16,7 @@ using Massage.Api.Modules.Promotions;
 using Massage.Api.Modules.Promotions.Infrastructure;
 using Massage.Api.Modules.Promotions.UseCases;
 using Massage.Api.Modules.PublicSite;
+using Massage.Api.Modules.Reports;
 using Massage.Api.Modules.Search;
 using Massage.Api.Modules.ServiceCatalog;
 using Massage.Api.Modules.Wallets;
@@ -118,6 +119,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AnalyticsWriter>()
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<ReviewService>();
+builder.Services.AddScoped<ReportService>();
 
 // Vùng chạm tiền: adapter hiện thực các cổng do hai project domain khai báo.
 // Domain không tham chiếu EF nên việc nối dây chỉ xảy ra ở đây.
