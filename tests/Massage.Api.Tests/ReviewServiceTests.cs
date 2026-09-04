@@ -2,6 +2,8 @@ using FluentAssertions;
 using Massage.Api.Common;
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
+using Massage.Api.Modules.Leads;
+using Massage.Api.Modules.Leads.Entities;
 using Massage.Api.Modules.Reviews;
 using Massage.Api.Modules.Reviews.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -183,5 +185,94 @@ public class ReviewServiceTests(PostgresFixture fixture)
         var củaTôi = await Service().ListMineAsync(mới.Id);
 
         củaTôi.Should().BeEmpty("tài khoản mới chưa viết gì là trạng thái bình thường, không phải lỗi");
+    }
+
+    [Fact]
+    public async Task Đánh_giá_gắn_được_lead_khi_khách_đã_từng_liên_hệ()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var khách = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        var leads = new LeadService(fixture.CreateContext(), new FakeAnalyticsQueue());
+        await leads.CreateAsync(
+            new CreateLeadDto(ktv.Id, LeadChannels.Call, null, null),
+            khách.Id, "203.0.113.9", "test-agent");
+
+        await Service().CreateAsync(ktv.Id, khách.Id, new CreateReviewDto(5, "đã dùng thật"));
+
+        var hàngĐợi = await Service().ListForModerationAsync(unverifiedOnly: false, 1, 200);
+        var dòng = hàngĐợi.Items.Single(i => i.KtvId == ktv.Id);
+
+        dòng.HasLead.Should().BeTrue(
+            "lead có customer_user_id là bằng chứng người viết từng thật sự liên hệ — "
+            + "đó là thứ phân biệt đánh giá thật với tài khoản vừa lập để bơm sao");
+    }
+
+    [Fact]
+    public async Task Đánh_giá_không_có_lead_vẫn_được_đăng()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var khách = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        var kếtQuả = await Service().CreateAsync(ktv.Id, khách.Id, new CreateReviewDto(4, null));
+
+        kếtQuả.Status.Should().Be(
+            ReviewStatuses.Published,
+            "phần lớn khách bấm gọi lúc chưa đăng nhập nên lead ẩn danh và không bao giờ khớp; "
+            + "chặn họ đánh giá là cắt mất gần hết nguồn đánh giá thật");
+    }
+
+    [Fact]
+    public async Task Hàng_đợi_rà_soát_lọc_được_đánh_giá_không_gắn_lead()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var cóLead = await TestData.CreateUserAsync(db, UserRoles.Customer);
+        var khôngLead = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        var leads = new LeadService(fixture.CreateContext(), new FakeAnalyticsQueue());
+        await leads.CreateAsync(
+            new CreateLeadDto(ktv.Id, LeadChannels.Call, null, null),
+            cóLead.Id, "203.0.113.10", "test-agent");
+
+        await Service().CreateAsync(ktv.Id, cóLead.Id, new CreateReviewDto(5, "thật"));
+        await Service().CreateAsync(ktv.Id, khôngLead.Id, new CreateReviewDto(5, "chưa rõ"));
+
+        var lọc = await Service().ListForModerationAsync(unverifiedOnly: true, 1, 200);
+        var củaKtvNày = lọc.Items.Where(i => i.KtvId == ktv.Id).ToList();
+
+        củaKtvNày.Should().ContainSingle().Which.Comment.Should().Be("chưa rõ");
+    }
+
+    [Fact]
+    public async Task Hàng_đợi_xếp_đánh_giá_chưa_gắn_lead_lên_trước()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+        var cóLead = await TestData.CreateUserAsync(db, UserRoles.Customer);
+        var khôngLead = await TestData.CreateUserAsync(db, UserRoles.Customer);
+
+        var leads = new LeadService(fixture.CreateContext(), new FakeAnalyticsQueue());
+        await leads.CreateAsync(
+            new CreateLeadDto(ktv.Id, LeadChannels.Call, null, null),
+            cóLead.Id, "203.0.113.11", "test-agent");
+
+        // Dòng có lead viết TRƯỚC, nên xếp thuần theo thời gian thì nó đứng đầu.
+        await Service().CreateAsync(ktv.Id, cóLead.Id, new CreateReviewDto(5, "co-lead"));
+        await Service().CreateAsync(ktv.Id, khôngLead.Id, new CreateReviewDto(1, "khong-lead"));
+
+        var hàngĐợi = await Service().ListForModerationAsync(unverifiedOnly: false, 1, 200);
+        var củaKtvNày = hàngĐợi.Items.Where(i => i.KtvId == ktv.Id).ToList();
+
+        củaKtvNày[0].Comment.Should().Be(
+            "khong-lead",
+            "admin đọc từ trên xuống, nên thứ đáng nhìn trước phải nằm trên — "
+            + "xếp theo thời gian thì dòng đáng ngờ lẫn vào giữa những dòng bình thường");
     }
 }

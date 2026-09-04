@@ -37,15 +37,30 @@ export function ContactButtons({
     setError(null);
 
     try {
-      const res = await fetch(`${API}/leads`, {
+      const payload = JSON.stringify({
+        ktvId,
+        channel,
+        sourceUrl: window.location.pathname,
+      });
+
+      // Thử đường có xác thực trước: nó gắn được `customer_user_id` vào lead, thứ
+      // sau này dùng để phân biệt đánh giá của người từng liên hệ thật với đánh giá
+      // của tài khoản vừa lập. Trả 401 nghĩa là khách chưa đăng nhập.
+      let res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ktvId,
-          channel,
-          sourceUrl: window.location.pathname,
-        }),
+        body: payload,
       });
+
+      // Khách ẩn danh — phần lớn khách — gọi thẳng backend, vì chỉ đường đó mới
+      // mang đúng IP của họ và cơ chế gộp lead trùng 5 phút mới còn ý nghĩa.
+      if (res.status === 401) {
+        res = await fetch(`${API}/leads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+        });
+      }
 
       if (res.status === 429) {
         setError('Bạn đã bấm liên hệ quá nhiều lần. Thử lại sau ít phút.');

@@ -227,6 +227,25 @@ Lịch sử liên hệ cố ý **chưa** đưa vào trang này: `leads` ghi cả
 nên phần lớn lịch sử của một người sẽ không có trong đó — một danh sách khuyết quá nửa còn khó hiểu
 hơn là không có.
 
+**Nền cho chống đánh giá giả** (2026-09-04). Đo trước khi làm: **0/6** đánh giá khớp được với một
+lead, và nguyên nhân là một lỗ có sẵn — `ContactButtons` gọi thẳng `POST /leads` sang origin backend
+**không kèm token**, mà token nằm trong cookie httpOnly của origin Next nên không đi kèm request
+cross-origin. Hệ quả: **mọi** lead đều ẩn danh, kể cả của khách vừa đăng nhập, và quy tắc "chỉ ai
+từng liên hệ mới được đánh giá" ở Phase 4 không thể thực thi. Bốn điều đừng đảo ngược:
+
+- **Hai đường ghi lead, chọn theo trạng thái đăng nhập.** Khách đã đăng nhập đi qua `/api/leads` của
+  Next (gắn được `customer_user_id`); khách ẩn danh nhận 401 rồi **rơi về gọi thẳng backend**, vì chỉ
+  đường đó mới mang đúng IP để cơ chế gộp lead trùng 5 phút còn ý nghĩa. Với khách đã đăng nhập thì
+  IP không còn quan trọng: `ComputeDeviceHash` đã lấy `userId` làm thành phần đầu của khoá gộp.
+- **Đánh giá không có lead vẫn được đăng.** Phần lớn khách bấm gọi *trước* khi đăng nhập nên lead lúc
+  đó ẩn danh và không bao giờ khớp; chặn họ là cắt mất gần hết nguồn đánh giá thật, trong khi rating
+  chính là thứ Google đọc. `lead_id` chỉ **ghi nhận** mối liên hệ khi nó tồn tại.
+- **`hasLead` là dấu hiệu, không phải bằng chứng.** `true` đáng tin (người này thật sự đã liên hệ);
+  `false` chưa kết luận được gì. Đừng biến nó thành điều kiện tự động gỡ đánh giá.
+- **`GET /admin/reviews` là đường *tìm* đánh giá đáng gỡ.** Trước đây chỉ có `PATCH .../moderate` để
+  gỡ, nên kiểm duyệt chỉ chạy khi có người báo cáo. Hàng đợi xếp: chưa gắn lead → tài khoản viết càng
+  mới càng lên trước (tài khoản lập xong đánh giá ngay là hình dạng của việc bơm sao) → mới nhất.
+
 **`ƒ (Dynamic)` trong output của `next build` KHÔNG có nghĩa là mất cache** (đo ngày 2026-09-04).
 Các trang SEO — `/`, `/ktv/{slugId}`, `/massage-tai-nha/*`, `/dich-vu/{slug}` — đều hiện `ƒ` chứ
 không phải `○`, và điều đó **đúng như thiết kế**, không phải lỗi:

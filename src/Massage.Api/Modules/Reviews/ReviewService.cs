@@ -1,5 +1,7 @@
 using Massage.Api.Common;
 using Massage.Api.Data;
+using Massage.Api.Modules.Admin;
+using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Reviews.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +23,25 @@ public class ReviewService(AppDbContext db)
         if (ktv.UserId == authorUserId)
             throw new BadRequestException("Không thể tự đánh giá hồ sơ của chính mình");
 
+        // Lead gần nhất của chính người này với chính KTV này, nếu có.
+        //
+        // **Không bắt buộc phải có.** Phần lớn khách bấm gọi trước khi đăng nhập —
+        // lead lúc đó ẩn danh nên không bao giờ khớp được — và chặn họ đánh giá sẽ
+        // cắt mất gần hết nguồn đánh giá thật, trong khi rating chính là thứ Google
+        // đọc. Ở đây chỉ **ghi nhận** mối liên hệ khi nó tồn tại: một đánh giá có
+        // lead là bằng chứng người viết từng thật sự liên hệ, còn thiếu nó thì chưa
+        // kết luận được gì. Admin lọc theo dấu hiệu này qua `GET /admin/reviews`.
+        var leadId = await db.Leads
+            .Where(l => l.KtvId == ktvId && l.CustomerUserId == authorUserId)
+            .OrderByDescending(l => l.CreatedAt)
+            .Select(l => (Guid?)l.Id)
+            .FirstOrDefaultAsync(ct);
+
         var review = new Review
         {
             KtvId = ktvId,
             AuthorUserId = authorUserId,
+            LeadId = leadId,
             Rating = dto.Rating,
             Comment = dto.Comment,
             // Đăng ngay thay vì chờ duyệt: bắt duyệt tay từng review sẽ làm luồng
@@ -95,6 +112,56 @@ public class ReviewService(AppDbContext db)
                 x.Review.RejectionReason,
                 x.Review.CreatedAt))
             .ToListAsync(ct);
+
+    /// <summary>
+    /// Hàng đợi rà soát đánh giá cho admin, đáng ngờ nhất lên trước.
+    ///
+    /// Thứ tự: chưa gắn được lead → tài khoản viết càng mới càng lên trước → mới nhất.
+    /// Tài khoản lập xong đánh giá ngay chính là hình dạng của việc bơm sao, và xếp
+    /// thuần theo thời gian thì mười đánh giá của mười tài khoản vừa lập nằm lẫn giữa
+    /// những dòng bình thường.
+    ///
+    /// <paramref name="unverifiedOnly"/> chỉ **thu hẹp chỗ cần nhìn**, không phải bộ
+    /// lọc gian lận: xem ghi chú ở <see cref="ReviewForModerationDto.HasLead"/>.
+    /// </summary>
+    public async Task<PagedResult<ReviewForModerationDto>> ListForModerationAsync(
+        bool unverifiedOnly, int page, int limit, CancellationToken ct = default)
+    {
+        var query =
+            from r in db.Reviews
+            join k in db.KtvProfiles on r.KtvId equals k.Id
+            join u in db.Users on r.AuthorUserId equals u.Id
+            where !unverifiedOnly || r.LeadId == null
+            select new { Review = r, Ktv = k, Author = u };
+
+        var total = await query.CountAsync(ct);
+
+        var rows = await query
+            .OrderBy(x => x.Review.LeadId != null)
+            .ThenBy(x => x.Review.CreatedAt - x.Author.CreatedAt)
+            .ThenByDescending(x => x.Review.CreatedAt)
+            .Skip((page - 1) * limit)
+            .Take(limit)
+            .ToListAsync(ct);
+
+        var items = rows
+            .Select(x => new ReviewForModerationDto(
+                x.Review.Id,
+                x.Review.KtvId,
+                x.Ktv.FullName,
+                x.Review.AuthorUserId,
+                x.Review.Rating,
+                x.Review.Comment,
+                x.Review.Status,
+                x.Review.LeadId != null,
+                // Âm là không thể xảy ra (tài khoản phải có trước đánh giá), nhưng
+                // kẹp về 0 để một hàng dữ liệu lệch không thành con số vô nghĩa.
+                Math.Max(0, (x.Review.CreatedAt - x.Author.CreatedAt).TotalHours),
+                x.Review.CreatedAt))
+            .ToList();
+
+        return new PagedResult<ReviewForModerationDto>(items, total, page, limit);
+    }
 
     public async Task<ReviewDto> ModerateAsync(
         Guid reviewId, Guid adminUserId, ModerateReviewDto dto, CancellationToken ct = default)

@@ -71,6 +71,33 @@ public class AdminController(AdminService service) : ControllerBase
     }
 
     /// <summary>
+    /// Danh sách đánh giá để rà soát, đáng ngờ nhất lên trước.
+    /// </summary>
+    /// <remarks>
+    /// Bổ sung cho <c>PATCH reviews/{id}/moderate</c>: trước đây admin gỡ được một
+    /// đánh giá nhưng không có đường nào **tìm ra** đánh giá đáng gỡ, nên cơ chế kiểm
+    /// duyệt chỉ chạy khi có người báo cáo.
+    ///
+    /// <paramref name="unverifiedOnly"/> lọc những đánh giá không gắn được với một
+    /// lượt liên hệ nào. Đó là **dấu hiệu**, không phải bằng chứng: khách bấm gọi lúc
+    /// chưa đăng nhập thì lead ẩn danh và không bao giờ khớp, nên phần lớn đánh giá
+    /// thật cũng rơi vào nhóm này. Nó chỉ thu hẹp chỗ cần nhìn.
+    /// </remarks>
+    [HttpGet("reviews")]
+    public async Task<IActionResult> ListReviews(
+        [FromServices] ReviewService reviews,
+        CancellationToken ct,
+        [FromQuery] bool unverifiedOnly = false,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 50)
+    {
+        if (page < 1 || limit is < 1 or > 200)
+            throw new BadRequestException("page ≥ 1 và limit trong khoảng 1 – 200");
+
+        return Ok(await reviews.ListForModerationAsync(unverifiedOnly, page, limit, ct));
+    }
+
+    /// <summary>
     /// Gỡ hoặc khôi phục một đánh giá. Đánh giá được đăng ngay khi gửi, nên đây là
     /// đường duy nhất để xử lý nội dung vi phạm — và nó tính lại rating của KTV.
     /// </summary>

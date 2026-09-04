@@ -335,7 +335,13 @@ mình đang giữ lock. Chỉ ràng buộc DB mới chặn được. Nếu Redis
 - Rate limit lead/click theo IP + device fingerprint; cửa sổ dedupe (cùng thiết bị bấm gọi 5 lần trong 1
   phút = 1 lead).
 - Điểm nghi ngờ + hàng đợi admin xem lại; lead bị đánh dấu gian lận không tính vào thống kê tính phí.
-- Chống review giả: chỉ cho review khi đã có lead tương ứng, giới hạn theo tài khoản.
+- Chống review giả: ~~chỉ cho review khi đã có lead tương ứng~~, giới hạn theo tài khoản.
+  **Nền đã làm xong (2026-09-04)**, nhưng vế gạch bỏ thì không: đo thực tế cho thấy chặn cứng
+  "phải có lead" sẽ loại gần hết đánh giá thật, vì phần lớn khách bấm gọi *trước* khi đăng nhập nên
+  lead lúc đó ẩn danh. Thay bằng: sửa lỗ khiến mọi lead đều ẩn danh (`ContactButtons` gọi backend
+  cross-origin không kèm token), gắn `lead_id` vào review khi khớp được, và mở `GET /admin/reviews`
+  để admin lọc theo dấu hiệu. `hasLead` là dấu hiệu để xếp thứ tự đọc, **không** phải điều kiện tự
+  động gỡ — chi tiết trong `.claude/rules/project-status.md`.
 
 ### 4.3 Bảo mật & hạ tầng
 

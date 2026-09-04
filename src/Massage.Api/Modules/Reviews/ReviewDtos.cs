@@ -55,6 +55,31 @@ public record ReviewListDto(IReadOnlyList<ReviewDto> Items, int Page, int Size, 
 /// Có trả về, khác endpoint công khai vốn chỉ trả review đã đăng: người viết phải
 /// thấy được đánh giá của mình vừa bị gỡ, nếu không họ chỉ thấy nó biến mất.
 /// </param>
+/// <summary>Một đánh giá nhìn từ hàng đợi rà soát của admin.</summary>
+/// <param name="HasLead">
+/// Người viết có lượt liên hệ nào với KTV này được ghi nhận không.
+///
+/// <b>Dấu hiệu, không phải bằng chứng.</b> Khách bấm gọi lúc chưa đăng nhập thì lead
+/// ẩn danh và không bao giờ khớp được, nên rất nhiều đánh giá thật cũng có
+/// <c>false</c> ở đây. Ngược lại mới đáng tin: <c>true</c> nghĩa là người này thật sự
+/// đã liên hệ. Đừng biến cột này thành điều kiện tự động gỡ đánh giá.
+/// </param>
+/// <param name="AuthorAccountAgeHours">
+/// Tài khoản được tạo bao lâu trước khi viết đánh giá này. Tài khoản lập xong đánh
+/// giá ngay là hình dạng của việc bơm sao; con số này để admin xếp thứ tự đọc.
+/// </param>
+public record ReviewForModerationDto(
+    Guid Id,
+    Guid KtvId,
+    string KtvFullName,
+    Guid AuthorUserId,
+    short Rating,
+    string? Comment,
+    string Status,
+    bool HasLead,
+    double AuthorAccountAgeHours,
+    DateTimeOffset CreatedAt);
+
 public record MyReviewDto(
     Guid Id,
     Guid KtvId,
