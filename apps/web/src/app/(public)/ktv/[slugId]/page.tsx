@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/JsonLd';
 import { CertifiedIcon } from '@/components/icons';
 import { ProfileViewBeacon } from '@/components/ProfileViewBeacon';
 import { ReportProfileButton } from '@/components/ReportProfileButton';
+import { ReviewForm } from '@/components/ReviewForm';
 import { PROFILE_REVALIDATE, api } from '@/lib/api';
 import { absolute, areaPath, formatDate, formatVnd, ktvPath, parseKtvSlugId } from '@/lib/site';
 import type { PublicKtvProfile, ReviewList } from '@/lib/types';
@@ -281,6 +282,11 @@ export default async function KtvPage({ params }: Props) {
               ) : (
                 <p className="mt-2 text-body text-ink-500">Chưa có đánh giá nào.</p>
               )}
+
+              {/* Ngay dưới danh sách, trong cùng section: người vừa đọc đánh giá của
+                  người khác là người sẵn sàng viết nhất. Client component vì trang
+                  này là ISR 600 giây — xem ghi chú trong ReviewForm. */}
+              <ReviewForm ktvId={profile.id} ktvName={profile.fullName} />
             </section>
 
             {/* Cuối cột nội dung, sau đánh giá: lối thoát hiểm cho thiểu số, đặt ở

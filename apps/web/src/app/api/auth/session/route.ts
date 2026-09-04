@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { API_BASE, SESSION_COOKIE } from '@/lib/session';
+import { API_BASE, SESSION_COOKIE, getSessionRole } from '@/lib/session';
 
 /**
  * Đổi mã OTP lấy phiên đăng nhập.
@@ -60,6 +60,29 @@ export async function POST(request: Request) {
   });
 
   return response;
+}
+
+/**
+ * Trạng thái phiên hiện tại, cho client component tự hỏi.
+ *
+ * Tồn tại vì những trang công khai được cache dùng chung (trang hồ sơ KTV cache
+ * 600 giây) không thể render sẵn "đã đăng nhập hay chưa" — HTML đó phục vụ mọi
+ * người xem. Nướng trạng thái đăng nhập vào đó là hoặc lộ phiên người này cho
+ * người khác, hoặc phải bỏ cache trên chính những trang sống nhờ SEO.
+ *
+ * Chỉ trả vai trò, không trả gì định danh được người dùng: form đánh giá chỉ cần
+ * biết "có nên hiện ô nhập hay hiện lời mời đăng nhập". Số điện thoại và id không
+ * liên quan tới quyết định đó, nên không gửi ra.
+ */
+export async function GET() {
+  const role = getSessionRole();
+
+  return NextResponse.json(
+    { authenticated: role !== null, role },
+    // Trạng thái riêng của từng người: một lớp cache trung gian giữ lại response
+    // này là phát phiên của người đầu tiên cho tất cả những người sau.
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 /** Đăng xuất: xoá cookie phiên. */

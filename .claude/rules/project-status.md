@@ -192,6 +192,24 @@ Năm điều đừng đảo ngược:
 `?next=` trên `/dang-nhap` chỉ nhận đường dẫn nội bộ (`safeNext`), chặn cả `//host` vì trình duyệt
 hiểu nó là URL tuyệt đối — nhận nguyên trạng là mở open redirect ngay trên trang đăng nhập thật.
 
+**Form viết đánh giá trên trang hồ sơ** (2026-09-04, `ReviewForm`) — đích đến thật cho tài khoản
+khách, vốn trước đó đăng nhập xong không dùng được vào việc gì. Ba điều đừng đảo ngược:
+
+- **Trạng thái đăng nhập phải hỏi ở client, không render sẵn.** Trang hồ sơ là ISR 600 giây, tức
+  một bản HTML phục vụ mọi người xem; nướng "đã đăng nhập hay chưa" vào đó là hoặc phát phiên của
+  người này cho người khác, hoặc phải bỏ cache trên chính trang sống nhờ SEO. `GET /api/auth/session`
+  trả đúng `{authenticated, role}` kèm `Cache-Control: no-store` và **không** trả gì định danh được
+  người dùng — form chỉ cần biết nên hiện ô nhập hay lời mời đăng nhập.
+- **Gửi đánh giá phải kèm `revalidatePath`, không chỉ `router.refresh()`.** Đây là lỗi đã đo được
+  chứ không phải đề phòng: `refresh()` chạy lại server component nhưng lời gọi lấy danh sách đánh
+  giá bên dưới vẫn cache 600 giây, nên đánh giá vừa viết **không hiện ra**. Người viết tưởng hỏng,
+  viết lại, và lần này nhận 409 "bạn đã đánh giá rồi" — đọc như hệ thống tự mâu thuẫn. Vì
+  `revalidatePath` chỉ gọi được từ server nên form đi qua route riêng `/api/reviews` thay vì
+  `/api/proxy`, và route đó chỉ xoá cache khi backend đã nhận thật.
+- **Form nằm dưới danh sách đánh giá, trong cùng section.** Người vừa đọc đánh giá của người khác
+  là người sẵn sàng viết nhất, và vị trí đó nằm ngoài màn hình đầu tiên nên việc nó xuất hiện muộn
+  (sau khi hỏi phiên) không gây nhảy bố cục dưới mắt ai.
+
 **Bố cục mobile** (2026-09-03): khối lọc ở `/tim-kiem` xếp dọc và gộp ba chip thành một hàng cuộn
 ngang dưới `sm` (`sm:contents` trả chúng về hàng wrap ở desktop); nút nổi "Xem bản đồ" chỉ hiện ở
 mobile vì cặp nút trong khối lọc đã cuộn mất khi khách đọc tới hồ sơ thứ ba. Mọi thanh dính đáy phải
