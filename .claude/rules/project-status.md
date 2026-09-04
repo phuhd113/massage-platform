@@ -165,6 +165,33 @@ minh — không dùng `AllowAnyOrigin` ở hai endpoint ghi thẳng vào số li
 `(auth)` không có gì (màn đăng nhập chiếm trọn màn hình, chia hai cột), `/dashboard` có sidebar
 riêng. Route group không đi vào URL nên mọi đường dẫn giữ nguyên.
 
+**Khách đăng ký được, không chỉ KTV** (2026-09-04). Đây là bug thật đã sửa: route
+`/api/auth/session` ghi cứng `role: 'KTV'`, nên **mọi** người đăng nhập qua giao diện đều thành kỹ
+thuật viên — kể cả khách chỉ muốn viết một đánh giá. Backend vốn đã nhận cả hai vai trò từ đầu.
+Năm điều đừng đảo ngược:
+
+- **Không có trang "đăng ký" riêng.** Với OTP thì đăng ký và đăng nhập là *cùng một thao tác*: số
+  chưa có tài khoản thì backend tạo mới, số đã có thì cấp token cho tài khoản cũ. Tách ra sẽ là hai
+  màn hình giống hệt nhau, và bắt người dùng tự nhớ mình từng đăng ký hay chưa.
+- **Hai cửa vào theo đối tượng, không phải theo hành động**: `/dang-nhap` (khách, mặc định) và
+  `/dang-ky-ktv` (KTV, kèm cột phải bán hàng). Không gộp thành một trang có ô chọn vai trò: 95%
+  người mở màn hình đăng nhập là khách, bắt tất cả trả lời "bạn là ai" là dựng rào cho đa số để
+  phục vụ thiểu số.
+- **`role` chỉ có tác dụng khi tạo tài khoản mới.** Tài khoản đã tồn tại giữ nguyên vai trò cũ, nên
+  KTV đăng nhập nhầm ở cửa khách vẫn về `/dashboard` — form điều hướng theo vai trò **thật** trả về
+  từ server, không theo cửa vừa bước vào. Đã kiểm chứng cả hai chiều.
+- **Route session lọc `role` bằng danh sách trắng.** Thân request đến từ trình duyệt và `role`
+  quyết định quyền của tài khoản mới; backend cũng chặn ADMIN nhưng để một giá trị lạ đi tới đó là
+  đã thừa một lớp.
+- **`/dashboard` phân biệt "chưa đăng nhập" với "đã đăng nhập nhưng là khách".** Tài khoản CUSTOMER
+  nhận 403 ở `/wallet/balance`, mà code cũ dịch mọi 403 thành redirect về trang đăng nhập — khách
+  đăng nhập lại thành công rồi bị đá tiếp, thành vòng lặp không lối thoát. Nay hiện màn hình giải
+  thích kèm hai lối ra. `getSessionRole()` đọc payload JWT **không kiểm chữ ký** nên chỉ được dùng
+  để điều hướng, không bao giờ để cấp quyền.
+
+`?next=` trên `/dang-nhap` chỉ nhận đường dẫn nội bộ (`safeNext`), chặn cả `//host` vì trình duyệt
+hiểu nó là URL tuyệt đối — nhận nguyên trạng là mở open redirect ngay trên trang đăng nhập thật.
+
 **Bố cục mobile** (2026-09-03): khối lọc ở `/tim-kiem` xếp dọc và gộp ba chip thành một hàng cuộn
 ngang dưới `sm` (`sm:contents` trả chúng về hàng wrap ở desktop); nút nổi "Xem bản đồ" chỉ hiện ở
 mobile vì cặp nút trong khối lọc đã cuộn mất khi khách đọc tới hồ sơ thứ ba. Mọi thanh dính đáy phải

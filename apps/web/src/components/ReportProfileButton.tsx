@@ -63,9 +63,13 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
     document.addEventListener('keydown', onKey);
     dialogRef.current?.focus();
 
+    // Chụp lại nút mở ngay lúc này thay vì đọc `openerRef.current` trong cleanup:
+    // tới lúc cleanup chạy, ref có thể đã trỏ sang node khác hoặc null.
+    const opener = openerRef.current;
+
     return () => {
       document.removeEventListener('keydown', onKey);
-      openerRef.current?.focus();
+      opener?.focus();
     };
   }, [open]);
 

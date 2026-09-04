@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, LogoMark } from '@/components/icons';
@@ -9,7 +10,27 @@ type Step = 'phone' | 'code';
 
 const CODE_LENGTH = 6;
 
-export function LoginForm() {
+/**
+ * Vai trò xin cấp cho **tài khoản mới**. Số đã có tài khoản thì backend giữ nguyên
+ * vai trò cũ, nên đây không phải đường đổi vai trò — chỉ là câu trả lời cho "người
+ * lần đầu vào bằng cửa này là ai".
+ */
+export type LoginRole = 'CUSTOMER' | 'KTV';
+
+export function LoginForm({
+  role = 'CUSTOMER',
+  redirectTo,
+}: {
+  role?: LoginRole;
+  /**
+   * Nơi đưa khách về sau khi đăng nhập. Bỏ trống thì quay lại trang trước đó —
+   * khách bấm đăng nhập từ một hồ sơ KTV để viết đánh giá cần quay đúng về hồ sơ
+   * đó, chứ không phải về trang chủ rồi tự tìm lại.
+   *
+   * KTV luôn về `/dashboard` bất kể tham số này, xem `finish()`.
+   */
+  redirectTo?: string;
+} = {}) {
   const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -18,6 +39,8 @@ export function LoginForm() {
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const isKtv = role === 'KTV';
 
   async function requestOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -61,9 +84,9 @@ export function LoginForm() {
       const res = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone, code, role }),
       });
-      const data = (await res.json()) as { message?: string };
+      const data = (await res.json()) as { message?: string; role?: string };
 
       if (!res.ok) {
         setError(data.message ?? 'Mã OTP không đúng hoặc đã hết hạn.');
@@ -76,7 +99,12 @@ export function LoginForm() {
       // refresh trước push để server component đọc được cookie vừa đặt, nếu không
       // dashboard render bằng phiên cũ và đá ngược về đây.
       router.refresh();
-      router.push('/dashboard');
+
+      // Đi theo vai trò **thật** của tài khoản, không phải cửa vừa bước vào: KTV
+      // đăng nhập nhầm ở trang khách vẫn phải về dashboard, còn khách thì không —
+      // dashboard gọi API ví, và tài khoản khách nhận 403 ở đó rồi bị đá ngược lại
+      // đây thành một vòng lặp đăng nhập không lối thoát.
+      router.push(data.role === 'KTV' ? '/dashboard' : (redirectTo ?? '/'));
     } catch {
       setError('Không kết nối được máy chủ.');
     } finally {
@@ -94,11 +122,15 @@ export function LoginForm() {
           </div>
 
           <h1 className="mt-8 text-h1 text-ink-900 sm:text-[30px] sm:leading-9">
-            Đăng nhập cho kỹ thuật viên
+            {isKtv ? 'Đăng nhập cho kỹ thuật viên' : 'Đăng nhập hoặc tạo tài khoản'}
           </h1>
           <p className="mt-2.5 text-body-l leading-[25px] text-ink-600">
-            Nhập số điện thoại bạn đã đăng ký, chúng tôi gửi mã {CODE_LENGTH} chữ số qua SMS. Không
-            cần mật khẩu.
+            {/* Không hỏi "bạn đã có tài khoản chưa": với OTP thì đăng ký và đăng
+                nhập là cùng một thao tác, và bắt người dùng tự phân loại mình vào
+                một trong hai cửa là tạo ra một quyết định không dẫn tới hành động
+                nào khác nhau. */}
+            Nhập số điện thoại, chúng tôi gửi mã {CODE_LENGTH} chữ số qua SMS. Chưa có tài khoản thì
+            hệ thống tự tạo. Không cần mật khẩu.
           </p>
 
           {step === 'phone' ? (
@@ -186,6 +218,34 @@ export function LoginForm() {
               {error}
             </p>
           )}
+
+          {/* Đường sang cửa còn lại. Chỉ hiện ở bước nhập số: khi đã gửi mã đi rồi
+              thì một liên kết rời trang là đường làm mất mã vừa nhận. */}
+          {step === 'phone' && (
+            <p className="mt-8 border-t border-ink-100 pt-5 text-body text-ink-500">
+              {isKtv ? (
+                <>
+                  Bạn là khách đang tìm kỹ thuật viên?{' '}
+                  <Link
+                    href="/dang-nhap"
+                    className="font-semibold text-brand-500 transition hover:text-brand-600"
+                  >
+                    Đăng nhập tại đây
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Bạn là kỹ thuật viên muốn nhận khách?{' '}
+                  <Link
+                    href="/dang-ky-ktv"
+                    className="font-semibold text-brand-500 transition hover:text-brand-600"
+                  >
+                    Tạo hồ sơ miễn phí
+                  </Link>
+                </>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -221,15 +281,26 @@ export function LoginForm() {
           </div>
 
           <h2 className="mt-6 font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-ink-900">
-            Hồ sơ đã duyệt được khách gọi nhiều hơn
+            {isKtv
+              ? 'Hồ sơ đã duyệt được khách gọi nhiều hơn'
+              : 'Tài khoản để đánh giá và theo dõi'}
           </h2>
 
           <ul className="mt-4 grid gap-3">
-            {[
-              'Tải chứng chỉ một lần, chúng tôi đối chiếu và mở hồ sơ.',
-              'Bạn tự đặt giá và khu vực nhận khách.',
-              'Khách gọi trực tiếp, sàn không giữ tiền của bạn.',
-            ].map((t) => (
+            {(isKtv
+              ? [
+                  'Tải chứng chỉ một lần, chúng tôi đối chiếu và mở hồ sơ.',
+                  'Bạn tự đặt giá và khu vực nhận khách.',
+                  'Khách gọi trực tiếp, sàn không giữ tiền của bạn.',
+                ]
+              : [
+                  // Nói đúng thứ tài khoản khách hiện có, không hứa tính năng chưa
+                  // làm: đánh giá cần đăng nhập, còn tìm và gọi thì không.
+                  'Viết đánh giá cho kỹ thuật viên bạn đã dùng.',
+                  'Tìm kiếm và gọi không cần tài khoản — đăng nhập chỉ để đánh giá.',
+                  'Chúng tôi không thu phí đặt lịch của khách.',
+                ]
+            ).map((t) => (
               <li key={t} className="flex gap-2.5 text-body-l leading-[25px] text-ink-700">
                 <CheckIcon size={16} className="mt-1 h-[17px] w-[17px] shrink-0 text-success-fg" />
                 {t}

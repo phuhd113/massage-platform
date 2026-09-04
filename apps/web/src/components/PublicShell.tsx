@@ -58,8 +58,23 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
             >
               Cách chúng tôi duyệt hồ sơ
             </Link>
+            {/* Đăng nhập là chữ trần, "Dành cho KTV" có viền: hai đường vào khác
+                nhau về đối tượng chứ không về mức quan trọng, nhưng khách vãng lai
+                không cần tài khoản để tìm và gọi — nên lời mời đăng nhập không được
+                trông như hành động chính của trang. */}
             <Link
-              href="/dashboard"
+              href="/dang-nhap"
+              className="hidden shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
+            >
+              Đăng nhập
+            </Link>
+            {/* Trỏ thẳng vào cửa đăng ký KTV chứ không vào /dashboard: người bấm từ
+                trang công khai gần như luôn chưa đăng nhập, nên /dashboard chỉ là một
+                lần chuyển hướng thừa tới đúng chỗ này. KTV đã đăng nhập vào dashboard
+                từ đây cũng không sai đường — LoginForm đưa họ về dashboard theo vai
+                trò thật trong token. */}
+            <Link
+              href="/dang-ky-ktv"
               className="ml-1 shrink-0 whitespace-nowrap rounded-md border border-brand-200 px-3 py-1.5 font-medium text-brand-700 transition hover:bg-brand-50"
             >
               Dành cho KTV
