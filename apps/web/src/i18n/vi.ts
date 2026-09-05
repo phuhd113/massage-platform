@@ -89,7 +89,7 @@ export const vi = {
     headingCustomer: 'Đăng nhập hoặc tạo tài khoản',
     headingKtv: 'Đăng nhập cho kỹ thuật viên',
     intro:
-      'Nhập số điện thoại, chúng tôi gửi mã {length} chữ số qua SMS. Chưa có tài khoản thì hệ thống tự tạo. Không cần mật khẩu.',
+      'Nhập số điện thoại, chúng tôi gửi mã {length} chữ số qua Zalo. Chưa có tài khoản thì hệ thống tự tạo. Không cần mật khẩu.',
 
     phoneLabel: 'Số điện thoại',
     sendCode: 'Gửi mã xác thực',
@@ -102,9 +102,11 @@ export const vi = {
     resendIn: 'Gửi lại mã sau',
     submit: 'Đăng nhập',
     verifying: 'Đang kiểm tra…',
-    stubNotice: 'Chế độ thử nghiệm: mã là {code}. Ở production, mã chỉ gửi qua SMS.',
+    stubNotice: 'Chế độ thử nghiệm: mã là {code}. Ở production, mã chỉ gửi qua Zalo.',
 
     errorSendFailed: 'Không gửi được mã. Kiểm tra lại số điện thoại.',
+    errorProviderDown: 'Hệ thống gửi mã đang gặp sự cố. Vui lòng thử lại sau ít phút.',
+    errorTooManyRequests: 'Bạn đã xin mã quá nhiều lần. Vui lòng chờ một lát rồi thử lại.',
     errorBadCode: 'Mã OTP không đúng hoặc đã hết hạn.',
     errorNetwork: 'Không kết nối được máy chủ.',
 

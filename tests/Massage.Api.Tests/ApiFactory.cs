@@ -30,6 +30,16 @@ namespace Massage.Api.Tests;
 public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = null)
     : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// Thư mục file upload của riêng instance này — test đọc nó để kiểm cả việc dọn
+    /// file cũ, thứ không quan sát được qua response HTTP.
+    ///
+    /// Đường tuyệt đối, nên <c>Path.Combine</c> trong LocalObjectStorage bỏ qua
+    /// ContentRootPath và ghi thẳng vào đây.
+    /// </summary>
+    public string UploadDir { get; } =
+        Path.Combine(Path.GetTempPath(), $"massage-test-uploads-{Guid.NewGuid():N}");
+
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.ConfigureHostConfiguration(config => config.AddInMemoryCollection(
@@ -44,7 +54,7 @@ public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = 
                 // test đi qua đúng luồng đăng nhập thật thay vì tự ký JWT — nhờ
                 // vậy nó kiểm luôn cả hai endpoint auth.
                 ["Otp:StubEnabled"] = "true",
-                ["Upload:Dir"] = Path.Combine(Path.GetTempPath(), $"massage-test-uploads-{Guid.NewGuid():N}"),
+                ["Upload:Dir"] = UploadDir,
             }));
 
         // Không dùng Development: môi trường đó bật Swagger và route "/" chuyển
@@ -72,8 +82,23 @@ public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = 
             });
         }
 
+        if (OtpSender is not null)
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<Massage.Api.Modules.Auth.Sms.IOtpSender>();
+                services.AddSingleton(OtpSender);
+            });
+        }
+
         return base.CreateHost(builder);
     }
+
+    /// <summary>
+    /// Thay adapter gửi OTP, để kiểm luồng HTTP khi nhà cung cấp hỏng. Mặc định là
+    /// <c>null</c> nên app dùng stub như mọi test khác.
+    /// </summary>
+    public Massage.Api.Modules.Auth.Sms.IOtpSender? OtpSender { get; init; }
 
     /// <summary>
     /// Log mức Error mà ứng dụng ghi ra trong lúc test.

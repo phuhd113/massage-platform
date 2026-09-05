@@ -27,10 +27,12 @@ export async function POST(request: Request) {
     | null;
 
   if (!res.ok) {
-    return NextResponse.json(
-      { message: data?.title ?? 'Không gửi được mã OTP' },
-      { status: res.status },
-    );
+    // Chuyển tiếp **mã trạng thái**, không chuyển tiếp câu chữ của backend. Message
+    // của API vẫn chỉ có tiếng Việt (quyết định của bản i18n: frontend map lỗi theo
+    // HTTP status ở mọi flow khách), nên đẩy nó ra đây là để một câu tiếng Việt hiện
+    // giữa giao diện tiếng Anh — và với 503 thì câu đó còn nêu đích danh khoá cấu
+    // hình còn thiếu. LoginForm dịch status thành chuỗi đúng ngôn ngữ.
+    return NextResponse.json({ status: res.status }, { status: res.status });
   }
 
   // debugCode chỉ tồn tại khi OTP đang ở chế độ stub. Chuyển tiếp nguyên trạng để

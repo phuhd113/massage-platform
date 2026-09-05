@@ -1,4 +1,5 @@
 using Massage.Api.Modules.Auth.Entities;
+using Massage.Api.Modules.Collaborators.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Massage.Api.Modules.Analytics.Entities;
 using Massage.Api.Modules.Leads.Entities;
@@ -15,8 +16,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
+    public DbSet<ZaloToken> ZaloTokens => Set<ZaloToken>();
     public DbSet<KtvProfile> KtvProfiles => Set<KtvProfile>();
     public DbSet<Certification> Certifications => Set<Certification>();
+    public DbSet<KtvPhoto> KtvPhotos => Set<KtvPhoto>();
+    public DbSet<IdentityDocument> IdentityDocuments => Set<IdentityDocument>();
+    public DbSet<Collaborator> Collaborators => Set<Collaborator>();
     public DbSet<AdministrativeArea> AdministrativeAreas => Set<AdministrativeArea>();
     public DbSet<CoverageArea> CoverageAreas => Set<CoverageArea>();
     public DbSet<Service> Services => Set<Service>();
@@ -69,6 +74,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.Phone, x.Purpose, x.ExpiresAt }).HasDatabaseName("idx_otp_phone_active");
         });
 
+        b.Entity<ZaloToken>(e =>
+        {
+            e.ToTable("zalo_tokens");
+            // Khoá là app_id: một OA một hàng, cập nhật tại chỗ. Không dùng id tự sinh —
+            // bảng này không phải lịch sử, và hai hàng cho cùng app_id nghĩa là một trong
+            // hai giữ refresh token đã chết mà không biết bản nào.
+            e.HasKey(x => x.AppId);
+            e.Property(x => x.AppId).HasColumnName("app_id").HasMaxLength(64);
+            e.Property(x => x.AccessToken).HasColumnName("access_token").IsRequired();
+            e.Property(x => x.RefreshToken).HasColumnName("refresh_token").IsRequired();
+            e.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+        });
+
         b.Entity<AdministrativeArea>(e =>
         {
             e.ToTable("administrative_areas");
@@ -110,6 +129,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Kiểu geography (không phải geometry) để ST_DWithin tính bán kính theo mét.
             e.Property(x => x.BasePoint).HasColumnName("base_point").HasColumnType("geography (Point, 4326)").IsRequired();
             e.Property(x => x.BaseAddress).HasColumnName("base_address").HasMaxLength(255);
+            e.Property(x => x.AvatarKey).HasColumnName("avatar_key").HasMaxLength(255);
             e.Property(x => x.BaseWardId).HasColumnName("base_ward_id");
             e.Property(x => x.BaseStreet).HasColumnName("base_street").HasMaxLength(255);
             e.Property(x => x.ServiceRadiusKm).HasColumnName("service_radius_km");
@@ -124,6 +144,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.LeadCount).HasColumnName("lead_count");
             e.Property(x => x.IsOnline).HasColumnName("is_online");
             e.Property(x => x.LastActiveAt).HasColumnName("last_active_at");
+            e.Property(x => x.CommitmentVersion).HasColumnName("commitment_version");
+            e.Property(x => x.CommittedAt).HasColumnName("committed_at");
+            // INET sẽ chặt hơn, nhưng IP ở đây chỉ để đọc lại khi có tranh chấp chứ
+            // không bao giờ dùng để lọc hay so sánh dải — và một giá trị lạ từ proxy
+            // làm hỏng lượt lưu hồ sơ thì tệ hơn hẳn việc thiếu một dòng bằng chứng.
+            e.Property(x => x.CommittedIp).HasColumnName("committed_ip").HasMaxLength(45);
+            e.Property(x => x.ReferredByCollaboratorId).HasColumnName("referred_by_collaborator_id");
+            e.Property(x => x.ReferredAt).HasColumnName("referred_at");
+            // Không khai navigation ngược: đường đọc duy nhất là "CTV này giới thiệu
+            // những ai" ở trang admin, và nó là một câu đếm/join tường minh chứ không
+            // phải lazy-load từ entity CTV.
+            e.HasOne<Collaborator>().WithMany()
+                .HasForeignKey(x => x.ReferredByCollaboratorId).OnDelete(DeleteBehavior.Restrict);
+            // Index `idx_ktv_referred_by` là **partial** (WHERE ... IS NOT NULL) nên chỉ
+            // tồn tại trong migration: EF không mô hình hoá được mệnh đề WHERE, và khai
+            // một index đầy đủ ở đây sẽ khiến mọi lần `migrations add` sau sinh ra diff
+            // rác đòi tạo lại nó. Cùng lý do với `uq_area_root_slug` ở trên.
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             e.HasIndex(x => x.UserId).IsUnique();
@@ -143,7 +180,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
             e.Property(x => x.IssuingOrg).HasColumnName("issuing_org").HasMaxLength(150);
             e.Property(x => x.IssuedAt).HasColumnName("issued_at");
-            e.Property(x => x.FileUrl).HasColumnName("file_url").IsRequired();
+            e.Property(x => x.StorageKey).HasColumnName("file_url").IsRequired();
             e.Property(x => x.VerifyStatus).HasColumnName("verify_status").HasMaxLength(20).IsRequired();
             e.Property(x => x.RejectionReason).HasColumnName("rejection_reason");
             e.Property(x => x.VerifiedBy).HasColumnName("verified_by");
@@ -151,6 +188,77 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.HasOne(x => x.Ktv).WithMany(x => x.Certifications).HasForeignKey(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.KtvId, x.VerifyStatus }).HasDatabaseName("idx_certification_ktv");
+        });
+
+        b.Entity<KtvPhoto>(e =>
+        {
+            e.ToTable("ktv_photos");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.KtvId).HasColumnName("ktv_id");
+            e.Property(x => x.StorageKey).HasColumnName("storage_key").HasMaxLength(255).IsRequired();
+            e.Property(x => x.Caption).HasColumnName("caption").HasMaxLength(200);
+            e.Property(x => x.SortOrder).HasColumnName("sort_order");
+            e.Property(x => x.VerifyStatus).HasColumnName("verify_status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.RejectionReason).HasColumnName("rejection_reason");
+            e.Property(x => x.VerifiedBy).HasColumnName("verified_by");
+            e.Property(x => x.VerifiedAt).HasColumnName("verified_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.HasOne(x => x.Ktv).WithMany(x => x.Photos).HasForeignKey(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
+            // Đường đọc duy nhất là "ảnh đã duyệt của một hồ sơ, theo thứ tự" — trang
+            // hồ sơ công khai gọi đúng câu đó cho mỗi lượt xem.
+            e.HasIndex(x => new { x.KtvId, x.VerifyStatus, x.SortOrder }).HasDatabaseName("idx_ktv_photo_ktv");
+        });
+
+        b.Entity<IdentityDocument>(e =>
+        {
+            e.ToTable("ktv_identity_documents");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.KtvId).HasColumnName("ktv_id");
+            e.Property(x => x.FrontKey).HasColumnName("front_key").HasMaxLength(255).IsRequired();
+            e.Property(x => x.BackKey).HasColumnName("back_key").HasMaxLength(255).IsRequired();
+            e.Property(x => x.VerifyStatus).HasColumnName("verify_status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.RejectionReason).HasColumnName("rejection_reason");
+            e.Property(x => x.VerifiedBy).HasColumnName("verified_by");
+            e.Property(x => x.VerifiedAt).HasColumnName("verified_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.Property(x => x.SubmittedAt).HasColumnName("submitted_at").HasDefaultValueSql("now()");
+            // WithOne, không WithMany: một hồ sơ có nhiều nhất một CCCD, và UNIQUE(ktv_id)
+            // ở migration ép đúng điều đó ở tầng DB.
+            e.HasOne(x => x.Ktv).WithOne(x => x.IdentityDocument)
+                .HasForeignKey<IdentityDocument>(x => x.KtvId).OnDelete(DeleteBehavior.Cascade);
+            // Hàng đợi duyệt: "CCCD đang chờ, gửi sớm nhất lên đầu".
+            e.HasIndex(x => new { x.VerifyStatus, x.SubmittedAt }).HasDatabaseName("idx_identity_doc_queue");
+            // Một CCCD mỗi hồ sơ — ràng buộc mà đường UPSERT dựa vào.
+            e.HasIndex(x => x.KtvId).IsUnique().HasDatabaseName("uq_identity_doc_ktv");
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "chk_identity_doc_status",
+                    "verify_status IN ('PENDING', 'VERIFIED', 'REJECTED')");
+                t.HasCheckConstraint("chk_identity_doc_two_sides", "front_key <> back_key");
+            });
+        });
+
+        b.Entity<Collaborator>(e =>
+        {
+            e.ToTable("collaborators");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.Code).HasColumnName("code").HasMaxLength(32).IsRequired();
+            e.Property(x => x.FullName).HasColumnName("full_name").HasMaxLength(120).IsRequired();
+            e.Property(x => x.Phone).HasColumnName("phone").HasMaxLength(15);
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            e.Property(x => x.Note).HasColumnName("note");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            // Mã là thứ KTV gõ tay nên phải duy nhất tuyệt đối — đây là trọng tài, không
+            // phải kiểm tra ở tầng ứng dụng: hai lượt tạo song song cùng một mã sẽ lọt
+            // qua mọi câu "đã tồn tại chưa" và để lại hai CTV tranh nhau cùng một mã.
+            e.HasIndex(x => x.Code).IsUnique().HasDatabaseName("uq_collaborator_code");
+            e.ToTable(t => t.HasCheckConstraint(
+                "chk_collaborator_status", "status IN ('ACTIVE', 'DISABLED')"));
         });
 
         b.Entity<CoverageArea>(e =>
@@ -173,6 +281,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(120).IsRequired();
             e.Property(x => x.Slug).HasColumnName("slug").HasMaxLength(160).IsRequired();
             e.Property(x => x.Description).HasColumnName("description");
+            e.Property(x => x.NameEn).HasColumnName("name_en").HasMaxLength(120);
+            e.Property(x => x.DescriptionEn).HasColumnName("description_en");
             e.Property(x => x.SortOrder).HasColumnName("sort_order");
             e.Property(x => x.IsActive).HasColumnName("is_active");
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");

@@ -496,10 +496,49 @@ campaign ACTIVE ngay trong transaction mua và search đọc thẳng Postgres, n
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
 
+**Đăng nhập gửi OTP qua Zalo ZNS** (2026-09-05, `Modules/Auth/Sms/` + bảng `zalo_tokens`).
+Thay chỗ cắm bỏ ngỏ từ Phase 0. Hướng dẫn lấy credential: [docs/zalo-zns-setup.md](docs/zalo-zns-setup.md).
+Bảy điều đừng vô tình đảo ngược:
+
+- **Việc gửi đứng TRƯỚC khi ghi DB.** Vô hiệu mã cũ rồi mới phát hiện không gửi được nghĩa là
+  người dùng vừa mất mã đang cầm trên tay để đổi lấy một mã không bao giờ tới — với người bấm
+  "gửi lại" vì tin đến chậm, đó là biến một phiền toái thành đăng nhập hỏng hẳn. Đánh đổi đã
+  cân nhắc: gửi xong mà lưu DB hỏng thì mã tới nơi nhưng không xác thực được, hiếm hơn nhiều và
+  người dùng chỉ cần bấm gửi lại. Đã kiểm chứng bằng cách đảo ngược thứ tự — 2 test đỏ.
+- **`debugCode` suy ra từ adapter (`IOtpSender.RevealsCode`), không từ cờ cấu hình.** Trước đây
+  `OtpService` tự đọc `Otp:StubEnabled`, nên vẫn còn tổ hợp cấu hình vừa gửi tin thật vừa trả mã
+  ra response. Nay tổ hợp đó không tồn tại được: chỉ `StubOtpSender` khai `RevealsCode = true`.
+- **Stub thắng ZNS khi cả hai cùng có.** Máy dev có `.env` thật mà không có luật này sẽ gửi tin
+  tới số thật và đốt quota — im lặng, vì lượt gửi vẫn thành công.
+- **Thiếu cấu hình KHÔNG chặn app khởi động** (khác `Jwt:Secret`). Thiếu nhà cung cấp chỉ làm
+  hỏng đường đăng nhập; chặn cả app là biến một tính năng hỏng thành toàn bộ sàn ngừng phục vụ,
+  kể cả các trang SEO vốn không cần đăng nhập. Lỗi nổ ở lượt xin mã đầu tiên, kèm log rõ nguyên nhân.
+- **ZNS trả HTTP 200 cho cả lượt THẤT BẠI** — chỉ trường `error` trong body mới nói thật. Đọc
+  status code là đủ để tin rằng mọi tin đều gửi được trong khi không tin nào tới nơi. Cùng loại
+  bẫy với `docker compose build` báo "Built" khi publish đã fail.
+- **Số điện thoại phải đổi sang `84xxxxxxxxx`** (`ToZaloPhone`). Hệ thống lưu `0xxxxxxxxx`; gửi
+  thẳng thì ZNS trả lỗi tham số, và lỗi đó đọc như lỗi quyền.
+- **`OtpDeliveryException` → 503, và message KHÔNG ra client.** `AppExceptionHandler` trả
+  `ex.Message` ra ngoài cho mọi status khác 500, còn message ở đây nêu đích danh khoá cấu hình
+  còn thiếu (`Zalo:Zns:*`). Log giữ đủ chi tiết; client nhận một câu chung. Route `/api/auth/otp`
+  của Next cũng chỉ chuyển tiếp **status**, không chuyển tiếp câu chữ — message backend vẫn chỉ
+  có tiếng Việt, đẩy ra là để một câu tiếng Việt hiện giữa giao diện tiếng Anh.
+
+**Refresh token của Zalo bị xoay mỗi lần dùng**, nên nó nằm ở bảng `zalo_tokens` chứ không phải
+trong file cấu hình — Zalo cấp bản mới và vô hiệu bản cũ trong cùng lượt refresh. Giá trị trong
+cấu hình chỉ là **hạt giống cho lần chạy đầu tiên**. Giữ trong bộ nhớ thì restart container là
+mất bản mới và bản trong cấu hình lúc đó đã chết: OA ngừng gửi được cho tới khi có người vào Zalo
+lấy tay token khác. `InvalidateAsync` chỉ đẩy hạn về quá khứ, **không xoá hàng** — refresh token
+trong đó là thứ duy nhất còn dùng được, xoá đi là tự khoá mình ra ngoài.
+
+Đã kiểm chứng ngày 2026-09-05 bằng credential giả: app gọi tới Zalo thật và nhận `Invalid appId`,
+tức URL, header `secret_key`, dạng form body và cách đọc lỗi đều đúng — chỉ credential là giả.
+`ZaloZnsSenderTests` chạy trên HTTP giả nên không cần Postgres lẫn Zalo.
+
 Lưu ý vận hành hiện tại:
 
-- **OTP đang ở chế độ stub** (`Otp:StubEnabled=true`): mã trả thẳng trong response và ghi log.
-  Khi tắt stub, code ném lỗi rõ ràng thay vì âm thầm không gửi gì — đó là chỗ cắm adapter SMS thật.
+- **OTP mặc định vẫn ở chế độ stub** (`Otp:StubEnabled=true`): mã trả thẳng trong response và ghi
+  log. Adapter gửi thật là **Zalo ZNS** — xem mục riêng bên dưới.
 - **Tài khoản ADMIN đầu tiên tạo thủ công** bằng SQL (`UPDATE users SET role='ADMIN' ...`). Không
   mở endpoint tự phong quyền admin.
 - **`Jwt:Secret` phải ≥32 ký tự**, app từ chối khởi động nếu thiếu — cố ý fail fast vì secret rỗng

@@ -2,6 +2,7 @@ using FluentAssertions;
 using Massage.Api.Common;
 using Massage.Api.Modules.Auth;
 using Massage.Api.Modules.Auth.Entities;
+using Massage.Api.Modules.Auth.Sms;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -15,15 +16,26 @@ public class OtpServiceTests(PostgresFixture fixture)
     // không cần dọn bảng giữa các lần chạy.
     private static string NewPhone() => "09" + Random.Shared.Next(10_000_000, 99_999_999);
 
-    private (OtpService Service, Massage.Api.Data.AppDbContext Db) Create(OtpOptions? options = null)
+    private (OtpService Service, Massage.Api.Data.AppDbContext Db) Create(
+        OtpOptions? options = null, IOtpSender? sender = null)
     {
         var db = fixture.CreateContext();
         var service = new OtpService(
             db,
+            sender ?? new StubOtpSender(NullLogger<StubOtpSender>.Instance),
             Options.Create(options ?? new OtpOptions { StubEnabled = true, TtlSeconds = 300, MaxAttempts = 5 }),
             NullLogger<OtpService>.Instance);
 
         return (service, db);
+    }
+
+    /// <summary>Adapter luôn thất bại, để kiểm điều gì xảy ra với mã cũ khi không gửi được.</summary>
+    private sealed class FailingSender : IOtpSender
+    {
+        public string Channel => "FAIL";
+        public bool RevealsCode => false;
+        public Task SendAsync(string phone, string code, int ttl, CancellationToken ct = default) =>
+            throw new OtpDeliveryException("nhà cung cấp từ chối");
     }
 
     [Fact]
@@ -115,14 +127,98 @@ public class OtpServiceTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Tắt_stub_mà_chưa_cắm_SMS_thì_báo_lỗi_rõ_ràng()
+    public async Task Chưa_cắm_nhà_cung_cấp_thì_báo_lỗi_rõ_ràng()
     {
         // Thà nổ ngay còn hơn âm thầm không gửi gì rồi để người dùng chờ mã không tồn tại.
-        var (service, _) = Create(new OtpOptions { StubEnabled = false, TtlSeconds = 300, MaxAttempts = 5 });
+        var (service, _) = Create(sender: new UnconfiguredOtpSender());
 
         var act = () => service.IssueAsync(NewPhone(), OtpPurposes.Register);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<OtpDeliveryException>()
             .WithMessage("*Chưa cấu hình nhà cung cấp SMS*");
+    }
+
+    [Fact]
+    public async Task Gửi_thất_bại_thì_KHÔNG_lưu_mã_mới()
+    {
+        // Lưu mã rồi mới phát hiện không gửi được là để lại một mã sống mà không ai
+        // cầm được — vô hại nhưng vô nghĩa, và nó chiếm chỗ của mã hợp lệ tiếp theo.
+        var (service, db) = Create(sender: new FailingSender());
+        var phone = NewPhone();
+
+        var act = () => service.IssueAsync(phone, OtpPurposes.Register);
+        await act.Should().ThrowAsync<OtpDeliveryException>();
+
+        var stored = await db.OtpCodes.CountAsync(o => o.Phone == phone);
+        stored.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Gửi_thất_bại_thì_mã_cũ_vẫn_dùng_được()
+    {
+        // Đây là lý do việc gửi phải đứng TRƯỚC khi ghi DB.
+        //
+        // Người dùng đã nhận mã, tin đến chậm nên họ bấm "gửi lại", và lượt gửi lại
+        // hỏng. Nếu thứ tự đảo ngược thì mã họ đang cầm vừa bị vô hiệu để đổi lấy một
+        // mã không bao giờ tới — biến một phiền toái thành đăng nhập hỏng hẳn.
+        var phone = NewPhone();
+        var (working, _) = Create();
+        var first = await working.IssueAsync(phone, OtpPurposes.Register);
+
+        var (failing, _) = Create(sender: new FailingSender());
+        var act = () => failing.IssueAsync(phone, OtpPurposes.Register);
+        await act.Should().ThrowAsync<OtpDeliveryException>();
+
+        // DbContext riêng: ExecuteUpdate bỏ qua change tracker nên dùng lại context cũ
+        // sẽ đọc trúng entity còn trong tracker chứ không phải trạng thái thật của DB.
+        var (verifier, _) = Create();
+        var result = await verifier.VerifyAsync(phone, OtpPurposes.Register, first.DebugCode!);
+
+        result.Ok.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Adapter_không_lộ_mã_thì_response_không_chứa_mã()
+    {
+        // debugCode suy ra từ chính adapter, không từ cờ cấu hình — nên không còn tổ hợp
+        // nào vừa gửi tin thật vừa trả mã ra response.
+        var (service, _) = Create(sender: new RecordingSender());
+
+        var issued = await service.IssueAsync(NewPhone(), OtpPurposes.Register);
+
+        issued.DebugCode.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Mã_gửi_đi_đúng_là_mã_xác_thực_được()
+    {
+        // Canh việc adapter nhận đúng mã đã lưu: gửi nhầm biến số khác (ví dụ hash) thì
+        // mọi test dùng DebugCode vẫn xanh, còn người dùng thật không bao giờ đăng nhập được.
+        var recorder = new RecordingSender();
+        var (service, _) = Create(sender: recorder);
+        var phone = NewPhone();
+
+        await service.IssueAsync(phone, OtpPurposes.Register);
+
+        recorder.LastCode.Should().MatchRegex(@"^\d{6}$");
+        var (verifier, _) = Create();
+        var result = await verifier.VerifyAsync(phone, OtpPurposes.Register, recorder.LastCode!);
+        result.Ok.Should().BeTrue();
+    }
+
+    /// <summary>Adapter gửi thành công nhưng không lộ mã — giống ZNS thật.</summary>
+    private sealed class RecordingSender : IOtpSender
+    {
+        public string? LastCode { get; private set; }
+        public string? LastPhone { get; private set; }
+        public string Channel => "RECORDING";
+        public bool RevealsCode => false;
+
+        public Task SendAsync(string phone, string code, int ttl, CancellationToken ct = default)
+        {
+            LastPhone = phone;
+            LastCode = code;
+            return Task.CompletedTask;
+        }
     }
 }

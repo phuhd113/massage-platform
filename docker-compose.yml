@@ -46,6 +46,24 @@ services:
       Jwt__Secret: 'dev-only-secret-do-not-use-in-production-min-32-chars'
       Redis__Host: redis
       Redis__Port: '6379'
+      # Để trống thì API dùng đĩa local (volume uploads bên dưới). Điền vào file .env
+      # ở gốc repo để chạy thử R2 — .env không được commit.
+      R2__AccountId: ${R2_ACCOUNT_ID:-}
+      R2__AccessKeyId: ${R2_ACCESS_KEY_ID:-}
+      R2__SecretAccessKey: ${R2_SECRET_ACCESS_KEY:-}
+      R2__Bucket: ${R2_BUCKET:-massage-platform}
+      R2__PublicBaseUrl: ${R2_PUBLIC_BASE_URL:-}
+      # OTP: để trống thì dùng stub (mã trả thẳng trong response). Điền vào .env để
+      # gửi thật qua Zalo ZNS — xem docs/zalo-zns-setup.md. Stub luôn thắng khi bật,
+      # nên máy dev có credential thật cũng không đốt quota.
+      Otp__StubEnabled: ${OTP_STUB_ENABLED:-true}
+      Zalo__Zns__AppId: ${ZALO_ZNS_APP_ID:-}
+      Zalo__Zns__SecretKey: ${ZALO_ZNS_SECRET_KEY:-}
+      Zalo__Zns__RefreshToken: ${ZALO_ZNS_REFRESH_TOKEN:-}
+      Zalo__Zns__TemplateId: ${ZALO_ZNS_TEMPLATE_ID:-}
+      Zalo__Zns__CodeParamName: ${ZALO_ZNS_CODE_PARAM:-otp}
+      Zalo__Zns__ExpiryParamName: ${ZALO_ZNS_EXPIRY_PARAM:-}
+      Zalo__Zns__DevMode: ${ZALO_ZNS_DEV_MODE:-false}
     ports:
       - '5080:8080'
     volumes:
@@ -55,6 +73,10 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        # Phải là build arg, không chỉ là biến lúc chạy: next.config.mjs dựng
+        # images.remotePatterns từ nó và Next chốt danh sách đó vào bản build.
+        NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
     container_name: massage_web
     depends_on:
       - api
@@ -65,6 +87,10 @@ services:
       # thay vì IP của Next.
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:5080/api/v1"
       NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+      # next/image chặn mọi host không khai trước, nên origin ảnh phải tới được cả
+      # lúc build (dựng remotePatterns) lẫn lúc chạy. Để trống thì ảnh đi qua
+      # /uploads của API như trước.
+      NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
     ports:
       - "3000:3000"
 

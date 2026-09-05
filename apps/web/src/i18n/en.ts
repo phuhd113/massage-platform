@@ -90,7 +90,7 @@ export const en: Dictionary = {
     headingCustomer: 'Log in or create an account',
     headingKtv: 'Therapist login',
     intro:
-      'Enter your phone number and we will text you a {length}-digit code. If you do not have an account yet, one is created for you. No password needed.',
+      'Enter your phone number and we will send a {length}-digit code to your Zalo. If you do not have an account yet, one is created for you. No password needed.',
 
     phoneLabel: 'Phone number',
     sendCode: 'Send code',
@@ -103,9 +103,11 @@ export const en: Dictionary = {
     resendIn: 'Resend code in',
     submit: 'Log in',
     verifying: 'Checking…',
-    stubNotice: 'Test mode: the code is {code}. In production it is only sent by SMS.',
+    stubNotice: 'Test mode: the code is {code}. In production it is only sent via Zalo.',
 
     errorSendFailed: 'Could not send the code. Please check the phone number.',
+    errorProviderDown: 'Our code delivery service is temporarily down. Please try again in a few minutes.',
+    errorTooManyRequests: 'Too many code requests. Please wait a moment and try again.',
     errorBadCode: 'That code is wrong or has expired.',
     errorNetwork: 'Could not reach the server.',
 

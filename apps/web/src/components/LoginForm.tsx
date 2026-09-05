@@ -66,7 +66,19 @@ export function LoginForm({
       };
 
       if (!res.ok) {
-        setError(data.message ?? t('login.errorSendFailed'));
+        // Map theo HTTP status, không hiện message của backend: message ấy chỉ có
+        // tiếng Việt và ở nhánh 503 còn nêu tên khoá cấu hình.
+        //
+        // 503 = nhà cung cấp (ZNS) đang hỏng, người dùng không làm gì sai và thử lại
+        // là hợp lý — khác hẳn 400 (số không hợp lệ) và 429 (xin mã quá dày). Gộp cả
+        // ba thành một câu "không gửi được mã" là bắt người ta đoán nên làm gì tiếp.
+        setError(
+          res.status === 503
+            ? t('login.errorProviderDown')
+            : res.status === 429
+              ? t('login.errorTooManyRequests')
+              : data.message ?? t('login.errorSendFailed'),
+        );
         return;
       }
 

@@ -3,11 +3,14 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Hangfire;
 using Massage.Api.Common;
+using Massage.Api.Common.Storage;
 using Massage.Api.Data;
 using Massage.Api.Modules.Analytics;
 using Massage.Api.Modules.Admin;
 using Massage.Api.Modules.Auth;
+using Massage.Api.Modules.Auth.Sms;
 using Massage.Api.Modules.Areas;
+using Massage.Api.Modules.Collaborators;
 using Massage.Api.Modules.Jobs;
 using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.Leads;
@@ -99,10 +102,14 @@ builder.Services.AddAppSwagger();
 builder.Services.AddAppRateLimiter();
 builder.Services.AddAppCors(builder.Configuration);
 
+builder.Services.AddOtpSender(builder.Configuration);
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<KtvProfileService>();
-builder.Services.AddScoped<CertificationUpload>();
+builder.Services.AddScoped<CollaboratorService>();
+builder.Services.AddObjectStorage(builder.Configuration);
+builder.Services.AddScoped<UploadService>();
+builder.Services.AddScoped<MediaUrls>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<AreaService>();
@@ -243,14 +250,30 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 }
 
+// Phục vụ file khi chạy LocalObjectStorage (dev/test). Với R2 thì không đường dẫn
+// nào ở đây được dùng — ảnh đi thẳng từ custom domain của bucket.
+//
+// **Chỉ mở đúng hai tiền tố công khai.** `certifications/` cố ý nằm ngoài: nó là ảnh
+// chụp giấy tờ tuỳ thân, và mở cả thư mục uploads nghĩa là ai đoán được key đều tải
+// được. Đây từng đúng là như vậy trước khi có lớp object storage — cả `/uploads` được
+// phục vụ bằng một `UseStaticFiles` duy nhất.
+//
+// Khai từng tiền tố thay vì chặn `certifications/`: danh sách cho phép thì một prefix
+// riêng tư thêm về sau **mặc định** nằm ngoài, còn danh sách chặn thì mặc định lọt.
 var uploadDir = Path.Combine(app.Environment.ContentRootPath,
     app.Configuration["Upload:Dir"] ?? "uploads");
-Directory.CreateDirectory(uploadDir);
-app.UseStaticFiles(new StaticFileOptions
+
+foreach (var prefix in new[] { "avatars", "photos" })
 {
-    FileProvider = new PhysicalFileProvider(uploadDir),
-    RequestPath = "/uploads",
-});
+    var dir = Path.Combine(uploadDir, prefix);
+    Directory.CreateDirectory(dir);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(dir),
+        RequestPath = $"/uploads/{prefix}",
+    });
+}
 
 // UseCors phải đứng trước auth và rate limiter: preflight OPTIONS không mang
 // credentials, nên nếu để sau thì nó bị chặn trước khi kịp trả header CORS.

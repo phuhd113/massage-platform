@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Massage.Api.Common;
 using Massage.Api.Data;
 using Massage.Api.Modules.Auth.Entities;
+using Massage.Api.Modules.Auth.Sms;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -23,20 +24,34 @@ public interface IOtpService
     Task<OtpVerifyResult> VerifyAsync(string phone, string purpose, string code, CancellationToken ct = default);
 }
 
-public class OtpService(AppDbContext db, IOptions<OtpOptions> options, ILogger<OtpService> logger) : IOtpService
+public class OtpService(
+    AppDbContext db,
+    IOtpSender sender,
+    IOptions<OtpOptions> options,
+    ILogger<OtpService> logger) : IOtpService
 {
     private readonly OtpOptions _options = options.Value;
 
     public async Task<OtpIssueResult> IssueAsync(string phone, string purpose, CancellationToken ct = default)
     {
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        var expiresAt = DateTimeOffset.UtcNow.AddSeconds(_options.TtlSeconds);
+
+        // Gửi **trước** khi đụng vào DB. Thứ tự này quan trọng và ngược với bản đầu:
+        // vô hiệu hoá mã cũ rồi mới phát hiện không gửi được nghĩa là người dùng vừa
+        // mất mã đang cầm trên tay để đổi lấy một mã không bao giờ tới. Với người bấm
+        // "gửi lại" vì tin đến chậm, đó là biến một phiền toái thành hỏng hẳn.
+        //
+        // Đánh đổi: gửi thành công mà lưu DB thất bại thì mã tới nơi nhưng không xác
+        // thực được. Hiếm hơn nhiều và người dùng chỉ cần bấm gửi lại — trong khi chiều
+        // ngược lại đẩy họ vào trạng thái không có mã nào dùng được.
+        await sender.SendAsync(phone, code, _options.TtlSeconds, ct);
+
         // Vô hiệu hoá mã cũ chưa dùng: mỗi số chỉ có đúng một mã sống tại một thời
         // điểm, nếu không kẻ tấn công có nhiều mã hợp lệ để thử song song.
         await db.OtpCodes
             .Where(o => o.Phone == phone && o.Purpose == purpose && o.ConsumedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(o => o.ConsumedAt, DateTimeOffset.UtcNow), ct);
-
-        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-        var expiresAt = DateTimeOffset.UtcNow.AddSeconds(_options.TtlSeconds);
 
         db.OtpCodes.Add(new OtpCode
         {
@@ -47,16 +62,12 @@ public class OtpService(AppDbContext db, IOptions<OtpOptions> options, ILogger<O
         });
         await db.SaveChangesAsync(ct);
 
-        if (_options.StubEnabled)
-        {
-            logger.LogWarning("[OTP STUB] {Phone} ({Purpose}) -> {Code}", phone, purpose, code);
-            return new OtpIssueResult(expiresAt, code);
-        }
+        logger.LogInformation("Đã phát hành OTP qua {Channel} cho mục đích {Purpose}", sender.Channel, purpose);
 
-        // Khi cắm nhà cung cấp SMS thật, thay chỗ này bằng lời gọi adapter.
-        // Giữ nguyên chữ ký hàm để phần còn lại của luồng đăng ký không phải sửa.
-        throw new InvalidOperationException(
-            "Chưa cấu hình nhà cung cấp SMS. Đặt Otp:StubEnabled=true cho môi trường dev.");
+        // Mã chỉ ra khỏi server khi chính adapter khai là nó làm vậy. Trước đây điều này
+        // đọc cờ `Otp:StubEnabled`, nên về lý thuyết còn tổ hợp cấu hình vừa gửi tin thật
+        // vừa trả mã ra response — nay không còn tồn tại tổ hợp đó.
+        return new OtpIssueResult(expiresAt, sender.RevealsCode ? code : null);
     }
 
     public async Task<OtpVerifyResult> VerifyAsync(string phone, string purpose, string code, CancellationToken ct = default)
