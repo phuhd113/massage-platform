@@ -318,6 +318,156 @@ tháng. Job **ném lỗi** khi `analytics_events_default` có dữ liệu — h�
 thiếu partition, và chúng **chặn** việc tạo partition cho chính tháng chúng thuộc về, nên lỗi tự khoá
 lại và càng để lâu càng khó gỡ. Job không tự dọn: dọn tức là xoá số liệu thật.
 
+**Ảnh hồ sơ KTV và Cloudflare R2 đã chạy** (2026-09-04, `Common/Storage/` + bảng `ktv_photos`).
+Ba loại file, **hai chế độ truy cập khác nhau**: `avatars/` và `photos/` công khai (nằm trên
+card tìm kiếm và trang SEO, phải cache được ở CDN), còn `certifications/` riêng tư — nó là ảnh
+chụp giấy tờ tuỳ thân. Hướng dẫn dựng bucket: [docs/cloudflare-r2-setup.md](docs/cloudflare-r2-setup.md).
+Bảy điều đừng đảo ngược:
+
+- **DB lưu key, không lưu URL.** `ktv_profiles.avatar_key`, `ktv_photos.storage_key`, và
+  `certifications.file_url` (giữ tên cột cũ, đổi nội dung) đều chứa đường dẫn tương đối trong
+  bucket. Lưu URL đầy đủ thì đổi bucket, đổi custom domain hay đổi nhà cung cấp đều thành một
+  lượt backfill toàn bảng, và những hàng chưa kịp sửa trỏ tới host đã chết. URL dựng lúc đọc,
+  ở đúng một chỗ (`MediaUrls`).
+- **Chứng chỉ chỉ ra ngoài bằng URL ký hạn 15 phút.** Đây là **lỗ hổng đã sửa**, không phải
+  tính năng mới: `/uploads` trước đây được `UseStaticFiles` phục vụ công khai, nên ai đoán được
+  tên file đều tải được giấy tờ tuỳ thân của KTV. Custom domain của R2 phục vụ mọi key trong
+  bucket, nên phải có WAF rule chặn `certifications/` — xem tài liệu.
+- **Adapter chọn theo credential, không theo tên môi trường.** Có `R2:AccessKeyId` thì dùng R2,
+  không thì `LocalObjectStorage`. Một cờ `UseR2=true` riêng sẽ có lúc bật mà thiếu key, và lúc
+  đó app khởi động bình thường rồi mới hỏng ở lượt upload đầu tiên — tức hỏng trên tay KTV thật
+  chứ không phải lúc deploy. Thiếu `R2:PublicBaseUrl` khi đã có key thì app **từ chối khởi
+  động**: cùng lý do với `Jwt:Secret`.
+- **Ảnh gallery có trạng thái duyệt riêng, ảnh đại diện thì không.** Hồ sơ đã VERIFIED vẫn thêm
+  ảnh mới bất cứ lúc nào, nên đi theo trạng thái hồ sơ nghĩa là mở một khe đăng nội dung không
+  ai xem trên trang công khai của đúng ngành Google phạt nặng nhất khi phân loại nhầm — và hình
+  phạt rơi lên cả tên miền. Avatar thì hiện ngay: nó nằm trong tầm mắt admin ở chính trang duyệt
+  hồ sơ, và bắt hồ sơ mới chờ mới có mặt là chặn đúng nhóm cần được nhìn thấy nhất.
+- **Hàng đợi duyệt ảnh là trang riêng** (`/admin/duyet-anh`), không nhét vào trang duyệt hồ sơ.
+  Danh sách kia lọc theo trạng thái **hồ sơ**, nên ảnh mới của một hồ sơ đã duyệt sẽ không xuất
+  hiện ở đâu cả.
+- **Xoá file khỏi storage phải sau khi DB commit**, nên service trả key cũ ra cho controller
+  dọn thay vì tự xoá. Đảo lại thì một lỗi lưu DB để hồ sơ trỏ tới file vừa bị xoá — ảnh vỡ trên
+  trang công khai, không lấy lại được. Ngược lại, vượt hạn mức ảnh thì **file đã lên storage rồi**
+  (kiểm hạn mức trước không chặn được hai lượt song song), nên controller xoá nó trong `catch` —
+  không thì mỗi lần chạm trần lại bỏ lại một file không ai tham chiếu.
+- **Đổi ảnh phải đi qua `/api/ktv-media`, không phải `/api/proxy`.** Cùng cái bẫy `revalidatePath`
+  mà `/api/reviews` đã ghi lại: trang hồ sơ là ISR 600 giây, nên đổi ảnh đại diện xong mà không
+  xoá cache thì chính KTV mở trang mình vẫn thấy ảnh cũ và tưởng lượt tải lên đã hỏng. Ảnh gallery
+  thì **không** xoá cache — nó vào hàng chờ duyệt nên trang công khai chưa đổi gì.
+
+**Năm cái bẫy đã cắn khi bật R2 thật** (2026-09-05) — cả năm đều im lặng, và bốn cái đầu đọc
+như lỗi quyền của Cloudflare chứ không như lỗi code:
+
+- **`services.Configure<R2Options>()` phải được gọi.** `StorageSetup` đọc cấu hình cục bộ để
+  *chọn* adapter, nhưng nếu quên bind vào DI thì `R2ObjectStorage` nhận bản mặc định — `Bucket`
+  thành `"massage-platform"` thay vì bucket thật, và R2 trả **"Access Denied"**. Tốn cả một vòng
+  đi kiểm token Cloudflare trước khi nhìn ra.
+- **`UseChunkEncoding = false` trên từng request.** AWS SDK từ 3.7.402 ký theo luồng
+  (`STREAMING-AWS4-HMAC-SHA256-PAYLOAD`), thứ R2 trả thẳng "not implemented". Cờ này nằm ở
+  **request**, không có trên `AmazonS3Config`.
+- **`DisablePayloadSigning` thì KHÔNG dùng.** Nó đổi chữ ký sang UNSIGNED-PAYLOAD và R2 trả
+  "Access Denied" — trông hệt lỗi quyền.
+- **`docker compose build` có thể trả "Built" trong khi publish đã fail**, và container tiếp tục
+  chạy image cũ. Kiểm bằng `stat -c %y /app/Massage.Api.dll` trong container, đừng tin dòng
+  "Built"; `--no-cache` là cách thấy lỗi biên dịch thật.
+- **`NEXT_PUBLIC_MEDIA_BASE_URL` phải là build arg trong Dockerfile**, không chỉ là biến lúc
+  chạy: `next.config.mjs` dựng `images.remotePatterns` từ nó và Next chốt danh sách đó vào bản
+  build. Thiếu thì mọi ảnh nhận `"url" parameter is not allowed` (400) trong khi trang vẫn 200,
+  nên lỗi chỉ lộ ra khi có người nhìn đúng tấm ảnh. Cũng vì vậy đổi origin ảnh phải
+  `docker compose up -d --build web`, restart không đủ.
+
+`remotePatterns` khai **một entry cho mỗi tiền tố** (`/avatars/**`, `/photos/**`), không gộp
+bằng brace (`/{avatars,photos}/**`): picomatch hiểu cú pháp đó nhưng Next khớp bằng đường khác
+và từ chối thẳng. Và không mở `/**` — thế thì `certifications/` cũng đi qua được trình tối ưu ảnh.
+
+**`tools/verify-r2.sh` là cách duy nhất biết R2 có thật sự chạy không**, vì app không báo lỗi
+khi thiếu cấu hình — nó lặng lẽ dùng đĩa local. Script upload thật, kiểm file rơi vào đâu, và
+kiểm luôn chứng chỉ có bị lộ công khai không.
+
+**Public Development URL (`r2.dev`) không đặt WAF rule được** — nó không thuộc zone nào của tài
+khoản. Hệ quả: khi còn dùng nó, `certifications/` **tải được công khai** bởi ai có key (đã đo,
+200). Key là GUID nên khó đoán, nhưng đó là "khó đoán", không phải "được bảo vệ" — đừng tải lên
+chứng chỉ thật cho tới khi nối custom domain và thêm WAF rule.
+
+**CCCD và cam kết KTV là hai điều kiện bắt buộc để duyệt hồ sơ** (2026-09-05, bảng
+`ktv_identity_documents` + ba cột `commitment_*` trên `ktv_profiles`). Cả hai ràng buộc nằm ở
+`AdminService.DecideProfileAsync`, không phải chỉ là cảnh báo trên giao diện admin. Bảy điều đừng
+đảo ngược:
+
+- **CCCD là bảng riêng, một hàng mỗi KTV** (`UNIQUE (ktv_id)`), không nhét vào `certifications`.
+  Chứng chỉ là danh sách nhiều-và-tuỳ-chọn; CCCD là một-đối-một và bắt buộc. Hai mặt nằm **chung
+  một hàng** nên luôn được duyệt cùng nhau — duyệt riêng từng mặt là để lọt việc ghép mặt trước
+  của thẻ này với mặt sau của thẻ khác. CHECK `chk_identity_doc_two_sides` chặn việc gửi cùng một
+  ảnh cho cả hai ô, lỗi thao tác lọt qua mọi kiểm tra khác vì cả hai đều là key hợp lệ.
+- **Cố ý KHÔNG lưu số CCCD và tên trên thẻ.** Admin đọc trên ảnh lúc duyệt, và chưa có nghiệp vụ
+  nào truy vấn theo số. Không lưu thì không lộ được — đây là định danh cấp quốc gia, rò rỉ một lần
+  là không thu hồi. Cần chặn một người mở nhiều hồ sơ thì thêm cột hash có muối, đừng thêm số thô.
+- **Gửi lại CCCD luôn đưa trạng thái về PENDING** và ghi đè ảnh cũ. Giữ nguyên VERIFIED khi ảnh đã
+  đổi là để hồ sơ đã duyệt thay thẻ khác vào mà không ai nhìn lại — đúng cái lỗ mà việc bắt buộc
+  CCCD sinh ra để bịt. `submitted_at` tách khỏi `created_at` vì hàng bị ghi đè tại chỗ: xếp hàng
+  đợi theo `created_at` thì người bị từ chối rồi gửi lại nằm nguyên chỗ cũ và không bao giờ được
+  xem lại.
+- **Nội dung cam kết nằm ở backend** (`KtvCommitments`), frontend chỉ render. Đây là tài liệu pháp
+  lý: khi tranh chấp, thứ cần chứng minh là "đã đồng ý với đúng những dòng này" — danh sách nằm
+  trong JSX thì bản đã ký không tái dựng được. **Sửa nội dung phải tăng `CurrentVersion`**, nếu
+  không hồ sơ cũ sẽ trông như đã đồng ý với điều họ chưa từng đọc.
+- **Lưu số phiên bản + thời điểm + IP, không phải một cờ boolean.** "Đã tick" mà không biết tick
+  vào bản nào thì vô dụng đúng lúc cần tới nó nhất. Client gửi **số phiên bản mình vừa đọc** và
+  backend từ chối khi lệch — tab mở từ trước lúc cập nhật sẽ không ghi nhận nhầm.
+- **Không backfill hồ sơ cũ thành đã cam kết** (mặc định 0). Chúng chưa từng thấy bản cam kết nào,
+  và tự gán là tạo bằng chứng giả cho chính mình. Hệ quả có chủ ý: hồ sơ cũ phải xác nhận lại.
+- **Chỉ chặn chiều sang VERIFIED.** Từ chối hay gỡ hồ sơ không cần điều kiện nào — chặn ở đó sẽ
+  khoá đúng đường gỡ những hồ sơ đáng ngờ nhất.
+
+`identity/` là **prefix riêng tư thứ hai**, cùng luật với `certifications/`: DB lưu key, ra ngoài
+bằng URL ký 15 phút. Hai chỗ phải nhớ điều đó và cả hai từng là lỗi im lặng — `LocalObjectStorage.
+SignedUrl` chọn endpoint **theo tiền tố key** (trả nhầm endpoint chứng chỉ thì đường CCCD tra nhầm
+bảng và luôn 404), và `lib/media.ts` phải khớp cả hai đường file riêng tư khi vòng qua proxy. WAF
+rule trên custom domain cũng khai **từng tiền tố một** — thêm loại giấy tờ mới mà quên sửa rule thì
+không có gì báo lỗi, file vẫn lưu đúng, chỉ là ai có key đều tải được. `tools/verify-r2.sh` nay
+kiểm cả hai prefix; thêm loại thứ ba thì thêm vào đó luôn.
+
+Đã đo ngày 2026-09-05: vì còn dùng `r2.dev` (không đặt WAF rule được), **cả `certifications/` lẫn
+`identity/` đang tải được công khai bởi ai có key** — script báo đỏ đúng hai chỗ đó. Đừng tải lên
+CCCD thật cho tới khi nối custom domain và thêm WAF rule.
+
+**Cộng tác viên và mã giới thiệu** (2026-09-05, `Modules/Collaborators` + bảng `collaborators`,
+hai cột `referred_by_collaborator_id`/`referred_at` trên `ktv_profiles`). KTV điền mã lúc **tạo**
+hồ sơ; CTV do admin tạo ở `/admin/cong-tac-vien`. Bảy điều đừng đảo ngược:
+
+- **Bảng riêng, không phải chuỗi tự do trên hồ sơ.** Mã là cơ sở trả hoa hồng nên nó phải trỏ tới
+  người có thật: gõ sai một chữ thì báo lỗi ngay lúc tạo hồ sơ, thay vì lưu êm một chuỗi không ai
+  sở hữu rồi chỉ vỡ ra lúc đối soát. Nó cũng cho phép đếm bằng join, thay vì gộp theo chuỗi nơi
+  `AN01` và `an01` thành hai người.
+- **`ktv_profiles` giữ khoá ngoại, không giữ chuỗi mã.** Mã đổi được, "ai mang người này về" thì
+  không — lưu chuỗi thì mọi hồ sơ cũ mất dấu ngay khi mã được sửa.
+- **Mã chốt lúc tạo.** `CreateKtvProfileDto` có `ReferralCode`, `UpdateKtvProfileDto` **không** —
+  để KTV tự đổi là mở đường cho một CTV đổi mã của mình vào hồ sơ người khác mang về. Form ẩn hẳn
+  ô nhập ở trang sửa; có test canh cả hai chiều.
+- **Tuỳ chọn, không bắt buộc.** SEO là nguồn chính và đa số KTV không có mã nào; bắt buộc sẽ chặn
+  đúng nhóm đến miễn phí, hoặc đẩy họ đi gõ bừa một mã cho qua.
+- **Chuẩn hoá mã ở đúng một chỗ** (`Collaborator.NormalizeCode`, chữ hoa + trim) và **dùng chung
+  cho cả đường ghi lẫn đường đọc**. Chuẩn hoá một vế thôi thì mã lưu được nhưng không bao giờ tra
+  ra — hỏng im lặng vì cả hai thao tác đều báo thành công.
+- **`ON DELETE RESTRICT`, khác `CASCADE` của ảnh/chứng chỉ.** Xoá CTV đang có hồ sơ phải *thất bại*
+  chứ không được lặng lẽ gỡ liên kết — đó là xoá cơ sở tính hoa hồng của những lượt hợp lệ. Ngừng
+  hợp tác thì `status='DISABLED'`: mã hết dùng cho hồ sơ mới, lịch sử nguyên vẹn.
+- **`GET /referral-codes/{code}` nằm ở controller riêng.** Đây là lỗi thật đã bị test bắt:
+  `CollaboratorController` khai `[Authorize(Roles = ADMIN)]` ở cấp class, và một `[Authorize]` ở
+  cấp method **không nới rộng** được ràng buộc đó — mọi filter đều phải qua, nên form đăng ký của
+  KTV nhận 403 và không bao giờ kiểm được mã. Endpoint này cũng chỉ trả **tên** CTV, không trả số
+  điện thoại: ai đoán trúng mã cũng gọi được, nên nó không được thành đường rò thông tin liên hệ.
+
+Index `idx_ktv_referred_by` là **partial** (`WHERE ... IS NOT NULL`) nên chỉ khai trong migration —
+EF không mô hình hoá được mệnh đề `WHERE`, khai index đầy đủ trong `OnModelCreating` sẽ làm mọi lần
+`migrations add` sau sinh diff rác. Cùng lý do với `uq_area_root_slug`.
+
+Chưa làm, và cố ý: **tính và trả hoa hồng**. Đó là module chạm tiền nên phải đi theo kiến trúc
+Hexagonal (xem `architecture-modules.md`) chứ không nối thêm vào module CRUD phẳng này. Hiện chỉ
+mới ghi nhận *ai giới thiệu ai* — `verifiedCount` là con số đáng dùng làm cơ sở, không phải
+`referredCount`, vì hồ sơ tạo ra rồi không bao giờ qua duyệt thì chưa mang lại gì cho sàn.
+
 **Báo cáo vi phạm đã chạy** (2026-09-04, `Modules/Reports` + bảng `profile_reports`). Roadmap xếp
 việc này vào "cần chuẩn bị từ Phase 1, không đợi Phase 4" vì nó chạm đúng hai trụ cột của dự án:
 pháp lý, và kênh acquisition chính — Google hạ hạng mạnh tên miền bị phân loại là nội dung người
@@ -354,9 +504,62 @@ Lưu ý vận hành hiện tại:
   mở endpoint tự phong quyền admin.
 - **`Jwt:Secret` phải ≥32 ký tự**, app từ chối khởi động nếu thiếu — cố ý fail fast vì secret rỗng
   khiến mọi token đều giả mạo được mà không lộ ra cho tới khi bị khai thác.
-- **File chứng chỉ lưu trên đĩa local**. Chuyển sang S3/R2 bằng cách sửa `CertificationUpload`,
-  phần còn lại của luồng upload không phụ thuộc nơi file nằm.
+- **File lưu ở Cloudflare R2 khi có credential, đĩa local khi không** — xem mục "Ảnh hồ sơ KTV
+  và Cloudflare R2" bên dưới. Không có cấu hình nào phải bật: `StorageSetup` chọn adapter theo
+  việc có `R2:AccessKeyId` hay không.
 - **Tile bản đồ đang dùng OSM công cộng** (`apps/web/src/lib/map.ts`). Không cần khoá nên chạy
   được ngay, nhưng OSM Tile Usage Policy không cho phép ứng dụng thương mại lưu lượng cao —
   phải đổi sang nhà cung cấp có hợp đồng trước khi mở traffic thật. Đổi ở đúng hai hằng số
   `TILE_URL`/`TILE_ATTRIBUTION`, không rải ra chỗ khác.
+
+**Bản tiếng Anh cho khách đã chạy** (2026-09-05, `apps/web/src/i18n/` + `src/middleware.ts`).
+Tiếng Việt là mặc định và **không có prefix**; bản tiếng Anh nằm dưới `/en` và dùng lại
+slug tiếng Việt (`/en/massage-tai-nha/tp-ho-chi-minh`). Chín điều đừng vô tình đảo ngược:
+
+- **Middleware `rewrite`, KHÔNG bao giờ `redirect`, và không negotiate `Accept-Language`.**
+  URL tiếng Việt phải giữ nguyên từng ký tự vì Google đã index chúng; thêm một hop redirect
+  vào ~760 URL là đánh đổi kênh acquisition chính lấy sự gọn gàng của đường dẫn. Tự động
+  chuyển theo `Accept-Language` là cách kinh điển khiến Google index nội dung tiếng Anh dưới
+  URL tiếng Việt — và vì Googlebot thường không gửi header đó, lỗi chỉ xuất hiện ở phía
+  Google chứ không bao giờ tái hiện được trên trình duyệt. Đổi ngôn ngữ **chỉ** qua link
+  tường minh ở header.
+- **`middleware.ts` phải nằm trong `src/`**, cạnh `src/app`. Đặt ở gốc `apps/web` thì Next bỏ
+  qua hoàn toàn: build xanh, `middleware-manifest.json` rỗng, và **mọi** URL tiếng Việt trả
+  404 trong khi `/en/...` vẫn chạy bình thường. Đã cắn.
+- **Matcher phải viết `'.*\..*'`, không phải `'.*\.'`.** Trong string literal của TypeScript,
+  `\.` bị rút thành `.` — mà `.` không escape khớp mọi ký tự, nên biểu thức loại trừ nuốt gần
+  hết đường dẫn và middleware gần như không bao giờ chạy. Cùng triệu chứng với lỗi trên. Kiểm
+  bằng `.next/server/middleware-manifest.json`, đừng tin file nguồn.
+- **`generateStaticParams` trên `[locale]` là bắt buộc.** Thiếu nó, Next coi `[locale]` là
+  dynamic segment không biết trước giá trị và bỏ ISR cho **mọi** route con — build vẫn xanh,
+  chỉ khác một chữ trong bảng output.
+- **Root layout KHÔNG render `<html>`/`<body>`**; `[locale]/layout.tsx` làm việc đó. `lang`
+  phải theo ngôn ngữ trang, mà root layout không có `params`; đọc `headers()` ở đó sẽ biến
+  **mọi** route thành dynamic và giết ISR của chính những trang sống nhờ SEO.
+- **hreflang khai trong `generateMetadata` của từng trang, không đặt ở layout.** Metadata của
+  layout merge **nông**: page nào khai `alternates.canonical` sẽ ghi đè trọn `alternates` của
+  layout, kể cả phần `languages` — hreflang biến mất khỏi đúng những trang cần nó nhất, mà
+  build vẫn xanh. Dựng qua `alternatesFor` (`lib/seo.ts`) để cụm luôn đối xứng; Google bỏ qua
+  cả cụm nếu một vế không trỏ ngược lại.
+- **Backend trả cả hai ngôn ngữ trong một payload**, không nhận `?locale=`. `lib/api.ts` cache
+  ở tầng fetch theo URL, nên một tham số locale sẽ tạo hai cache key cho cùng một dữ liệu và
+  nhân đôi lượt gọi backend mỗi khi ISR revalidate. Đã đo: 3 lượt vi + 3 lượt en trang quận =
+  **0** lần chạm DB.
+- **`translateAreaName` chỉ dùng ở đường hiển thị.** Ô gợi ý khu vực khớp theo `name_ascii` do
+  trigger trong DB dựng từ `name` tiếng Việt; đổi chuỗi đem đi khớp ở client sẽ làm ô gợi ý
+  trả rỗng trong khi mọi thứ khác trông vẫn bình thường. Tiền tố khai rõ đặt trước hay sau
+  tên ("District 7" nhưng "Cần Thơ City"), và sáu thành phố trực thuộc trung ương có bảng tên
+  quốc tế riêng vì "Ho Chi Minh City" không suy ra được bằng luật.
+- **Nội dung do người dùng viết giữ nguyên tiếng Việt**, bọc `lang="vi"` tại chính element
+  chứa chữ, kèm nhãn "Written in Vietnamese" chỉ hiện ở bản tiếng Anh. Không dịch máy: Google
+  coi nội dung dịch máy hàng loạt là spam và hình phạt rơi lên **cả tên miền**.
+
+Cờ `indexable` của backend áp dụng chung cho cả hai ngôn ngữ, nên quận dưới ngưỡng nhận
+`noindex, follow` ở bản EN và không vào sitemap — **bản tiếng Anh không nhân đôi rủi ro
+doorway page**. Chuỗi trong `innerHTML` của popup Leaflet (`SearchMap.popupHtml`) phải dịch
+thủ công: không công cụ nào dò được text nằm trong template literal.
+
+Chưa làm, và cố ý: **dashboard KTV và trang admin vẫn chỉ có tiếng Việt** — cả hai nhóm người
+dùng đều là người Việt, dịch ~420 chuỗi ở đó là công lớn mà gần như không ai đọc. **Message
+lỗi API cũng vẫn tiếng Việt**: frontend map lỗi theo HTTP status ở mọi flow khách, nên không
+câu nào của backend lọt ra mặt khách.
