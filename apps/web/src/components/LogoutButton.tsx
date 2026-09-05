@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export function LogoutButton() {
+export function LogoutButton({ labels }: { labels: { logout: string; loggingOut: string } }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -21,7 +21,7 @@ export function LogoutButton() {
       disabled={pending}
       className="text-sm text-ink-600 hover:text-brand-600 disabled:opacity-60"
     >
-      {pending ? 'Đang thoát…' : 'Đăng xuất'}
+      {pending ? labels.loggingOut : labels.logout}
     </button>
   );
 }

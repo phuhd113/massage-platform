@@ -62,7 +62,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <DashboardNav
-          balanceLabel={wallet ? formatVndShort(wallet.available) : ''}
+          balanceLabel={wallet ? formatVndShort(wallet.available, 'vi') : ''}
           runningCount={running}
         />
 
@@ -76,7 +76,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             Về trang chủ
           </Link>
           <div className="mt-2.5">
-            <LogoutButton />
+            <LogoutButton labels={{ logout: 'Đăng xuất', loggingOut: 'Đang thoát…' }} />
           </div>
         </div>
       </aside>
@@ -127,7 +127,7 @@ function CustomerNotice() {
 
         <div className="mt-5 flex flex-wrap items-center gap-x-1.5 border-t border-ink-100 pt-4 text-body-s text-ink-500">
           <span>Đang dùng nhầm số điện thoại?</span>
-          <LogoutButton />
+          <LogoutButton labels={{ logout: 'Đăng xuất', loggingOut: 'Đang thoát…' }} />
         </div>
       </div>
     </div>

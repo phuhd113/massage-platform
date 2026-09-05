@@ -3,14 +3,21 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoutButton } from '@/components/LogoutButton';
 import { UnauthenticatedError, authFetch, getSessionRole } from '@/lib/session';
+import { localePath, normalizeLocale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator, type Translator } from '@/i18n/t';
 import { formatDate, ktvPath } from '@/lib/site';
 import type { MyReview } from '@/lib/types';
 
-export const metadata: Metadata = {
-  title: 'Tài khoản của tôi',
-  // Trang riêng của từng người, không có gì để xếp hạng.
-  robots: { index: false, follow: false },
-};
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+  return {
+    title: t('myAccount.metaTitle'),
+    // Trang riêng của từng người, không có gì để xếp hạng.
+    robots: { index: false, follow: false },
+  };
+}
 
 // Dữ liệu riêng của từng người: không được cache dùng chung, và không được dựng
 // sẵn lúc build.
@@ -27,7 +34,10 @@ export const dynamic = 'force-dynamic';
  * lượt bấm của khách chưa đăng nhập, nên phần lớn lịch sử của một người sẽ không có
  * trong đó — một danh sách khuyết quá nửa còn khó hiểu hơn là không có.
  */
-export default async function AccountPage() {
+export default async function AccountPage({ params }: { params: { locale: string } }) {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+
   // KTV có bảng điều khiển riêng đầy đủ hơn hẳn; đưa họ về đó thay vì hiện một
   // trang nghèo nàn hơn cùng nội dung.
   if (getSessionRole() === 'KTV') redirect('/dashboard');
@@ -44,17 +54,17 @@ export default async function AccountPage() {
     <div className="mx-auto max-w-[720px]">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <h1 className="text-display text-ink-900">Tài khoản của tôi</h1>
-          <p className="mt-2 text-body-l text-ink-600">
-            Đánh giá bạn đã viết. Tìm và gọi kỹ thuật viên không cần đăng nhập.
-          </p>
+          <h1 className="text-display text-ink-900">{t('myAccount.h1')}</h1>
+          <p className="mt-2 text-body-l text-ink-600">{t('myAccount.lead')}</p>
         </div>
-        <LogoutButton />
+        <LogoutButton
+          labels={{ logout: t('myAccount.logout'), loggingOut: t('myAccount.loggingOut') }}
+        />
       </div>
 
       <section className="mt-8">
         <h2 className="text-h2 text-ink-900">
-          Đánh giá đã viết
+          {t('myAccount.reviewsTitle')}
           {reviews.length > 0 && (
             <span className="ml-2 text-body-l font-normal text-ink-500">
               <span className="tabular">{reviews.length}</span>
@@ -64,15 +74,13 @@ export default async function AccountPage() {
 
         {reviews.length === 0 ? (
           <div className="mt-3 rounded-xl border border-ink-200 bg-white px-4 py-5 text-center">
-            <p className="text-body text-ink-600">Bạn chưa viết đánh giá nào.</p>
-            <p className="mt-1 text-body-s text-ink-500">
-              Sau khi dùng dịch vụ, mở hồ sơ kỹ thuật viên đó để chấm điểm.
-            </p>
+            <p className="text-body text-ink-600">{t('myAccount.emptyTitle')}</p>
+            <p className="mt-1 text-body-s text-ink-500">{t('myAccount.emptyBody')}</p>
             <Link
-              href="/tim-kiem"
+              href={localePath(locale, '/tim-kiem')}
               className="mt-4 inline-block rounded-full bg-brand-500 px-5 py-2.5 text-body font-semibold text-white shadow-button transition hover:bg-brand-600"
             >
-              Tìm kỹ thuật viên
+              {t('myAccount.emptyCta')}
             </Link>
           </div>
         ) : (
@@ -84,13 +92,13 @@ export default async function AccountPage() {
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <Link
-                    href={ktvPath(r.ktvSlug, r.ktvId)}
+                    href={ktvPath(locale, r.ktvSlug, r.ktvId)}
                     className="text-h4 text-ink-900 transition hover:text-brand-600"
                   >
                     {r.ktvFullName}
                   </Link>
                   <time className="text-caption text-ink-400" dateTime={r.createdAt}>
-                    {formatDate(r.createdAt)}
+                    {formatDate(r.createdAt, locale)}
                   </time>
                 </div>
 
@@ -101,14 +109,16 @@ export default async function AccountPage() {
                   <span className="text-ink-300" aria-hidden>
                     {'★'.repeat(5 - r.rating)}
                   </span>
-                  <span className="sr-only">{r.rating} trên 5 sao</span>
+                  <span className="sr-only">{t('ktvProfile.starsSr', { rating: r.rating })}</span>
                 </div>
 
                 {r.comment && (
-                  <p className="mt-1.5 max-w-prose text-body text-ink-700">{r.comment}</p>
+                  <p lang="vi" className="mt-1.5 max-w-prose text-body text-ink-700">
+                    {r.comment}
+                  </p>
                 )}
 
-                <ReviewStatusNote status={r.status} rejectionReason={r.rejectionReason} />
+                <ReviewStatusNote status={r.status} rejectionReason={r.rejectionReason} t={t} />
               </li>
             ))}
           </ul>
@@ -128,24 +138,26 @@ export default async function AccountPage() {
 function ReviewStatusNote({
   status,
   rejectionReason,
+  t,
 }: {
   status: string;
   rejectionReason: string | null;
+  t: Translator;
 }) {
   if (status === 'PUBLISHED') return null;
 
   if (status === 'REJECTED') {
     return (
       <p className="mt-2.5 rounded-md border border-danger-bd bg-danger-bg px-3 py-2 text-body-s text-danger-fg">
-        Đánh giá này đã bị gỡ và không còn hiển thị công khai.
-        {rejectionReason && <> Lý do: {rejectionReason}</>}
+        {t('myAccount.statusRejected')}
+        {rejectionReason && <>{t('myAccount.statusRejectedReason', { reason: rejectionReason })}</>}
       </p>
     );
   }
 
   return (
     <p className="mt-2.5 rounded-md border border-warning-bd bg-warning-bg px-3 py-2 text-body-s text-warning-fg">
-      Đánh giá đang chờ kiểm duyệt, chưa hiển thị công khai.
+      {t('myAccount.statusPending')}
     </p>
   );
 }

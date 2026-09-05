@@ -115,14 +115,14 @@ function CampaignRow({ campaign: c, areaLabel }: { campaign: Campaign; areaLabel
           </div>
 
           <div className={`mt-1.5 text-body-l ${c.isRunning ? 'text-ink-600' : 'text-ink-500'}`}>
-            {formatDate(start)} – {formatDate(end)}
+            {formatDate(start, 'vi')} – {formatDate(end, 'vi')}
             {c.isRunning && ` · +${c.boostPoints} điểm`} ·{' '}
-            <span className="tabular font-mono">{formatVnd(c.pricePaid)}</span>
+            <span className="tabular font-mono">{formatVnd(c.pricePaid, 'vi')}</span>
             {c.refundedAmount > 0 && (
               <>
                 {' · đã hoàn '}
                 <span className="tabular font-mono text-success-fg">
-                  {formatVnd(c.refundedAmount)}
+                  {formatVnd(c.refundedAmount, 'vi')}
                 </span>{' '}
                 về ví
               </>

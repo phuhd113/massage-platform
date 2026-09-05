@@ -53,7 +53,7 @@ export default async function WalletPage() {
         <div className="rounded-xl bg-brand-500 p-5 text-white">
           <div className="text-label uppercase text-brand-200">Dùng được ngay</div>
           <div className="tabular mt-2 font-mono text-[34px] font-medium leading-10">
-            {formatVnd(wallet.available)}
+            {formatVnd(wallet.available, 'vi')}
           </div>
           <div className="mt-1.5 text-body-l leading-[21px] text-brand-100">
             Đây là số bạn mua được gói ngay bây giờ.
@@ -63,7 +63,7 @@ export default async function WalletPage() {
         <div className="rounded-xl border border-ink-200 bg-white p-5">
           <div className="text-label uppercase text-ink-500">Tổng số dư</div>
           <div className="tabular mt-2 font-mono text-2xl font-medium text-ink-900">
-            {formatVnd(wallet.balance)}
+            {formatVnd(wallet.balance, 'vi')}
           </div>
           <div className="mt-1.5 text-body-l leading-[21px] text-ink-600">
             Tổng sở hữu, đã gồm cả phần đang giữ.
@@ -75,7 +75,7 @@ export default async function WalletPage() {
         <div className="rounded-xl border border-info-bd bg-info-bg p-5">
           <div className="text-label uppercase text-info-fg">Đang giữ</div>
           <div className="tabular mt-2 font-mono text-2xl font-medium text-info-fg">
-            {formatVnd(wallet.held)}
+            {formatVnd(wallet.held, 'vi')}
           </div>
           <div className="mt-1.5 text-body-l leading-[21px] text-ink-700">
             Giữ cho lần mua chưa chốt. Tự hoàn lại nếu không giành được slot.
@@ -124,7 +124,7 @@ export default async function WalletPage() {
                     return (
                       <tr key={t.id} className="border-b border-ink-100 last:border-0">
                         <td className="whitespace-nowrap px-[18px] py-3.5 text-ink-600">
-                          {formatDateTime(t.createdAt)}
+                          {formatDateTime(t.createdAt, 'vi')}
                         </td>
                         <td className="px-[18px] py-3.5 text-ink-900">
                           {transactionLabel(t.type)}
@@ -139,10 +139,10 @@ export default async function WalletPage() {
                           }`}
                         >
                           {t.amount > 0 ? '+' : ''}
-                          {formatVnd(t.amount)}
+                          {formatVnd(t.amount, 'vi')}
                         </td>
                         <td className="tabular whitespace-nowrap px-[18px] py-3.5 text-right font-mono text-ink-600">
-                          {formatVnd(t.balanceAfter)}
+                          {formatVnd(t.balanceAfter, 'vi')}
                         </td>
                       </tr>
                     );

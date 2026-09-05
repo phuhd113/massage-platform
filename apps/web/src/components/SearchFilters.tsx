@@ -1,6 +1,10 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
+import { serviceName } from '@/lib/service-i18n';
 import { useEffect, useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
 import { CertifiedIcon } from '@/components/icons';
@@ -20,6 +24,7 @@ import type { ServiceItem } from '@/lib/types';
 export function SearchFilters({
   services,
   areaLabel = '',
+  locale,
 }: {
   services: ServiceItem[];
   /**
@@ -28,7 +33,9 @@ export function SearchFilters({
    * giữa các tỉnh nên tra ngược sẽ hiện nhầm tên tỉnh.
    */
   areaLabel?: string;
+  locale: Locale;
 }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -122,7 +129,7 @@ export function SearchFilters({
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setGeoError('Trình duyệt không hỗ trợ định vị.');
+      setGeoError(t('filters.geoUnsupported'));
       return;
     }
 
@@ -143,7 +150,7 @@ export function SearchFilters({
       },
       () => {
         setLocating(false);
-        setGeoError('Chưa lấy được vị trí. Bạn có thể chọn quận/huyện bên dưới.');
+        setGeoError(t('filters.geoFailed'));
       },
       { timeout: 10_000 },
     );
@@ -173,16 +180,22 @@ export function SearchFilters({
             disabled={locating || pending}
             className="w-full whitespace-nowrap rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-button transition hover:bg-brand-600 disabled:opacity-60 sm:w-auto"
           >
-            {locating ? 'Đang định vị…' : 'Tìm quanh tôi'}
+            {locating ? t('filters.locating') : t('filters.nearMe')}
           </button>
         </div>
 
         <label className="order-1 text-sm sm:order-none">
-          <span className="block text-ink-600">Khu vực</span>
+          <span className="block text-ink-600">{t('filters.areaLabel')}</span>
           <div className="mt-1 w-full sm:w-64">
             <AreaSearchBox
               initialLabel={areaBoxLabel}
-              placeholder="Nhập quận, huyện hoặc phường…"
+              placeholder={t('filters.areaPlaceholder')}
+              labels={{
+                clear: t('filters.areaClear'),
+                suggestions: t('filters.areaSuggestions'),
+                ktvCount: (n) =>
+                  n > 0 ? t('filters.areaKtvCount', { count: n }) : t('filters.areaNoKtv'),
+              }}
               onSelect={(s) => apply(applyAreaScope(params, s))}
               onClear={() => apply(clearAreaScope(params))}
               inputClassName={
@@ -195,16 +208,16 @@ export function SearchFilters({
         </label>
 
         <label className="order-3 text-sm sm:order-none">
-          <span className="block text-ink-600">Dịch vụ</span>
+          <span className="block text-ink-600">{t('filters.serviceLabel')}</span>
           <select
             className={selectClass}
             value={params.get('service') ?? ''}
             onChange={(e) => setParam('service', e.target.value)}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t('filters.serviceAll')}</option>
             {services.map((s) => (
               <option key={s.id} value={s.slug}>
-                {s.name}
+                {serviceName(s, locale)}
               </option>
             ))}
           </select>
@@ -212,7 +225,7 @@ export function SearchFilters({
 
         {hasCoords && (
           <label className="order-4 text-sm sm:order-none">
-            <span className="block text-ink-600">Bán kính</span>
+            <span className="block text-ink-600">{t('filters.radiusLabel')}</span>
             <select
               className={selectClass}
               value={params.get('radiusKm') ?? '10'}
@@ -249,7 +262,7 @@ export function SearchFilters({
           }`}
         >
           <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />
-          Đang nhận khách
+          {t('filters.onlineOnly')}
         </button>
 
         {/*
@@ -260,12 +273,12 @@ export function SearchFilters({
         */}
         <span className="inline-flex shrink-0 items-center gap-1.5 self-end whitespace-nowrap rounded-full border border-success-bd bg-success-bg px-3.5 py-2 text-sm font-medium text-success-fg">
           <CertifiedIcon size={16} className="h-3.5 w-3.5 shrink-0" />
-          Chỉ hồ sơ đã duyệt
+          {t('filters.verifiedOnly')}
         </span>
 
         <div
           role="group"
-          aria-label="Cách hiển thị kết quả"
+          aria-label={t('filters.viewGroupLabel')}
           className="flex shrink-0 self-end rounded-full border border-ink-300 bg-white p-[3px] text-sm sm:ml-auto"
         >
           {/*
@@ -281,7 +294,7 @@ export function SearchFilters({
               isMap ? 'text-ink-600 hover:bg-ink-100' : 'bg-brand-500 text-white'
             }`}
           >
-            Danh sách
+            {t('filters.viewList')}
           </button>
           <button
             type="button"
@@ -291,7 +304,7 @@ export function SearchFilters({
               isMap ? 'bg-brand-500 text-white' : 'text-ink-600 hover:bg-ink-100'
             }`}
           >
-            Bản đồ
+            {t('filters.viewMap')}
           </button>
         </div>
         </div>

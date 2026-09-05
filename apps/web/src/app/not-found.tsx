@@ -1,26 +1,30 @@
 import Link from 'next/link';
-import { PublicShell } from '@/components/PublicShell';
+import { DEFAULT_LOCALE } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 
 /**
- * not-found.tsx phải nằm ở root nên nó render với root layout — vốn không còn
- * header/footer sau khi tách nhóm (public). Tự bọc PublicShell ở đây: trang 404 là
- * chỗ khách cần đường quay lại nhất, bỏ điều hướng ở đúng đó là ngõ cụt.
+ * 404 ở tầng root — nhánh dự phòng cho request không khớp được `[locale]`.
+ *
+ * Phải tự render `<html>`/`<body>`: root layout không còn dựng chúng (xem ghi chú
+ * ở `layout.tsx`), và một trang không có `<html>` là HTML hỏng chứ không chỉ xấu.
+ *
+ * Không dùng `PublicShell` ở đây vì shell cần locale và font variable của
+ * `[locale]/layout.tsx`, cả hai đều không có ở nhánh này. Bản 404 mà khách thật sự
+ * gặp là `[locale]/not-found.tsx`; bản này chỉ để không bao giờ trả về trang trắng.
  */
-export default function NotFound() {
+export default function RootNotFound() {
+  const t = createTranslator(getDictionary(DEFAULT_LOCALE), DEFAULT_LOCALE);
+
   return (
-    <PublicShell>
-      <div className="py-16 text-center">
-        <h1 className="text-h1 text-ink-900">Không tìm thấy trang</h1>
-        <p className="mt-3 text-ink-600">
-          Trang bạn tìm không tồn tại hoặc hồ sơ đã ngừng hiển thị.
-        </p>
-        <Link
-          href="/"
-          className="mt-6 inline-block rounded-md bg-brand-500 px-5 py-2.5 font-medium text-white hover:bg-brand-600"
-        >
-          Về trang chủ
-        </Link>
-      </div>
-    </PublicShell>
+    <html lang={DEFAULT_LOCALE}>
+      <body>
+        <div style={{ padding: '64px 16px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+          <h1>{t('notFound.title')}</h1>
+          <p>{t('notFound.body')}</p>
+          <Link href="/">{t('notFound.backHome')}</Link>
+        </div>
+      </body>
+    </html>
   );
 }

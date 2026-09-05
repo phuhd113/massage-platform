@@ -14,10 +14,10 @@ export interface Crumb {
  * nhìn thấy là structured data không khớp nội dung, và Google gỡ rich result của
  * cả tên miền chứ không riêng trang sai.
  */
-export function Breadcrumbs({ items }: { items: Crumb[] }) {
+export function Breadcrumbs({ items, label }: { items: Crumb[]; label: string }) {
   return (
     <>
-      <nav aria-label="Đường dẫn" className="mb-4 text-sm text-ink-500">
+      <nav aria-label={label} className="mb-4 text-sm text-ink-500">
         <ol className="flex flex-wrap items-center gap-1.5">
           {items.map((item, i) => (
             <li key={item.href} className="flex items-center gap-1.5">

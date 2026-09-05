@@ -73,7 +73,7 @@ export function TopUpForm() {
                   : 'border border-ink-200 bg-white px-4 py-[9px] text-ink-700 hover:border-brand-500'
               }`}
             >
-              {formatVnd(preset)}
+              {formatVnd(preset, 'vi')}
             </button>
           );
         })}
@@ -106,7 +106,7 @@ export function TopUpForm() {
             className="tabular mt-1 w-full max-w-xs rounded-md border border-ink-200 bg-white px-3 py-2 font-mono transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
           <span className="mt-1.5 block text-caption text-ink-500">
-            Từ {formatVnd(MIN)} đến {formatVnd(MAX)}.
+            Từ {formatVnd(MIN, 'vi')} đến {formatVnd(MAX, 'vi')}.
           </span>
         </label>
       )}
@@ -117,7 +117,7 @@ export function TopUpForm() {
           disabled={pending || !valid}
           className="shrink-0 rounded-md bg-brand-500 px-6 py-3 text-body-l font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
         >
-          {pending ? 'Đang mở cổng thanh toán…' : `Nạp ${formatVnd(amount)}`}
+          {pending ? 'Đang mở cổng thanh toán…' : `Nạp ${formatVnd(amount, 'vi')}`}
         </button>
 
         {/*

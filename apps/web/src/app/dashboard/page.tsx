@@ -1,11 +1,27 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CheckIcon } from '@/components/icons';
+import {
+  AreaIcon,
+  CalendarIcon,
+  CertifiedIcon,
+  CheckIcon,
+  ClockIcon,
+  StarIcon,
+  VerifiedIcon,
+} from '@/components/icons';
 import { api } from '@/lib/api';
-import { packageLabel } from '@/lib/labels';
+import { packageLabel, transactionLabel } from '@/lib/labels';
 import { UnauthenticatedError, authFetch, authFetchOrNull } from '@/lib/session';
-import { formatDate, formatVnd } from '@/lib/site';
-import type { Campaign, KtvStats, MyKtvProfile, WalletBalance } from '@/lib/types';
+import { formatDate, formatDateTime, formatVnd } from '@/lib/site';
+import type {
+  Campaign,
+  KtvServiceItem,
+  KtvStats,
+  MyKtvProfile,
+  WalletBalance,
+  WalletTransaction,
+  WalletTransactionList,
+} from '@/lib/types';
 
 export default async function DashboardPage() {
   let profile: MyKtvProfile | null;
@@ -30,6 +46,14 @@ export default async function DashboardPage() {
 
   const running = campaigns.filter((c) => c.isRunning);
 
+  // Bảng giá và sổ ví chỉ tra sau khi biết hồ sơ có tồn tại hay không: cả hai
+  // endpoint đều đòi hồ sơ đã tạo, và tài khoản mới chưa có gì để hiển thị ở đó.
+  // Sổ lấy 5 dòng — đây là bản tóm tắt, trang Ví mới là nơi đọc đủ.
+  const [myServices, ledger] = await Promise.all([
+    profile ? ((await authFetchOrNull<KtvServiceItem[]>('/ktv/profile/services')) ?? []) : [],
+    authFetch<WalletTransactionList>('/wallet/transactions?page=1&size=5'),
+  ]);
+
   const areas = await api.areaTree();
   const areaName = new Map(
     areas.flatMap((p) => p.children.map((d) => [d.id, d.name] as const)),
@@ -40,6 +64,8 @@ export default async function DashboardPage() {
       <h1 className="text-h1 text-ink-900 sm:text-[30px] sm:leading-9">Tổng quan</h1>
 
       <ProfileStatus profile={profile} />
+
+      {profile && <ProfileCard profile={profile} services={myServices} />}
 
       {/*
         Ba ô đầu xếp đúng thứ tự phễu: hiện ra → xem hồ sơ → bấm liên hệ. Đọc từ trái
@@ -96,8 +122,8 @@ export default async function DashboardPage() {
       <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2">
         <Stat
           label="Số dư dùng được"
-          value={formatVnd(wallet.available)}
-          hint={wallet.held > 0 ? `${formatVnd(wallet.held)} đang giữ` : undefined}
+          value={formatVnd(wallet.available, 'vi')}
+          hint={wallet.held > 0 ? `${formatVnd(wallet.held, 'vi')} đang giữ` : undefined}
           hintTone={wallet.held > 0 ? 'info' : 'muted'}
         />
         <Stat
@@ -159,12 +185,12 @@ export default async function DashboardPage() {
                       </div>
                       <div className="mt-0.5 text-body text-ink-600">
                         {daysLeftLabel(c.endAt)} · hết hạn{' '}
-                        {formatDate(c.endAt)}
+                        {formatDate(c.endAt, 'vi')}
                       </div>
                     </div>
                     <div className="ml-auto shrink-0 text-right">
                       <div className="tabular font-mono text-body text-ink-900">
-                        {formatVnd(c.pricePaid)}
+                        {formatVnd(c.pricePaid, 'vi')}
                       </div>
                       <div
                         className={`text-caption ${vip ? 'text-champagne-600' : 'text-ink-600'}`}
@@ -179,7 +205,10 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <TodoPanel profile={profile} wallet={wallet} runningCount={running.length} />
+        <div className="grid gap-[18px]">
+          <TodoPanel profile={profile} wallet={wallet} runningCount={running.length} />
+          <RecentLedger items={ledger.items} />
+        </div>
       </div>
     </>
   );
@@ -208,6 +237,242 @@ function daysLeftLabel(endAt: string): string {
   const days = Math.ceil(ms / 86_400_000);
   if (days <= 0) return 'Hết hôm nay';
   return `Còn ${days} ngày`;
+}
+
+/**
+ * Thông tin hồ sơ đang được khách nhìn thấy.
+ *
+ * Đây là bản **chỉ đọc** của những gì `/dashboard/ho-so` cho sửa, và cố ý không
+ * lặp lại form: KTV mở tổng quan để biết mình đang trông thế nào trong mắt khách,
+ * chưa chắc để sửa. Mỗi trường ở đây đều là thứ ảnh hưởng trực tiếp tới việc có
+ * được hiện ra hay không (bán kính, khu vực phủ), hoặc tới việc khách có bấm hay
+ * không (kinh nghiệm, đánh giá, chứng chỉ, bảng giá) — không phải một bản đổ toàn
+ * bộ trường trong DB.
+ */
+function ProfileCard({
+  profile,
+  services,
+}: {
+  profile: MyKtvProfile;
+  services: KtvServiceItem[];
+}) {
+  const verifiedCerts = profile.certifications.filter((c) => c.verifyStatus === 'VERIFIED');
+  const pendingCerts = profile.certifications.filter((c) => c.verifyStatus === 'PENDING');
+  const coverage = profile.coverageAreas ?? [];
+
+  // Giá khởi điểm thấp nhất — con số khách so sánh đầu tiên giữa các hồ sơ.
+  const priceFrom = services.length > 0 ? Math.min(...services.map((s) => s.priceFrom)) : null;
+
+  return (
+    <section className="mt-3.5 rounded-xl border border-ink-200 bg-white p-[18px]">
+      <div className="flex flex-wrap items-start justify-between gap-3.5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="font-display text-h3 text-ink-900">{profile.fullName}</h2>
+            {/* Trạng thái nhận khách nằm cạnh tên vì nó là thứ duy nhất trong thẻ
+                này KTV đổi nhiều lần trong ngày, và nó tác động thẳng lên thứ hạng. */}
+            <span
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold ${
+                profile.isOnline
+                  ? 'bg-success-bg text-success-fg'
+                  : 'bg-ink-100 text-ink-600'
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  profile.isOnline ? 'bg-success-fg' : 'bg-ink-400'
+                }`}
+              />
+              {profile.isOnline ? 'Đang nhận khách' : 'Đang tắt nhận khách'}
+            </span>
+          </div>
+          <p className="mt-1.5 max-w-[62ch] text-body-l leading-[22px] text-ink-600">
+            {profile.bio ?? 'Chưa có giới thiệu. Khách đọc phần này trước khi quyết định gọi.'}
+          </p>
+        </div>
+
+        <Link
+          href="/dashboard/ho-so"
+          className="shrink-0 rounded-md border border-ink-200 px-4 py-2 text-body-s font-semibold text-ink-700 transition hover:border-ink-300 hover:text-ink-900"
+        >
+          Sửa hồ sơ
+        </Link>
+      </div>
+
+      <dl className="mt-4 grid gap-x-4 gap-y-3.5 border-t border-ink-100 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Field icon={<VerifiedIcon size={18} className="h-[14px] w-[14px]" />} label="Kinh nghiệm">
+          {profile.yearsExperience > 0 ? `${profile.yearsExperience} năm` : 'Chưa khai'}
+        </Field>
+
+        <Field icon={<StarIcon size={18} className="h-[14px] w-[14px]" />} label="Đánh giá">
+          {profile.ratingCount > 0 ? (
+            <>
+              {profile.ratingAvg.toFixed(1).replace('.', ',')}
+              <span className="text-ink-600"> · {profile.ratingCount} lượt</span>
+            </>
+          ) : (
+            'Chưa có đánh giá'
+          )}
+        </Field>
+
+        <Field icon={<CertifiedIcon size={18} className="h-[14px] w-[14px]" />} label="Chứng chỉ">
+          {verifiedCerts.length > 0 ? `${verifiedCerts.length} đã duyệt` : 'Chưa có'}
+          {pendingCerts.length > 0 && (
+            <span className="text-ink-600"> · {pendingCerts.length} chờ duyệt</span>
+          )}
+        </Field>
+
+        <Field icon={<CalendarIcon size={18} className="h-[14px] w-[14px]" />} label="Tham gia từ">
+          {formatDate(profile.createdAt, 'vi')}
+        </Field>
+
+        <Field icon={<AreaIcon size={18} className="h-[14px] w-[14px]" />} label="Bán kính phục vụ">
+          {profile.serviceRadiusKm} km
+          {/* Địa chỉ gốc chỉ hiện ở đây, không bao giờ ra hồ sơ công khai — nhắc
+              lại điều đó ngay tại chỗ để không ai "sửa" cho nhất quán. */}
+          {profile.baseAddress && (
+            <span className="block text-caption font-normal text-ink-500">
+              từ {profile.baseAddress} (chỉ mình bạn thấy)
+            </span>
+          )}
+        </Field>
+
+        <Field icon={<ClockIcon size={18} className="h-[14px] w-[14px]" />} label="Giá khởi điểm">
+          {priceFrom != null ? (
+            <>
+              {formatVnd(priceFrom, 'vi')}
+              <span className="text-ink-600"> · {services.length} dịch vụ</span>
+            </>
+          ) : (
+            <Link href="/dashboard/ho-so" className="text-brand-500 hover:text-brand-600">
+              Chưa khai giá →
+            </Link>
+          )}
+        </Field>
+
+        <div className="sm:col-span-2">
+          <dt className="flex items-center gap-1.5 text-caption text-ink-500">
+            <span className="text-ink-400">
+              <AreaIcon size={18} className="h-[14px] w-[14px]" />
+            </span>
+            Khu vực nhận khách
+          </dt>
+          <dd className="mt-1.5">
+            {coverage.length === 0 ? (
+              <Link href="/dashboard/ho-so" className="text-body-l text-brand-500 hover:text-brand-600">
+                Chưa chọn khu vực nào →
+              </Link>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {coverage.map((a) => (
+                  <li
+                    key={a.id}
+                    className="rounded-full bg-ink-100 px-2.5 py-1 text-caption text-ink-700"
+                  >
+                    {a.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {services.length > 0 && (
+        <div className="mt-4 border-t border-ink-100 pt-4">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3 className="font-display text-h4 text-ink-900">Dịch vụ và bảng giá</h3>
+            <Link
+              href="/dashboard/ho-so"
+              className="shrink-0 text-body-s font-semibold text-brand-500 transition hover:text-brand-600"
+            >
+              Sửa bảng giá →
+            </Link>
+          </div>
+          <ul className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+            {services.map((s) => (
+              <li
+                key={s.serviceId}
+                className="flex items-baseline justify-between gap-3 rounded-lg bg-ink-50 px-3.5 py-2.5"
+              >
+                <span className="min-w-0 truncate text-body-l text-ink-800">
+                  {s.name}
+                  <span className="text-ink-500"> · {s.durationMin} phút</span>
+                </span>
+                <span className="tabular shrink-0 font-mono text-body text-ink-900">
+                  {formatVnd(s.priceFrom, 'vi')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Field({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="flex items-center gap-1.5 text-caption text-ink-500">
+        <span className="text-ink-400">{icon}</span>
+        {label}
+      </dt>
+      <dd className="mt-1 text-body-l font-semibold text-ink-900">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * Năm bút toán gần nhất.
+ *
+ * Chỉ là bản tóm tắt để KTV thấy tiền vừa đi đâu mà không phải rời trang; sổ đầy
+ * đủ vẫn ở `/dashboard/vi`. Không hiển thị `balanceAfter` ở đây vì số dư hiện tại
+ * đã nằm ngay trên cùng trang — hai con số cùng nói về số dư ở hai thời điểm khác
+ * nhau, đặt cạnh nhau, là cách chắc chắn để bị đọc nhầm.
+ */
+function RecentLedger({ items }: { items: WalletTransaction[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-ink-200 bg-white p-[18px]">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-display text-h3 text-ink-900">Ví gần đây</h2>
+        <Link
+          href="/dashboard/vi"
+          className="shrink-0 text-body-s font-semibold text-brand-500 transition hover:text-brand-600"
+        >
+          Sổ đầy đủ →
+        </Link>
+      </div>
+      <ul className="mt-3.5 grid gap-2.5">
+        {items.map((t) => (
+          <li key={t.id} className="flex items-baseline justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-body-l text-ink-800">{transactionLabel(t.type)}</div>
+              <div className="text-caption text-ink-500">{formatDateTime(t.createdAt, 'vi')}</div>
+            </div>
+            <span
+              className={`tabular shrink-0 font-mono text-body ${
+                t.amount > 0 ? 'text-success-fg' : 'text-ink-900'
+              }`}
+            >
+              {t.amount > 0 ? '+' : '−'}
+              {formatVnd(Math.abs(t.amount), 'vi')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function Stat({
@@ -318,7 +583,6 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
   }
 
   if (profile.verificationStatus === 'VERIFIED') {
-    const verified = profile.certifications.filter((c) => c.verifyStatus === 'VERIFIED').length;
 
     return (
       <div className="mt-[18px] flex flex-wrap items-center gap-3.5 rounded-xl border border-success-bd bg-success-bg px-[18px] py-3.5">
@@ -331,13 +595,7 @@ function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
             Hồ sơ đã được duyệt và đang hiển thị trong tìm kiếm
           </div>
           <div className="mt-0.5 text-body-l text-ink-700">
-            {verified} chứng chỉ đã đối chiếu
-            {profile.ratingCount > 0 && (
-              <>
-                {' · ★ '}
-                {profile.ratingAvg.toFixed(1).replace('.', ',')} từ {profile.ratingCount} đánh giá
-              </>
-            )}
+            Khách đang thấy hồ sơ này khi tìm trong khu vực bạn phục vụ.
           </div>
         </div>
 

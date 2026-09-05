@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { type Locale, localePath } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -21,7 +24,16 @@ type Session = { authenticated: boolean; role: string | null };
  * còn lại của trang không sao — và nó nằm dưới danh sách đánh giá, tức ngoài màn
  * hình đầu tiên của gần như mọi khách.
  */
-export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string }) {
+export function ReviewForm({
+  ktvId,
+  ktvName,
+  locale,
+}: {
+  ktvId: string;
+  ktvName: string;
+  locale: Locale;
+}) {
+  const t = createTranslator(getDictionary(locale), locale);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,7 +68,7 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
     e.preventDefault();
 
     if (rating === 0) {
-      setError('Chọn số sao trước khi gửi.');
+      setError(t('reviewForm.errorNoRating'));
       return;
     }
 
@@ -83,20 +95,25 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
 
       if (res.status === 401) {
         setSession({ authenticated: false, role: null });
-        setError('Phiên đăng nhập đã hết hạn. Đăng nhập lại để gửi đánh giá.');
+        setError(t('reviewForm.errorExpired'));
         return;
       }
       if (res.status === 409) {
-        setError('Bạn đã đánh giá kỹ thuật viên này rồi.');
+        setError(t('reviewForm.errorDuplicate'));
         return;
       }
       if (res.status === 429) {
-        setError('Bạn đã gửi khá nhiều đánh giá. Thử lại sau ít phút.');
+        setError(t('reviewForm.errorRateLimited'));
         return;
       }
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { title?: string } | null;
-        setError(data?.title ?? 'Chưa gửi được đánh giá. Vui lòng thử lại.');
+        // Bỏ qua `data.title` của backend ở bản tiếng Anh: message API là tiếng
+        // Việt, và một câu tiếng Việt hiện trong form tiếng Anh còn khó hiểu hơn
+        // một câu chung chung đúng ngôn ngữ.
+        setError(
+          locale === 'vi' ? (data?.title ?? t('reviewForm.errorGeneric')) : t('reviewForm.errorGeneric'),
+        );
         return;
       }
 
@@ -108,7 +125,7 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
       // khi fetch bên dưới vẫn trả bản cache 600 giây.
       router.refresh();
     } catch {
-      setError('Không kết nối được máy chủ. Kiểm tra mạng và thử lại.');
+      setError(t('reviewForm.errorNetwork'));
     } finally {
       setPending(false);
     }
@@ -124,11 +141,14 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
         role="status"
         className="mt-5 rounded-xl border border-success-bd bg-success-bg px-4 py-3.5 text-body text-success-fg"
       >
-        Cảm ơn bạn đã đánh giá {ktvName}. Nhận xét của bạn đã hiển thị công khai.{' '}
+        {t('reviewForm.thanks', { name: ktvName })}{' '}
         {/* Đường tới nơi xem lại — và là chỗ duy nhất người viết biết được nếu sau
             này đánh giá bị gỡ, vì trên trang hồ sơ nó chỉ đơn giản biến mất. */}
-        <Link href="/tai-khoan" className="font-semibold underline underline-offset-4">
-          Xem đánh giá đã viết
+        <Link
+          href={localePath(locale, '/tai-khoan')}
+          className="font-semibold underline underline-offset-4"
+        >
+          {t('reviewForm.viewMine')}
         </Link>
       </div>
     );
@@ -138,16 +158,16 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
     return (
       <div className="mt-5 rounded-xl border border-ink-200 bg-white px-4 py-3.5">
         <p className="text-body text-ink-600">
-          Bạn đã dùng dịch vụ của {ktvName}?{' '}
+          {t('reviewForm.loginQuestion', { name: ktvName })}{' '}
           <Link
             // Quay lại đúng trang này sau khi đăng nhập — người bấm từ đây đang định
             // viết đánh giá cho chính hồ sơ này, đưa họ về trang chủ là bắt tìm lại.
-            href={`/dang-nhap?next=${encodeURIComponent(pathname)}`}
+            href={localePath(locale, `/dang-nhap?next=${encodeURIComponent(pathname)}`)}
             className="font-semibold text-brand-600 underline underline-offset-4 transition hover:text-brand-700"
           >
-            Đăng nhập
+            {t('reviewForm.loginAction')}
           </Link>{' '}
-          để viết đánh giá. Không cần đăng nhập để tìm hoặc gọi.
+          {t('reviewForm.loginRest')}
         </p>
       </div>
     );
@@ -157,10 +177,8 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
   // Backend mới là nơi biết chắc: nó từ chối người tự đánh giá hồ sơ của chính mình.
   return (
     <form onSubmit={submit} className="mt-5 rounded-xl border border-ink-200 bg-white p-4 shadow-card">
-      <h3 className="text-h4 text-ink-900">Viết đánh giá</h3>
-      <p className="mt-1 text-body-s text-ink-500">
-        Đánh giá hiển thị công khai ngay và mỗi tài khoản chỉ đánh giá một kỹ thuật viên một lần.
-      </p>
+      <h3 className="text-h4 text-ink-900">{t('reviewForm.title')}</h3>
+      <p className="mt-1 text-body-s text-ink-500">{t('reviewForm.subtitle')}</p>
 
       <StarPicker
         value={rating}
@@ -168,17 +186,18 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
         onSelect={setRating}
         onHover={setHovered}
         disabled={pending}
+        labels={{ legend: t('reviewForm.ratingLegend'), star: (n) => t('reviewForm.starSr', { star: n }) }}
       />
 
       <label className="mt-4 block">
-        <span className="text-body-s font-medium text-ink-700">Nhận xét (không bắt buộc)</span>
+        <span className="text-body-s font-medium text-ink-700">{t('reviewForm.commentLabel')}</span>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={3}
           maxLength={MAX_COMMENT}
           disabled={pending}
-          placeholder="Kỹ thuật viên tới đúng giờ chứ? Tay nghề thế nào?"
+          placeholder={t('reviewForm.commentPlaceholder')}
           className="mt-1.5 w-full rounded-md border border-ink-200 px-3 py-2 text-body text-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-600 disabled:opacity-60"
         />
       </label>
@@ -194,7 +213,7 @@ export function ReviewForm({ ktvId, ktvName }: { ktvId: string; ktvName: string 
         disabled={pending}
         className="mt-4 rounded-full bg-brand-500 px-5 py-2.5 text-body font-semibold text-white shadow-button transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
       >
-        {pending ? 'Đang gửi…' : 'Gửi đánh giá'}
+        {pending ? t('reviewForm.submitting') : t('reviewForm.submit')}
       </button>
     </form>
   );
@@ -214,19 +233,22 @@ function StarPicker({
   onSelect,
   onHover,
   disabled,
+  labels,
 }: {
   value: number;
   hovered: number;
   onSelect: (v: number) => void;
   onHover: (v: number) => void;
   disabled: boolean;
+  /** Chuỗi đã dịch — hàm con không tự tra dictionary. */
+  labels: { legend: string; star: (n: number) => string };
 }) {
   // Rê chuột thì xem trước tới ngôi sao đang rê; không rê thì hiện điểm đã chọn.
   const shown = hovered || value;
 
   return (
     <fieldset className="mt-3.5" onMouseLeave={() => onHover(0)}>
-      <legend className="text-body-s font-medium text-ink-700">Chấm điểm</legend>
+      <legend className="text-body-s font-medium text-ink-700">{labels.legend}</legend>
 
       <div className="mt-1.5 flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
@@ -244,7 +266,7 @@ function StarPicker({
               disabled={disabled}
               className="absolute inset-0 h-full w-full opacity-0"
             />
-            <span className="sr-only">{star} sao</span>
+            <span className="sr-only">{labels.star(star)}</span>
             <span
               aria-hidden
               className={`block text-[28px] leading-none transition ${

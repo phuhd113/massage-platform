@@ -128,6 +128,11 @@ export function BuyPackageForm({
         </span>
         <div className="min-w-[240px] max-w-sm flex-1">
           <AreaSearchBox
+            labels={{
+              clear: 'Xoá khu vực đang chọn',
+              suggestions: 'Gợi ý khu vực',
+              ktvCount: (n) => (n > 0 ? `${n} KTV` : 'Chưa có KTV'),
+            }}
             onSelect={setArea}
             onClear={() => setArea(null)}
             placeholder="Chọn quận/huyện…"
@@ -175,7 +180,7 @@ export function BuyPackageForm({
                   )}
                 </div>
                 <div className="tabular mt-2 whitespace-nowrap font-mono text-[22px] font-medium text-ink-900">
-                  {formatVnd(pkg.price)}
+                  {formatVnd(pkg.price, 'vi')}
                 </div>
                 <div className="mt-0.5 text-body text-ink-600">
                   {durationLabel(pkg)} · +{pkg.boostPoints} điểm
@@ -251,7 +256,7 @@ export function BuyPackageForm({
                       ? 'Hết chỗ'
                       : !areaId
                         ? 'Chọn khu vực trước'
-                        : `Mua · ${formatVnd(pkg.price)}`}
+                        : `Mua · ${formatVnd(pkg.price, 'vi')}`}
                 </button>
 
                 {vip && (

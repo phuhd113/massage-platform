@@ -84,7 +84,7 @@ export function CertificationsSection({
                 <div className="font-medium">{c.name}</div>
                 <div className="text-sm text-ink-500">
                   {c.issuingOrg ?? 'Chưa ghi nơi cấp'}
-                  {c.issuedAt && ` · ${formatDate(c.issuedAt)}`}
+                  {c.issuedAt && ` · ${formatDate(c.issuedAt, 'vi')}`}
                 </div>
                 {c.verifyStatus === 'REJECTED' && c.rejectionReason && (
                   <div className="mt-1 text-sm text-danger-fg">Lý do: {c.rejectionReason}</div>

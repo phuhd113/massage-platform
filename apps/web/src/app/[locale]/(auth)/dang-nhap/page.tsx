@@ -1,11 +1,18 @@
 import type { Metadata } from 'next';
 import { LoginForm } from '@/components/LoginForm';
+import { normalizeLocale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 
-export const metadata: Metadata = {
-  title: 'Đăng nhập',
-  // Trang chức năng, không phải nội dung để xếp hạng.
-  robots: { index: false, follow: false },
-};
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+  return {
+    title: t('login.metaTitleCustomer'),
+    // Trang chức năng, không phải nội dung để xếp hạng.
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Cửa vào mặc định, dành cho khách.
@@ -19,11 +26,19 @@ export const metadata: Metadata = {
  * sơ KTV gần như luôn đang định viết đánh giá cho chính hồ sơ đó.
  */
 export default function LoginPage({
+  params,
   searchParams,
 }: {
+  params: { locale: string };
   searchParams: { next?: string };
 }) {
-  return <LoginForm role="CUSTOMER" redirectTo={safeNext(searchParams.next)} />;
+  return (
+    <LoginForm
+      role="CUSTOMER"
+      locale={normalizeLocale(params.locale)}
+      redirectTo={safeNext(searchParams.next)}
+    />
+  );
 }
 
 /**

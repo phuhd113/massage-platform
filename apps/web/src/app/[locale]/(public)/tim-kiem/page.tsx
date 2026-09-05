@@ -6,25 +6,38 @@ import { SearchFilters } from '@/components/SearchFilters';
 import { SearchMapPanel } from '@/components/SearchMapPanel';
 import { api } from '@/lib/api';
 import type { LatLon } from '@/lib/map';
+import { translateAreaName } from '@/i18n/area-name';
+import { localePath, normalizeLocale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { absolute } from '@/lib/site';
 import type { SearchResponse } from '@/lib/types';
 
 // Kết quả phụ thuộc toạ độ khách nên không ISR được — render mỗi request.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Tìm kỹ thuật viên massage tại nhà',
-  description:
-    'Tìm kỹ thuật viên massage trị liệu nhận đến tận nhà theo vị trí hiện tại hoặc theo quận/huyện.',
-  // Mọi biến thể bộ lọc (?areaSlug=, ?service=, ?page=, ?view=) canonical về URL gốc
-  // — nếu không, một trang duy nhất sinh ra hàng trăm bản gần giống nhau trong index.
-  alternates: { canonical: absolute('/tim-kiem') },
-  // Trang này là công cụ cho khách, không phải trang nội dung để xếp hạng. Trang
-  // khu vực mới là trang được tối ưu để index.
-  robots: { index: false, follow: true },
-};
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+
+  return {
+    title: t('search.metaTitle'),
+    description: t('search.metaDescription'),
+    // Mọi biến thể bộ lọc (?areaSlug=, ?service=, ?page=, ?view=) canonical về URL
+    // gốc — nếu không, một trang duy nhất sinh ra hàng trăm bản gần giống nhau
+    // trong index.
+    //
+    // Cố ý KHÔNG khai hreflang ở đây: trang noindex thì một cụm hreflang trỏ tới nó
+    // chẳng nói được gì với Google, chỉ thêm một chỗ nữa phải giữ cho đối xứng.
+    alternates: { canonical: absolute(localePath(locale, '/tim-kiem')) },
+    // Trang này là công cụ cho khách, không phải trang nội dung để xếp hạng. Trang
+    // khu vực mới là trang được tối ưu để index.
+    robots: { index: false, follow: true },
+  };
+}
 
 interface Props {
+  params: { locale: string };
   searchParams: Record<string, string | string[] | undefined>;
 }
 
@@ -36,7 +49,10 @@ const numeric = (v: string | undefined) => {
   return Number.isFinite(n) ? n : null;
 };
 
-export default async function SearchPage({ searchParams }: Props) {
+export default async function SearchPage({ params, searchParams }: Props) {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+
   // Không còn tải cây khu vực: ô lọc nay gọi /areas/suggest theo từng từ khoá, nên
   // 63 tỉnh + 696 quận không phải đi kèm mọi lần mở trang tìm kiếm nữa.
   const services = await api.services();
@@ -71,7 +87,7 @@ export default async function SearchPage({ searchParams }: Props) {
         0,
       );
     } catch {
-      error = 'Không tải được kết quả. Vui lòng thử lại.';
+      error = t('search.errorLoad');
     }
   }
 
@@ -84,7 +100,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
   const emptyMessage = (
     <p className="text-ink-600">
-      Chưa có KTV nào khớp. Thử tăng bán kính hoặc bỏ bớt bộ lọc dịch vụ.
+      {t('search.empty')}
     </p>
   );
 
@@ -102,12 +118,12 @@ export default async function SearchPage({ searchParams }: Props) {
       : await api.province(areaSlug)
     : null;
 
-  const areaName = areaDetail?.name ?? null;
+  const areaName = areaDetail ? translateAreaName(areaDetail.name, locale) : null;
   // Nhãn đầy đủ cho ô lọc: kèm tên tỉnh để khách thấy mình đang ở quận nào, tỉnh nào.
   const areaLabel = areaDetail
     ? areaDetail.parent
-      ? `${areaDetail.name}, ${areaDetail.parent.name}`
-      : areaDetail.name
+      ? `${translateAreaName(areaDetail.name, locale)}, ${translateAreaName(areaDetail.parent.name, locale)}`
+      : translateAreaName(areaDetail.name, locale)
     : '';
 
   // Tiêu đề mang luôn số lượng ("6 kỹ thuật viên tại Quận 7"): khách đọc được ngay
@@ -120,11 +136,11 @@ export default async function SearchPage({ searchParams }: Props) {
   // tình không index.
   const heading = results
     ? areaName
-      ? `${results.total} kỹ thuật viên tại ${areaName}`
+      ? t('search.headingArea', { count: results.total, area: areaName })
       : origin
-        ? `${results.total} kỹ thuật viên quanh bạn`
-        : `${results.total} kỹ thuật viên`
-    : 'Tìm kỹ thuật viên';
+        ? t('search.headingNearby', { count: results.total })
+        : t('search.headingPlain', { count: results.total })
+    : t('search.headingIdle');
 
   // Nút nổi chỉ có nghĩa khi thật sự có gì để đặt lên bản đồ.
   const canShowMap = results !== null && (results.items.length > 0 || origin !== null);
@@ -132,12 +148,12 @@ export default async function SearchPage({ searchParams }: Props) {
   return (
     <>
       <Suspense fallback={<div className="h-14 rounded-xl border border-ink-200 bg-white" />}>
-        <SearchFilters services={services} areaLabel={areaLabel} />
+        <SearchFilters services={services} areaLabel={areaLabel} locale={locale} />
       </Suspense>
 
       {canShowMap && (
         <Suspense fallback={null}>
-          <MapViewFab />
+          <MapViewFab locale={locale} />
         </Suspense>
       )}
 
@@ -152,7 +168,8 @@ export default async function SearchPage({ searchParams }: Props) {
         */}
         {results && results.items.length > 0 && (
           <p className="text-body-s text-ink-500">
-            Sắp xếp: <span className="font-semibold text-ink-700">Phù hợp nhất</span>
+            {t('search.sortLabel')}{' '}
+            <span className="font-semibold text-ink-700">{t('search.sortBest')}</span>
           </p>
         )}
       </div>
@@ -162,7 +179,9 @@ export default async function SearchPage({ searchParams }: Props) {
       <section className={`mt-4 ${canShowMap ? 'pb-24 sm:pb-0' : ''}`}>
         {!hasScope && (
           <p className="text-ink-600">
-            Bấm <strong>Tìm quanh tôi</strong> để tìm theo vị trí hiện tại, hoặc chọn quận/huyện.
+            {t('search.promptPre')}
+            <strong>{t('search.promptAction')}</strong>
+            {t('search.promptPost')}
           </p>
         )}
 
@@ -185,6 +204,7 @@ export default async function SearchPage({ searchParams }: Props) {
                     items={results.items}
                     origin={origin}
                     radiusKm={mapRadiusKm}
+                    locale={locale}
                   />
                 </Suspense>
 
@@ -192,7 +212,7 @@ export default async function SearchPage({ searchParams }: Props) {
                   {results.items.length > 0 ? (
                     <ul className="grid gap-3">
                       {results.items.map((ktv) => (
-                        <KtvCard key={ktv.id} ktv={ktv} />
+                        <KtvCard key={ktv.id} ktv={ktv} locale={locale} />
                       ))}
                     </ul>
                   ) : (
@@ -205,7 +225,7 @@ export default async function SearchPage({ searchParams }: Props) {
               // sẽ ép mọi thứ xuống dòng và hàng nút hành động vỡ trước tiên.
               <ul className="grid gap-3">
                 {results.items.map((ktv) => (
-                  <KtvCard key={ktv.id} ktv={ktv} />
+                  <KtvCard key={ktv.id} ktv={ktv} locale={locale} />
                 ))}
               </ul>
             ) : (

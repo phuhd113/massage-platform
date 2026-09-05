@@ -1,7 +1,7 @@
 'use client';
 
 import L from 'leaflet';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import {
   TILE_ATTRIBUTION,
@@ -18,7 +18,10 @@ import {
   type Scope,
 } from '@/lib/map';
 import { showsVipFrame, tierBadgeLabel, tierFromBoost } from '@/lib/promotion-tier';
-import { formatDistance, ktvPath } from '@/lib/site';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator, type Translator } from '@/i18n/t';
+import { formatDistance, formatRating, ktvPath } from '@/lib/site';
 import type { SearchItem } from '@/lib/types';
 
 /**
@@ -44,6 +47,7 @@ interface Props {
   activeId: string | null;
   /** Báo ngược cho panel biết khách đang trỏ vào ghim nào. */
   onHoverItem: (id: string | null) => void;
+  locale: Locale;
 }
 
 const ENTITIES: Record<string, string> = {
@@ -96,36 +100,46 @@ function pinIcon(item: PinnedItem, active: boolean) {
 }
 
 /** Bong bóng "N tin" cho cụm nhiều ghim — bấm vào thì phóng to chứ không mở popup. */
-function clusterIcon(count: number, boosted: boolean) {
+function clusterIcon(count: number, boosted: boolean, label: string) {
   const tone = boosted ? 'bg-champagne-600 ring-champagne-200' : 'bg-brand-600 ring-brand-100';
   return L.divIcon({
     className: '',
     html:
       `<span class="flex h-11 w-11 items-center justify-center rounded-full ${tone} ` +
-      `text-xs font-bold text-white shadow-lg ring-4">${count} tin</span>`,
+      `text-xs font-bold text-white shadow-lg ring-4">${label}</span>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
 }
 
-function popupHtml(item: PinnedItem) {
+/**
+ * Nội dung popup của Leaflet — chuỗi HTML, **không phải JSX**.
+ *
+ * Vì vậy mọi chữ ở đây phải đi qua `t` một cách thủ công: không có công cụ kiểm
+ * chuỗi nào dò được text nằm trong template literal đem gán vào innerHTML, nên đây
+ * là chỗ dễ sót nhất khi thêm ngôn ngữ.
+ */
+function popupHtml(item: PinnedItem, locale: Locale, t: Translator) {
   const distance = formatDistance(item.distanceM);
   const rating =
     item.ratingCount > 0
-      ? `★ ${item.ratingAvg.toFixed(1)} · ${item.ratingCount} đánh giá`
-      : 'Chưa có đánh giá';
+      ? t('map.popupRating', {
+          rating: formatRating(item.ratingAvg, locale),
+          count: item.ratingCount,
+        })
+      : t('map.popupNoReviews');
   const tier = tierFromBoost(item.boostPoints);
 
   return (
-    `<a class="block text-sm font-semibold text-ink-900 underline" href="${ktvPath(item.slug, item.id)}">` +
+    `<a class="block text-sm font-semibold text-ink-900 underline" href="${ktvPath(locale, item.slug, item.id)}">` +
     `${escapeHtml(item.fullName)}</a>` +
-    `<p class="mt-1 text-xs text-ink-600">${item.yearsExperience} năm kinh nghiệm` +
+    `<p class="mt-1 text-xs text-ink-600">${escapeHtml(t('ktvProfile.experience', { count: item.yearsExperience }))}` +
     // Khoảng cách luôn lấy từ server (tính trên toạ độ thật), không tính lại từ
     // toạ độ ghim đã làm tròn và đã bị rải.
-    `${distance ? ` · cách bạn ${distance}` : ''}</p>` +
-    `<p class="mt-0.5 text-xs text-ink-600">${rating}</p>` +
+    `${distance ? ` · ${escapeHtml(t('map.distanceAway', { distance }))}` : ''}</p>` +
+    `<p class="mt-0.5 text-xs text-ink-600">${escapeHtml(rating)}</p>` +
     (tier
-      ? `<p class="mt-1 text-xs font-medium text-champagne-600">${tierBadgeLabel(tier)}</p>`
+      ? `<p class="mt-1 text-xs font-medium text-champagne-600">${escapeHtml(tierBadgeLabel(tier, t))}</p>`
       : '')
   );
 }
@@ -137,7 +151,12 @@ export default function SearchMap({
   onUserMove,
   activeId,
   onHoverItem,
+  locale,
 }: Props) {
+  // useMemo chứ không gọi thẳng: `t` nằm trong dependency của effect vẽ ghim, và
+  // một hàm mới mỗi render sẽ vẽ lại cả tầng bản đồ liên tục — đóng mất popup
+  // khách đang mở và làm nháy toàn bộ ghim.
+  const t = useMemo(() => createTranslator(getDictionary(locale), locale), [locale]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -269,7 +288,11 @@ export default function SearchMap({
         if (cluster.items.length > 1) {
           const boosted = cluster.items.some((i) => i.boostPoints > 0);
           L.marker([cluster.lat, cluster.lon], {
-            icon: clusterIcon(cluster.items.length, boosted),
+            icon: clusterIcon(
+              cluster.items.length,
+              boosted,
+              escapeHtml(t('map.clusterCount', { count: cluster.items.length })),
+            ),
             title: `${cluster.items.length} kỹ thuật viên ở khu vực này`,
             alt: `${cluster.items.length} kỹ thuật viên`,
             // Cụm nằm TRÊN pill đơn lẻ khi chồng nhau. Ban đầu làm ngược lại với
@@ -317,7 +340,7 @@ export default function SearchMap({
           // khớp thứ hạng, không cần bảng ánh xạ thứ hai để lệch nhau.
           zIndexOffset: item.boostPoints,
         })
-          .bindPopup(popupHtml(item))
+          .bindPopup(popupHtml(item, locale, t))
           .on('mouseover', () => onHoverItemRef.current(item.id))
           .on('mouseout', () => onHoverItemRef.current(null))
           .addTo(layer);
@@ -333,7 +356,9 @@ export default function SearchMap({
           fillOpacity: 1,
           weight: 2,
         })
-          .bindPopup('<p class="text-xs font-medium text-ink-900">Vị trí của bạn</p>')
+          .bindPopup(
+            `<p class="text-xs font-medium text-ink-900">${escapeHtml(t('map.yourLocation'))}</p>`,
+          )
           .addTo(layer);
 
         if (radiusKm) {
@@ -371,7 +396,7 @@ export default function SearchMap({
         animate,
       });
     }
-  }, [items, origin, radiusKm]);
+  }, [items, origin, radiusKm, locale, t]);
 
   // Đồng bộ hover từ danh sách sang bản đồ: chỉ đổi icon của ghim liên quan, vẽ
   // lại cả tầng sẽ đóng mất popup khách đang mở.
@@ -385,7 +410,7 @@ export default function SearchMap({
     <div
       ref={containerRef}
       role="region"
-      aria-label="Bản đồ vị trí kỹ thuật viên"
+      aria-label={t('map.mapLabel')}
       className="h-full w-full"
     />
   );

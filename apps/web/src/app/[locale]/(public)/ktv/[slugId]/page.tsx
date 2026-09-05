@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
@@ -9,13 +10,28 @@ import { ProfileViewBeacon } from '@/components/ProfileViewBeacon';
 import { ReportProfileButton } from '@/components/ReportProfileButton';
 import { ReviewForm } from '@/components/ReviewForm';
 import { PROFILE_REVALIDATE, api } from '@/lib/api';
-import { absolute, areaPath, formatDate, formatVnd, ktvPath, parseKtvSlugId } from '@/lib/site';
+import { initialOf, isOptimizable, mediaUrl, photoAlt } from '@/lib/media';
+import { VietnameseNote } from '@/components/VietnameseNote';
+import { translateAreaName } from '@/i18n/area-name';
+import { localePath, normalizeLocale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
+import { alternatesFor } from '@/lib/seo';
+import {
+  absolute,
+  areaPath,
+  formatDate,
+  formatRating,
+  formatVnd,
+  ktvPath,
+  parseKtvSlugId,
+} from '@/lib/site';
 import type { PublicKtvProfile, ReviewList } from '@/lib/types';
 
 export const revalidate = PROFILE_REVALIDATE;
 
 interface Props {
-  params: { slugId: string };
+  params: { slugId: string; locale: string };
 }
 
 async function load(slugId: string): Promise<PublicKtvProfile | null> {
@@ -32,17 +48,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await load(params.slugId);
   if (!profile) return {};
 
-  const khuVực = profile.coverageAreas.map((a) => a.name).slice(0, 2).join(', ');
-  const path = ktvPath(profile.slug, profile.id);
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+
+  const khuVực = profile.coverageAreas
+    .map((a) => translateAreaName(a.name, locale))
+    .slice(0, 2)
+    .join(', ');
 
   return {
-    title: `${profile.fullName} — KTV massage tại nhà${khuVực ? ` ${khuVực}` : ''}`,
-    description:
-      `${profile.fullName}, ${profile.yearsExperience} năm kinh nghiệm massage trị liệu tại nhà` +
-      `${khuVực ? ` khu vực ${khuVực}` : ''}. ` +
-      `Chứng chỉ hành nghề đã duyệt, bảng giá công khai, đánh giá thật từ khách.`,
-    alternates: { canonical: absolute(path) },
-    openGraph: { title: profile.fullName, url: absolute(path), type: 'profile' },
+    title: t('ktvProfile.metaTitle', {
+      name: profile.fullName,
+      area: khuVực ? ` ${khuVực}` : '',
+    }),
+    description: t('ktvProfile.metaDescription', {
+      name: profile.fullName,
+      years: profile.yearsExperience,
+      area: khuVực ? t('ktvProfile.metaAreaPrefix', { area: khuVực }) : '',
+    }),
+    alternates: alternatesFor(locale, ktvPath('vi', profile.slug, profile.id)),
+    openGraph: {
+      title: profile.fullName,
+      url: absolute(ktvPath(locale, profile.slug, profile.id)),
+      type: 'profile',
+    },
   };
 }
 
@@ -58,8 +87,12 @@ export default async function KtvPage({ params }: Props) {
     // và rơi khỏi index.
   }
 
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+  const viNote = t('ktvProfile.writtenInVietnamese');
+
   const quận = profile.coverageAreas.find((a) => a.level === 'DISTRICT');
-  const path = ktvPath(profile.slug, profile.id);
+  const path = ktvPath(locale, profile.slug, profile.id);
 
   // Dịch vụ rẻ nhất làm mức "giá từ" cho khối liên hệ. Lấy min chứ không lấy phần
   // tử đầu: thứ tự mảng do backend quyết định và không hứa hẹn gì về giá.
@@ -68,6 +101,16 @@ export default async function KtvPage({ params }: Props) {
       ? profile.services.reduce((a, b) => (b.priceFrom < a.priceFrom ? b : a))
       : null;
 
+  const avatar = mediaUrl(profile.avatarUrl);
+
+  // Ảnh cho structured data: chỉ URL tuyệt đối. Khi chạy đĩa local (dev) `mediaUrl`
+  // trả về origin của API, vẫn tuyệt đối; nhưng nếu vì lý do nào đó còn đường tương
+  // đối thì lọc bỏ — Google bỏ qua nó trong im lặng, và một mảng có phần tử hỏng
+  // khó phát hiện hơn hẳn một mảng ngắn.
+  const schemaImages = [avatar, ...profile.photos.map((p) => mediaUrl(p.url))].filter(
+    (url): url is string => url !== null && /^https?:\/\//.test(url),
+  );
+
   return (
     <>
       {/* Đếm lượt xem từ trình duyệt — trang này được cache nên đếm ở server sẽ
@@ -75,10 +118,16 @@ export default async function KtvPage({ params }: Props) {
       <ProfileViewBeacon ktvId={profile.id} />
 
       <Breadcrumbs
+        label={t('breadcrumbs.label')}
         items={[
-          { name: 'Trang chủ', href: '/' },
+          { name: t('common.home'), href: localePath(locale, '/') },
           ...(quận?.provinceSlug
-            ? [{ name: quận.name, href: areaPath(quận.provinceSlug, quận.slug) }]
+            ? [
+                {
+                  name: translateAreaName(quận.name, locale),
+                  href: areaPath(locale, quận.provinceSlug, quận.slug),
+                },
+              ]
             : []),
           { name: profile.fullName, href: path },
         ]}
@@ -88,17 +137,31 @@ export default async function KtvPage({ params }: Props) {
           thiếu nó, nội dung cuối trang (đánh giá) bị thanh che mất. */}
       <article className="pb-32 lg:pb-0">
         <header className="flex flex-wrap items-start gap-5">
-          {/* Ô ảnh chân dung — placeholder cùng kiểu với thẻ listing. Backend chưa
-              có cột avatar; khi có thì thay ruột, bố cục quanh nó không đổi.
-              Cố ý KHÔNG dùng ảnh stock: ảnh model vừa tạo kỳ vọng sai về người sẽ
-              đến nhà, vừa kéo trang về phía cảm giác nhạy cảm mà định vị thương
-              hiệu đang tránh. */}
-          <span
-            aria-hidden
-            className="flex h-24 w-24 shrink-0 select-none items-center justify-center rounded-xl border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 sm:h-28 sm:w-28"
-          >
-            {profile.fullName.trim().split(/\s+/).at(-1)?.charAt(0).toUpperCase()}
-          </span>
+          {/* Ô ảnh chân dung. KTV chưa đặt ảnh thì hiện chữ cái đầu tên — cùng kiểu
+              với thẻ listing, và cố ý KHÔNG dùng ảnh stock: ảnh model vừa tạo kỳ
+              vọng sai về người sẽ đến nhà, vừa kéo trang về phía cảm giác nhạy cảm
+              mà định vị thương hiệu đang tránh. */}
+          {avatar ? (
+            <Image
+              src={avatar}
+              // Ảnh này là ứng viên LCP của trang, nên `priority` để trình duyệt
+              // không phải chờ đọc xong CSS mới biết cần tải nó.
+              priority
+              alt={t('ktvProfile.avatarAlt', { name: profile.fullName })}
+              width={112}
+              height={112}
+              sizes="112px"
+              className="h-24 w-24 shrink-0 rounded-xl border border-ink-200 object-cover sm:h-28 sm:w-28"
+              unoptimized={!isOptimizable(avatar)}
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-24 w-24 shrink-0 select-none items-center justify-center rounded-xl border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 sm:h-28 sm:w-28"
+            >
+              {initialOf(profile.fullName)}
+            </span>
+          )}
 
           <div className="min-w-0 flex-1">
             <h1 className="text-display text-ink-900">{profile.fullName}</h1>
@@ -107,19 +170,19 @@ export default async function KtvPage({ params }: Props) {
               {profile.certifications.length > 0 && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
                   <ShieldCheckIcon />
-                  {profile.certifications.length} chứng chỉ đã duyệt
+                  {t('ktvProfile.certCount', { count: profile.certifications.length })}
                 </span>
               )}
 
               {profile.isOnline && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success-fg" />
-                  Đang nhận khách
+                  {t('ktvProfile.online')}
                 </span>
               )}
 
               <span className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-ink-50 px-2.5 py-1 text-caption font-medium text-ink-600">
-                nhận đi trong <span className="tabular">{profile.serviceRadiusKm}km</span>
+                {t('ktvProfile.radius')} <span className="tabular">{profile.serviceRadiusKm}km</span>
               </span>
             </div>
 
@@ -128,14 +191,14 @@ export default async function KtvPage({ params }: Props) {
                 <>
                   <span aria-hidden>★</span>{' '}
                   <span className="tabular font-semibold text-ink-900">
-                    {profile.ratingAvg.toFixed(1).replace('.', ',')}
+                    {formatRating(profile.ratingAvg, locale)}
                   </span>{' '}
-                  · {profile.ratingCount} đánh giá ·{' '}
+                  {t('ktvProfile.reviewCountInline', { count: profile.ratingCount })}{' '}
                 </>
               ) : (
-                <>Hồ sơ mới · chưa có đánh giá · </>
+                <>{t('ktvProfile.newProfileInline')} </>
               )}
-              {profile.yearsExperience} năm kinh nghiệm
+              {t('ktvProfile.experience', { count: profile.yearsExperience })}
             </p>
           </div>
         </header>
@@ -150,7 +213,10 @@ export default async function KtvPage({ params }: Props) {
           <div className="min-w-0">
             {profile.certifications.length > 0 && (
               <section>
-                <h2 className="text-h2 text-ink-900">Chứng chỉ hành nghề đã duyệt</h2>
+                <h2 className="text-h2 text-ink-900">
+                  {t('ktvProfile.certsTitle')}
+                  <VietnameseNote label={viNote} />
+                </h2>
                 <ul className="mt-3 space-y-2">
                   {profile.certifications.map((c) => (
                     <li
@@ -175,7 +241,7 @@ export default async function KtvPage({ params }: Props) {
                       */}
                       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-success-bd bg-success-bg px-2.5 py-1 text-caption font-medium text-success-fg">
                         <ShieldCheckIcon />
-                        Đã đối chiếu
+                        {t('ktvProfile.certChecked')}
                       </span>
                     </li>
                   ))}
@@ -185,10 +251,64 @@ export default async function KtvPage({ params }: Props) {
 
             {profile.bio && (
               <section className="mt-8">
-                <h2 className="text-h2 text-ink-900">Giới thiệu</h2>
-                <p className="mt-2 max-w-prose whitespace-pre-line text-body-l text-ink-700">
+                <h2 className="text-h2 text-ink-900">
+                  {t('ktvProfile.bioTitle')}
+                  <VietnameseNote label={viNote} />
+                </h2>
+                {/* lang="vi" đặt ngay trên element chứa chữ: trình đọc màn hình phát
+                    âm đúng, và Google hiểu đây là nội dung song ngữ có chủ đích chứ
+                    không phải một bản dịch làm dở. */}
+                <p
+                  lang="vi"
+                  className="mt-2 max-w-prose whitespace-pre-line text-body-l text-ink-700"
+                >
                   {profile.bio}
                 </p>
+              </section>
+            )}
+
+            {/*
+              Ảnh đứng sau phần giới thiệu và trước bảng giá: nó là bằng chứng cho
+              những gì vừa đọc, và khách nhìn nó trước khi quyết định giá có đáng
+              không. Chỉ ảnh đã duyệt tới được đây — backend lọc, frontend không tự
+              lọc lại để hai nơi không thể lệch nhau.
+            */}
+            {profile.photos.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-h2 text-ink-900">{t('ktvProfile.photosTitle')}</h2>
+                <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {profile.photos.map((p) => {
+                    const src = mediaUrl(p.url);
+                    if (!src) return null;
+
+                    return (
+                      <li
+                        key={p.id}
+                        className="overflow-hidden rounded-xl border border-ink-200 bg-ink-50"
+                      >
+                        <Image
+                          src={src}
+                          alt={photoAlt(profile.fullName, p.caption)}
+                          width={400}
+                          height={300}
+                          // Hai cột ở mobile, ba từ sm. Khai sizes để Next không tải
+                          // bản rộng bằng cả viewport cho một ô chiếm một phần ba.
+                          sizes="(min-width: 640px) 33vw, 50vw"
+                          // Khung 4:3 cố định: ảnh KTV chụp bằng điện thoại có đủ
+                          // mọi tỉ lệ, để nguyên thì lưới nhảy lởm chởm và mỗi tấm
+                          // tải xong lại đẩy nội dung bên dưới (CLS).
+                          className="aspect-[4/3] w-full object-cover"
+                          unoptimized={!isOptimizable(src)}
+                        />
+                        {p.caption && (
+                          <p lang="vi" className="px-3 py-2 text-body-s text-ink-600">
+                            {p.caption}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
             )}
 
@@ -209,12 +329,14 @@ export default async function KtvPage({ params }: Props) {
                           {s.name}
                         </Link>
                         <div className="mt-0.5 text-body-s text-ink-500">
-                          <span className="tabular">{s.durationMin}</span> phút
+                          <span className="tabular">{s.durationMin}</span> {t('ktvProfile.minutes')}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <div className="tabular text-h4 text-ink-900">{formatVnd(s.priceFrom)}</div>
-                        <div className="text-caption text-ink-500">giá từ</div>
+                        <div className="tabular text-h4 text-ink-900">
+                          {formatVnd(s.priceFrom, locale)}
+                        </div>
+                        <div className="text-caption text-ink-500">{t('ktvProfile.priceFrom')}</div>
                       </div>
                     </li>
                   ))}
@@ -224,15 +346,19 @@ export default async function KtvPage({ params }: Props) {
 
             {profile.coverageAreas.length > 0 && (
               <section className="mt-8">
-                <h2 className="text-h2 text-ink-900">Khu vực nhận khách</h2>
+                <h2 className="text-h2 text-ink-900">{t('ktvProfile.areasTitle')}</h2>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {profile.coverageAreas.map((a) => (
                     <li key={a.id}>
                       <Link
-                        href={a.provinceSlug ? areaPath(a.provinceSlug, a.slug) : areaPath(a.slug)}
+                        href={
+                          a.provinceSlug
+                            ? areaPath(locale, a.provinceSlug, a.slug)
+                            : areaPath(locale, a.slug)
+                        }
                         className="inline-block rounded-full border border-ink-200 bg-white px-3.5 py-2 text-body-s text-ink-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600"
                       >
-                        {a.name}
+                        {translateAreaName(a.name, locale)}
                       </Link>
                     </li>
                   ))}
@@ -242,14 +368,17 @@ export default async function KtvPage({ params }: Props) {
 
             <section className="mt-8">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="text-h2 text-ink-900">Đánh giá của khách</h2>
+                <h2 className="text-h2 text-ink-900">
+                  {t('ktvProfile.reviewsTitle')}
+                  <VietnameseNote label={viNote} />
+                </h2>
                 {profile.ratingCount > 0 && (
                   <p className="text-body-s text-ink-500">
                     <span aria-hidden>★</span>{' '}
                     <span className="tabular font-semibold text-ink-700">
-                      {profile.ratingAvg.toFixed(1).replace('.', ',')}
+                      {formatRating(profile.ratingAvg, locale)}
                     </span>{' '}
-                    từ {profile.ratingCount} đánh giá
+                    {t('ktvProfile.ratingFrom', { count: profile.ratingCount })}
                   </p>
                 )}
               </div>
@@ -268,30 +397,34 @@ export default async function KtvPage({ params }: Props) {
                         <span className="text-ink-300" aria-hidden>
                           {'★'.repeat(5 - r.rating)}
                         </span>
-                        <span className="sr-only">{r.rating} trên 5 sao</span>
+                        <span className="sr-only">
+                          {t('ktvProfile.starsSr', { rating: r.rating })}
+                        </span>
                       </div>
                       {r.comment && (
-                        <p className="mt-1.5 max-w-prose text-body text-ink-700">{r.comment}</p>
+                        <p lang="vi" className="mt-1.5 max-w-prose text-body text-ink-700">
+                          {r.comment}
+                        </p>
                       )}
                       <time className="mt-1.5 block text-caption text-ink-400" dateTime={r.createdAt}>
-                        {formatDate(r.createdAt)}
+                        {formatDate(r.createdAt, locale)}
                       </time>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-body text-ink-500">Chưa có đánh giá nào.</p>
+                <p className="mt-2 text-body text-ink-500">{t('ktvProfile.noReviews')}</p>
               )}
 
               {/* Ngay dưới danh sách, trong cùng section: người vừa đọc đánh giá của
                   người khác là người sẵn sàng viết nhất. Client component vì trang
                   này là ISR 600 giây — xem ghi chú trong ReviewForm. */}
-              <ReviewForm ktvId={profile.id} ktvName={profile.fullName} />
+              <ReviewForm ktvId={profile.id} ktvName={profile.fullName} locale={locale} />
             </section>
 
             {/* Cuối cột nội dung, sau đánh giá: lối thoát hiểm cho thiểu số, đặt ở
                 nơi không cạnh tranh với hành động chính của trang là liên hệ. */}
-            <ReportProfileButton ktvId={profile.id} />
+            <ReportProfileButton ktvId={profile.id} locale={locale} />
           </div>
 
           <aside className="lg:sticky lg:top-24">
@@ -299,6 +432,7 @@ export default async function KtvPage({ params }: Props) {
               ktvId={profile.id}
               ktvName={profile.fullName}
               cheapestService={cheapest}
+              locale={locale}
             />
           </aside>
         </div>
@@ -312,7 +446,14 @@ export default async function KtvPage({ params }: Props) {
           name: profile.fullName,
           url: absolute(path),
           description: profile.bio ?? undefined,
-          areaServed: profile.coverageAreas.map((a) => ({ '@type': 'Place', name: a.name })),
+          // Ảnh trong structured data là điều kiện để Google hiện rich result có
+          // hình. Chỉ khai URL tuyệt đối — đường tương đối bị bỏ qua trong im lặng,
+          // và mất luôn phần hiển thị nổi bật nhất trên trang kết quả.
+          image: schemaImages.length > 0 ? schemaImages : undefined,
+          areaServed: profile.coverageAreas.map((a) => ({
+            '@type': 'Place',
+            name: translateAreaName(a.name, locale),
+          })),
           makesOffer: profile.services.map((s) => ({
             '@type': 'Offer',
             itemOffered: { '@type': 'Service', name: s.name },

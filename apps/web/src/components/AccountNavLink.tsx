@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { type Locale, localePath } from '@/i18n/config';
 
 type Session = { authenticated: boolean; role: string | null };
 
@@ -17,7 +18,16 @@ type Session = { authenticated: boolean; role: string | null };
  * này giữ **bề rộng không đổi** giữa hai trạng thái — nhãn nhảy trong thanh điều
  * hướng dính là thứ đập vào mắt ở mọi trang.
  */
-export function AccountNavLink({ className }: { className: string }) {
+export function AccountNavLink({
+  className,
+  locale,
+  labels,
+}: {
+  className: string;
+  locale: Locale;
+  /** Chuỗi đã dịch, truyền từ server: client component không tự tra dictionary. */
+  labels: { login: string; myAccount: string };
+}) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -43,8 +53,11 @@ export function AccountNavLink({ className }: { className: string }) {
   const isCustomer = session?.authenticated === true && session.role !== 'KTV';
 
   return (
-    <Link href={isCustomer ? '/tai-khoan' : '/dang-nhap'} className={className}>
-      {isCustomer ? 'Tài khoản' : 'Đăng nhập'}
+    <Link
+      href={localePath(locale, isCustomer ? '/tai-khoan' : '/dang-nhap')}
+      className={className}
+    >
+      {isCustomer ? labels.myAccount : labels.login}
     </Link>
   );
 }

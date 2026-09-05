@@ -117,7 +117,7 @@ export function ServicePricingForm({
                       className="mt-1 w-40 rounded-md border border-ink-200 bg-white px-3 py-1.5 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
                     />
                     <span className="mt-1 block text-xs text-ink-500">
-                      {formatVnd(row.priceFrom)}
+                      {formatVnd(row.priceFrom, 'vi')}
                     </span>
                   </label>
 

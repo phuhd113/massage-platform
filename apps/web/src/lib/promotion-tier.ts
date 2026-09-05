@@ -1,3 +1,4 @@
+import type { Translator } from '@/i18n/t';
 import type { PackageType } from './types';
 
 /**
@@ -52,8 +53,8 @@ export function tierFromBoost(boostPoints: number): PackageType | null {
  * Giữ tham số dù mọi hạng trả cùng một chuỗi: chỗ gọi đã có sẵn hạng, và nếu sau
  * này luật quảng cáo đòi phân biệt chữ theo hạng thì sửa đúng tại đây.
  */
-export function tierBadgeLabel(_type: PackageType): string {
-  return 'Tài trợ';
+export function tierBadgeLabel(_type: PackageType, t: Translator): string {
+  return t('ktvCard.sponsored');
 }
 
 /**

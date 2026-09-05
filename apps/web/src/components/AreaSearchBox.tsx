@@ -20,17 +20,20 @@ export function AreaSearchBox({
   onSelect,
   onClear,
   initialLabel = '',
-  placeholder = 'Nhập quận, huyện hoặc phường…',
+  placeholder,
   inputClassName,
   autoFocus = false,
+  labels,
 }: {
   onSelect: (s: AreaSuggestion) => void;
   /** Gọi khi khách xoá trắng ô — để trang bỏ lọc khu vực thay vì giữ lại lựa chọn cũ. */
   onClear?: () => void;
   initialLabel?: string;
-  placeholder?: string;
+  placeholder: string;
   inputClassName?: string;
   autoFocus?: boolean;
+  /** Chuỗi đã dịch, truyền từ nơi gọi — client component không tự tra dictionary. */
+  labels: { clear: string; suggestions: string; ktvCount: (n: number) => string };
 }) {
   const listId = useId();
   const [text, setText] = useState(initialLabel);
@@ -171,7 +174,7 @@ export function AreaSearchBox({
         <button
           type="button"
           onClick={clear}
-          aria-label="Xoá khu vực đang chọn"
+          aria-label={labels.clear}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 transition hover:bg-ink-100 hover:text-ink-600"
         >
           <svg
@@ -193,7 +196,7 @@ export function AreaSearchBox({
         <ul
           id={listId}
           role="listbox"
-          aria-label="Gợi ý khu vực"
+          aria-label={labels.suggestions}
           className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-ink-200 bg-white py-1 shadow-lg"
         >
           {items.map((s, i) => (
@@ -227,7 +230,7 @@ export function AreaSearchBox({
               <span
                 className={`shrink-0 text-label ${s.ktvCount > 0 ? 'text-ink-600' : 'text-ink-400'}`}
               >
-                {s.ktvCount > 0 ? `${s.ktvCount} KTV` : 'Chưa có KTV'}
+                {labels.ktvCount(s.ktvCount)}
               </span>
             </li>
           ))}

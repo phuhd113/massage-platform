@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, LogoMark } from '@/components/icons';
+import { type Locale, localePath } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { SITE_NAME } from '@/lib/site';
 
 type Step = 'phone' | 'code';
@@ -20,8 +23,10 @@ export type LoginRole = 'CUSTOMER' | 'KTV';
 export function LoginForm({
   role = 'CUSTOMER',
   redirectTo,
+  locale,
 }: {
   role?: LoginRole;
+  locale: Locale;
   /**
    * Nơi đưa khách về sau khi đăng nhập. Bỏ trống thì quay lại trang trước đó —
    * khách bấm đăng nhập từ một hồ sơ KTV để viết đánh giá cần quay đúng về hồ sơ
@@ -30,8 +35,9 @@ export function LoginForm({
    * KTV luôn về `/dashboard` bất kể tham số này, xem `finish()`.
    */
   redirectTo?: string;
-} = {}) {
+}) {
   const router = useRouter();
+  const t = createTranslator(getDictionary(locale), locale);
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -60,7 +66,7 @@ export function LoginForm({
       };
 
       if (!res.ok) {
-        setError(data.message ?? 'Không gửi được mã. Kiểm tra lại số điện thoại.');
+        setError(data.message ?? t('login.errorSendFailed'));
         return;
       }
 
@@ -69,7 +75,7 @@ export function LoginForm({
       setCode('');
       setStep('code');
     } catch {
-      setError('Không kết nối được máy chủ.');
+      setError(t('login.errorNetwork'));
     } finally {
       setPending(false);
     }
@@ -89,7 +95,7 @@ export function LoginForm({
       const data = (await res.json()) as { message?: string; role?: string };
 
       if (!res.ok) {
-        setError(data.message ?? 'Mã OTP không đúng hoặc đã hết hạn.');
+        setError(data.message ?? t('login.errorBadCode'));
         // Xoá mã sai để khách gõ lại từ đầu thay vì phải tự xoá 6 ô — và để lần
         // submit sau không gửi lại đúng cái mã vừa bị từ chối.
         setCode('');
@@ -104,9 +110,9 @@ export function LoginForm({
       // đăng nhập nhầm ở trang khách vẫn phải về dashboard, còn khách thì không —
       // dashboard gọi API ví, và tài khoản khách nhận 403 ở đó rồi bị đá ngược lại
       // đây thành một vòng lặp đăng nhập không lối thoát.
-      router.push(data.role === 'KTV' ? '/dashboard' : (redirectTo ?? '/'));
+      router.push(data.role === 'KTV' ? '/dashboard' : (redirectTo ?? localePath(locale, '/')));
     } catch {
-      setError('Không kết nối được máy chủ.');
+      setError(t('login.errorNetwork'));
     } finally {
       setPending(false);
     }
@@ -118,26 +124,25 @@ export function LoginForm({
         <div className="w-full max-w-[400px]">
           <div className="flex items-center gap-2.5">
             <LogoMark className="h-[30px] w-[30px] shrink-0" />
-            <span className="font-display text-h4 font-bold text-ink-900">{SITE_NAME}</span>
+            <span className="font-display text-h4 font-bold text-ink-900">{SITE_NAME[locale]}</span>
           </div>
 
           <h1 className="mt-8 text-h1 text-ink-900 sm:text-[30px] sm:leading-9">
-            {isKtv ? 'Đăng nhập cho kỹ thuật viên' : 'Đăng nhập hoặc tạo tài khoản'}
+            {isKtv ? t('login.headingKtv') : t('login.headingCustomer')}
           </h1>
           <p className="mt-2.5 text-body-l leading-[25px] text-ink-600">
             {/* Không hỏi "bạn đã có tài khoản chưa": với OTP thì đăng ký và đăng
                 nhập là cùng một thao tác, và bắt người dùng tự phân loại mình vào
                 một trong hai cửa là tạo ra một quyết định không dẫn tới hành động
                 nào khác nhau. */}
-            Nhập số điện thoại, chúng tôi gửi mã {CODE_LENGTH} chữ số qua SMS. Chưa có tài khoản thì
-            hệ thống tự tạo. Không cần mật khẩu.
+            {t('login.intro', { length: CODE_LENGTH })}
           </p>
 
           {step === 'phone' ? (
             <form onSubmit={requestOtp} className="mt-7 grid gap-4">
               <label className="block">
                 <span className="mb-1.5 block text-body font-semibold text-ink-700">
-                  Số điện thoại
+                  {t('login.phoneLabel')}
                 </span>
                 {/* Viền nằm ở khung ngoài, input bên trong không viền: "+84" là một
                     phần của cùng một ô nhập, không phải một điều khiển riêng. */}
@@ -163,14 +168,15 @@ export function LoginForm({
                 disabled={pending}
                 className="rounded-lg bg-brand-500 px-4 py-3.5 text-h4 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
               >
-                {pending ? 'Đang gửi…' : 'Gửi mã xác thực'}
+                {pending ? t('login.sending') : t('login.sendCode')}
               </button>
             </form>
           ) : (
             <form onSubmit={verify} className="mt-7">
-              <div className="text-label uppercase text-ink-500">Bước 2 · nhập mã</div>
+              <div className="text-label uppercase text-ink-500">{t('login.step2')}</div>
 
               <CodeInput
+                labels={{ codeInputLabel: t('login.codeInputLabel', { length: CODE_LENGTH }) }}
                 value={code}
                 onChange={setCode}
                 onComplete={() => void verify()}
@@ -179,6 +185,7 @@ export function LoginForm({
 
               <div className="mt-3 flex flex-wrap items-center gap-4 text-body-l text-ink-600">
                 <ResendTimer
+                  labels={{ resend: t('login.resend'), resendIn: t('login.resendIn') }}
                   expiresAt={expiresAt}
                   pending={pending}
                   onResend={() => void requestOtp(new Event('submit') as unknown as React.FormEvent)}
@@ -192,14 +199,13 @@ export function LoginForm({
                   }}
                   className="font-semibold text-brand-500 transition hover:text-brand-600"
                 >
-                  Đổi số điện thoại
+                  {t('login.changePhone')}
                 </button>
               </div>
 
               {debugCode && (
                 <p className="mt-4 rounded-md border border-warning-bd bg-warning-bg px-3.5 py-2.5 text-body text-warning-fg">
-                  Chế độ thử nghiệm: mã là <strong className="font-mono">{debugCode}</strong>. Ở
-                  production, mã chỉ gửi qua SMS.
+                  {t('login.stubNotice', { code: debugCode })}
                 </p>
               )}
 
@@ -208,7 +214,7 @@ export function LoginForm({
                 disabled={pending || code.length < CODE_LENGTH}
                 className="mt-5 w-full rounded-lg bg-brand-500 px-4 py-3.5 text-h4 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
               >
-                {pending ? 'Đang kiểm tra…' : 'Đăng nhập'}
+                {pending ? t('login.verifying') : t('login.submit')}
               </button>
             </form>
           )}
@@ -225,22 +231,22 @@ export function LoginForm({
             <p className="mt-8 border-t border-ink-100 pt-5 text-body text-ink-500">
               {isKtv ? (
                 <>
-                  Bạn là khách đang tìm kỹ thuật viên?{' '}
+                  {t('login.crossLinkKtvQuestion')}{' '}
                   <Link
-                    href="/dang-nhap"
+                    href={localePath(locale, '/dang-nhap')}
                     className="font-semibold text-brand-500 transition hover:text-brand-600"
                   >
-                    Đăng nhập tại đây
+                    {t('login.crossLinkKtvAction')}
                   </Link>
                 </>
               ) : (
                 <>
-                  Bạn là kỹ thuật viên muốn nhận khách?{' '}
+                  {t('login.crossLinkCustomerQuestion')}{' '}
                   <Link
-                    href="/dang-ky-ktv"
+                    href={localePath(locale, '/dang-ky-ktv')}
                     className="font-semibold text-brand-500 transition hover:text-brand-600"
                   >
-                    Tạo hồ sơ miễn phí
+                    {t('login.crossLinkCustomerAction')}
                   </Link>
                 </>
               )}
@@ -276,30 +282,20 @@ export function LoginForm({
                 <circle cx="8.5" cy="9.5" r="1.75" />
                 <path d="m3.5 17 4.5-4.5 3.5 3.5 3-3 6 6" />
               </svg>
-              Ảnh KTV đang làm việc
+              {t('login.asideImageAlt')}
             </span>
           </div>
 
           <h2 className="mt-6 font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-ink-900">
-            {isKtv
-              ? 'Hồ sơ đã duyệt được khách gọi nhiều hơn'
-              : 'Tài khoản để đánh giá và theo dõi'}
+            {isKtv ? t('login.asideTitleKtv') : t('login.asideTitleCustomer')}
           </h2>
 
           <ul className="mt-4 grid gap-3">
             {(isKtv
-              ? [
-                  'Tải chứng chỉ một lần, chúng tôi đối chiếu và mở hồ sơ.',
-                  'Bạn tự đặt giá và khu vực nhận khách.',
-                  'Khách gọi trực tiếp, sàn không giữ tiền của bạn.',
-                ]
-              : [
-                  // Nói đúng thứ tài khoản khách hiện có, không hứa tính năng chưa
-                  // làm: đánh giá cần đăng nhập, còn tìm và gọi thì không.
-                  'Viết đánh giá cho kỹ thuật viên bạn đã dùng.',
-                  'Tìm kiếm và gọi không cần tài khoản — đăng nhập chỉ để đánh giá.',
-                  'Chúng tôi không thu phí đặt lịch của khách.',
-                ]
+              ? [t('login.asideKtv1'), t('login.asideKtv2'), t('login.asideKtv3')]
+              // Nói đúng thứ tài khoản khách hiện có, không hứa tính năng chưa
+              // làm: đánh giá cần đăng nhập, còn tìm và gọi thì không.
+              : [t('login.asideCustomer1'), t('login.asideCustomer2'), t('login.asideCustomer3')]
             ).map((t) => (
               <li key={t} className="flex gap-2.5 text-body-l leading-[25px] text-ink-700">
                 <CheckIcon size={16} className="mt-1 h-[17px] w-[17px] shrink-0 text-success-fg" />
@@ -327,11 +323,14 @@ function CodeInput({
   onChange,
   onComplete,
   disabled,
+  labels,
 }: {
   value: string;
   onChange: (v: string) => void;
   onComplete: () => void;
   disabled: boolean;
+  /** Chuỗi đã dịch — hàm con không tự tra dictionary. */
+  labels: { codeInputLabel: string };
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
@@ -361,7 +360,7 @@ function CodeInput({
         onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        aria-label="Mã xác thực 6 chữ số"
+        aria-label={labels.codeInputLabel}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
 
@@ -397,10 +396,12 @@ function ResendTimer({
   expiresAt,
   pending,
   onResend,
+  labels,
 }: {
   expiresAt: string | null;
   pending: boolean;
   onResend: () => void;
+  labels: { resend: string; resendIn: string };
 }) {
   const [left, setLeft] = useState<number | null>(null);
 
@@ -428,7 +429,7 @@ function ResendTimer({
         disabled={pending}
         className="font-semibold text-brand-500 transition hover:text-brand-600 disabled:opacity-60"
       >
-        Gửi lại mã
+        {labels.resend}
       </button>
     );
   }
@@ -438,7 +439,7 @@ function ResendTimer({
 
   return (
     <span>
-      Gửi lại mã sau <strong className="tabular font-mono font-medium text-ink-900">{mm}:{ss}</strong>
+      {labels.resendIn} <strong className="tabular font-mono font-medium text-ink-900">{mm}:{ss}</strong>
     </span>
   );
 }

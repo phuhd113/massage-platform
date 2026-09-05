@@ -1,6 +1,9 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { useTransition } from 'react';
 
 /**
@@ -14,7 +17,8 @@ import { useTransition } from 'react';
  * Đây là nút thứ hai điều khiển cùng một tham số `view`; cả hai đọc và ghi thẳng vào
  * URL nên không có state nào phải giữ cho khớp giữa chúng.
  */
-export function MapViewFab() {
+export function MapViewFab({ locale }: { locale: Locale }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -69,7 +73,7 @@ export function MapViewFab() {
             <path d="M9 3v15M15 6v15" />
           </svg>
         )}
-        {isMap ? 'Xem danh sách' : 'Xem bản đồ'}
+        {isMap ? t('map.viewList') : t('map.viewMap')}
       </button>
     </div>
   );

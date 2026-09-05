@@ -1,4 +1,5 @@
 import { PublicShell } from '@/components/PublicShell';
+import { normalizeLocale } from '@/i18n/config';
 
 /**
  * Nhóm route công khai — mọi trang khách nhìn thấy.
@@ -7,6 +8,12 @@ import { PublicShell } from '@/components/PublicShell';
  * không dùng header/footer của trang bán hàng. Route group `(public)` không đi vào
  * URL, nên đường dẫn của mọi trang giữ nguyên như trước.
  */
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  return <PublicShell>{children}</PublicShell>;
+export default function PublicLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: { locale: string };
+}) {
+  return <PublicShell locale={normalizeLocale(params.locale)}>{children}</PublicShell>;
 }

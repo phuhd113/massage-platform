@@ -46,7 +46,7 @@ export default async function PackagesPage() {
       <p className="mt-2 text-body-l text-ink-600">
         Chọn khu vực trước — số chỗ trống và giá phụ thuộc khu vực. Số dư dùng được{' '}
         <strong className="tabular font-mono font-medium text-ink-900">
-          {formatVnd(wallet.available)}
+          {formatVnd(wallet.available, 'vi')}
         </strong>
         .
       </p>

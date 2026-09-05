@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5080/api/v1';
 
@@ -13,12 +16,12 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5080/api/v
  * vào trước tiên.
  */
 const REASONS = [
-  { value: 'PROSTITUTION', label: 'Dấu hiệu dịch vụ trá hình' },
-  { value: 'INAPPROPRIATE_CONTENT', label: 'Ảnh hoặc mô tả phản cảm' },
-  { value: 'FALSE_INFORMATION', label: 'Thông tin sai sự thật' },
-  { value: 'IMPERSONATION', label: 'Mạo danh người khác' },
-  { value: 'MISCONDUCT', label: 'Thái độ không chuyên nghiệp' },
-  { value: 'OTHER', label: 'Lý do khác' },
+  { value: 'PROSTITUTION', key: 'report.reasonProstitution' },
+  { value: 'INAPPROPRIATE_CONTENT', key: 'report.reasonInappropriate' },
+  { value: 'FALSE_INFORMATION', key: 'report.reasonFalseInfo' },
+  { value: 'IMPERSONATION', key: 'report.reasonImpersonation' },
+  { value: 'MISCONDUCT', key: 'report.reasonMisconduct' },
+  { value: 'OTHER', key: 'report.reasonOther' },
 ] as const;
 
 type Reason = (typeof REASONS)[number]['value'];
@@ -40,7 +43,8 @@ type Reason = (typeof REASONS)[number]['value'];
  * trùng; qua proxy Next thì mọi người báo cáo chung một IP và cửa sổ gộp 24 giờ sẽ
  * nuốt mất báo cáo của tất cả những người sau người đầu tiên.
  */
-export function ReportProfileButton({ ktvId }: { ktvId: string }) {
+export function ReportProfileButton({ ktvId, locale }: { ktvId: string; locale: Locale }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<Reason>('PROSTITUTION');
   const [detail, setDetail] = useState('');
@@ -77,7 +81,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
     // Backend bắt buộc mô tả khi chọn "Lý do khác" — chặn ở đây luôn để khách không
     // phải chờ một vòng mạng mới biết còn thiếu gì.
     if (reason === 'OTHER' && detail.trim().length === 0) {
-      setError('Chọn "Lý do khác" thì cần mô tả cụ thể giúp chúng tôi.');
+      setError(t('report.errorNeedDetail'));
       return;
     }
 
@@ -96,11 +100,11 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
       });
 
       if (res.status === 429) {
-        setError('Bạn đã gửi khá nhiều báo cáo. Vui lòng thử lại sau ít phút.');
+        setError(t('report.errorRateLimited'));
         return;
       }
       if (!res.ok) {
-        setError('Chưa gửi được báo cáo. Vui lòng thử lại.');
+        setError(t('report.errorGeneric'));
         return;
       }
 
@@ -110,7 +114,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
       setDone(true);
       setOpen(false);
     } catch {
-      setError('Không kết nối được máy chủ. Kiểm tra mạng và thử lại.');
+      setError(t('report.errorNetwork'));
     } finally {
       setPending(false);
     }
@@ -119,7 +123,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
   if (done) {
     return (
       <p role="status" className="mt-6 text-body-s text-ink-500">
-        Cảm ơn bạn. Báo cáo đã được gửi tới đội kiểm duyệt.
+        {t('report.thanks')}
       </p>
     );
   }
@@ -132,7 +136,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
         onClick={() => setOpen(true)}
         className="text-body-s text-ink-500 underline underline-offset-4 transition hover:text-ink-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
-        Báo cáo hồ sơ này
+        {t('report.trigger')}
       </button>
 
       {open && (
@@ -151,15 +155,14 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
             className="w-full max-w-md rounded-xl bg-white p-5 shadow-card focus:outline-none"
           >
             <h2 id="report-title" className="text-h3 text-ink-900">
-              Báo cáo hồ sơ
+              {t('report.dialogTitle')}
             </h2>
             <p className="mt-1.5 text-body-s text-ink-500">
-              Báo cáo được gửi tới đội kiểm duyệt và không hiển thị công khai. Hồ sơ
-              không bị ẩn ngay — chúng tôi xem xét trước khi xử lý.
+              {t('report.dialogIntro')}
             </p>
 
             <fieldset className="mt-4">
-              <legend className="text-body-s font-medium text-ink-700">Lý do</legend>
+              <legend className="text-body-s font-medium text-ink-700">{t('report.reasonLegend')}</legend>
               <div className="mt-2 space-y-1.5">
                 {REASONS.map((r) => (
                   <label key={r.value} className="flex items-center gap-2.5 text-body text-ink-700">
@@ -171,7 +174,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
                       onChange={() => setReason(r.value)}
                       className="h-4 w-4 accent-brand-500"
                     />
-                    {r.label}
+                    {t(r.key)}
                   </label>
                 ))}
               </div>
@@ -179,14 +182,14 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
 
             <label className="mt-4 block">
               <span className="text-body-s font-medium text-ink-700">
-                Mô tả {reason === 'OTHER' ? '' : '(không bắt buộc)'}
+                {t('report.detailLabel')} {reason === 'OTHER' ? '' : t('report.detailOptional')}
               </span>
               <textarea
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
                 rows={3}
                 maxLength={2000}
-                placeholder="Bạn thấy gì trên hồ sơ này?"
+                placeholder={t('report.detailPlaceholder')}
                 className="mt-1.5 w-full rounded-md border border-ink-200 px-3 py-2 text-body text-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-600"
               />
             </label>
@@ -203,7 +206,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
                 onClick={() => setOpen(false)}
                 className="rounded-full px-4 py-2 text-body font-medium text-ink-600 transition hover:bg-ink-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
-                Huỷ
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -211,7 +214,7 @@ export function ReportProfileButton({ ktvId }: { ktvId: string }) {
                 disabled={pending}
                 className="rounded-full bg-brand-500 px-4 py-2 text-body font-semibold text-white shadow-button transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
               >
-                {pending ? 'Đang gửi…' : 'Gửi báo cáo'}
+                {pending ? t('report.submitting') : t('report.submit')}
               </button>
             </div>
           </div>

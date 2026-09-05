@@ -1,10 +1,17 @@
 import type { Metadata } from 'next';
 import { LoginForm } from '@/components/LoginForm';
+import { normalizeLocale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 
-export const metadata: Metadata = {
-  title: 'Đăng ký kỹ thuật viên',
-  robots: { index: false, follow: false },
-};
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  const locale = normalizeLocale(params.locale);
+  const t = createTranslator(getDictionary(locale), locale);
+  return {
+    title: t('login.metaTitleKtv'),
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Cửa vào cho kỹ thuật viên.
@@ -21,6 +28,6 @@ export const metadata: Metadata = {
  * Không gửi `redirectTo`: KTV luôn về `/dashboard`, và `LoginForm` quyết định điều
  * đó theo vai trò **thật** trả về từ server chứ không theo cửa vừa bước vào.
  */
-export default function KtvSignUpPage() {
-  return <LoginForm role="KTV" />;
+export default function KtvSignUpPage({ params }: { params: { locale: string } }) {
+  return <LoginForm role="KTV" locale={normalizeLocale(params.locale)} />;
 }

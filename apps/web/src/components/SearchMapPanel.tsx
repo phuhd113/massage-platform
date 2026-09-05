@@ -1,6 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { clearAreaScope } from '@/lib/area-search';
@@ -24,6 +27,7 @@ interface Props {
   items: SearchItem[];
   origin: LatLon | null;
   radiusKm: number | null;
+  locale: Locale;
 }
 
 /**
@@ -47,7 +51,8 @@ function movedEnough(scope: Scope, baseline: Scope | null) {
   return shifted || zoomed;
 }
 
-export function SearchMapPanel({ items, origin, radiusKm }: Props) {
+export function SearchMapPanel({ items, origin, radiusKm, locale }: Props) {
+  const t = createTranslator(getDictionary(locale), locale);
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -163,6 +168,7 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
             onUserMove={handleMove}
             activeId={activeId}
             onHoverItem={setActiveId}
+            locale={locale}
           />
 
           {/* Thanh công cụ nổi. pointer-events-none ở lớp bọc để phần trống của
@@ -180,7 +186,7 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
                 className="pointer-events-auto inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2.5 text-body-s font-semibold text-ink-900 shadow-card-hover ring-1 ring-ink-200 transition hover:bg-ink-50 disabled:opacity-60"
               >
                 <MapIcon />
-                {pending ? 'Đang tìm…' : 'Tìm KTV trên toàn bản đồ'}
+                {pending ? t('map.searching') : t('map.searchHere')}
               </button>
             )}
 
@@ -196,7 +202,7 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
                 }
               >
                 {fullscreen ? <CloseIcon /> : <ExpandIcon />}
-                {fullscreen ? 'Đóng bản đồ' : 'Mở rộng'}
+                {fullscreen ? t('map.closeMap') : t('map.expand')}
               </button>
             </div>
           </div>
@@ -206,8 +212,8 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
           <div className="pointer-events-none absolute inset-x-0 bottom-6 z-[1000] flex justify-center px-3">
             <p className="rounded-full bg-ink-900/80 px-4 py-2 text-caption text-white shadow-card">
               {clamped
-                ? `Bản đồ rộng hơn bán kính tìm tối đa — chỉ quét trong ${MAX_RADIUS_KM}km quanh tâm.`
-                : 'Phóng to bản đồ để xem thêm kỹ thuật viên khác'}
+                ? t('map.clampedHint', { km: MAX_RADIUS_KM })
+                : t('map.zoomHint')}
             </p>
           </div>
         </div>
@@ -216,7 +222,9 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
             trang đã render danh sách của chính nó bên cạnh (ở server). */}
         {fullscreen && (
           <aside className="min-h-0 overflow-y-auto border-t border-ink-200 bg-ink-25 p-3 lg:border-l lg:border-t-0">
-            <p className="px-1 pb-2 text-body-s text-ink-500">{items.length} kỹ thuật viên</p>
+            <p className="px-1 pb-2 text-body-s text-ink-500">
+              {t('map.countInList', { count: items.length })}
+            </p>
             <ul className="grid gap-2">
               {items.map((ktv) => (
                 <MapKtvCard
@@ -224,6 +232,7 @@ export function SearchMapPanel({ items, origin, radiusKm }: Props) {
                   ktv={ktv}
                   active={ktv.id === activeId}
                   onHover={setActiveId}
+                  locale={locale}
                 />
               ))}
             </ul>

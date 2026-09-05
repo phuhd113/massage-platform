@@ -71,6 +71,8 @@ export interface SearchItem {
   lon: number;
   /** Giới thiệu ngắn; thẻ tự cắt bớt khi dài. */
   bio: string | null;
+  /** URL ảnh đại diện, null khi KTV chưa đặt. Thẻ hiện chữ cái đầu tên thay thế. */
+  avatarUrl: string | null;
   /** Chỉ đếm chứng chỉ đã duyệt — hồ sơ chờ xét không được tính. */
   verifiedCertCount: number;
   /** Tối đa 2 dịch vụ, giá thấp trước. Rỗng khi KTV chưa khai. */
@@ -96,6 +98,16 @@ export interface ServiceItem {
   name: string;
   slug: string;
   description: string | null;
+  /**
+   * Bản tiếng Anh, null khi chưa được dịch.
+   *
+   * Backend trả cả hai ngôn ngữ trong một payload thay vì nhận tham số locale:
+   * đường đọc cache theo URL, nên `?locale=` sẽ tạo hai cache key cho cùng một dữ
+   * liệu và nhân đôi lượt gọi backend mỗi khi ISR revalidate. Chọn cột nào là việc
+   * của `lib/service-i18n.ts`.
+   */
+  nameEn: string | null;
+  descriptionEn: string | null;
   sortOrder: number;
   /** Giá thấp nhất đang có trên sàn. null khi chưa KTV nào khai giá cho dịch vụ này. */
   priceFrom: number | null;
@@ -121,6 +133,13 @@ export interface KtvServiceItem {
   durationMin: number;
 }
 
+export interface KtvPhoto {
+  id: string;
+  url: string;
+  /** Chú thích do KTV nhập, đi vào thuộc tính alt. */
+  caption: string | null;
+}
+
 export interface PublicKtvProfile {
   id: string;
   fullName: string;
@@ -134,6 +153,10 @@ export interface PublicKtvProfile {
   ratingCount: number;
   isOnline: boolean;
   createdAt: string;
+  /** URL ảnh đại diện, null khi KTV chưa đặt. */
+  avatarUrl: string | null;
+  /** Chỉ ảnh **đã duyệt** — ảnh chờ duyệt không bao giờ ra trang công khai. */
+  photos: KtvPhoto[];
   certifications: {
     id: string;
     name: string;
@@ -311,6 +334,157 @@ export interface MyKtvProfile {
   ratingCount: number;
   isOnline: boolean;
   createdAt: string;
+  /** URL ảnh đại diện, null khi chưa đặt. */
+  avatarUrl: string | null;
+  /** **Mọi** trạng thái, khác trang công khai — chính chủ phải thấy ảnh đang chờ duyệt
+   *  hoặc bị từ chối kèm lý do; nếu không nó chỉ lặng lẽ không xuất hiện. */
+  photos: MyKtvPhoto[];
   certifications: MyCertification[];
+  /** CCCD — null khi chưa gửi. Hồ sơ không duyệt được cho tới khi có và được xác minh. */
+  identityDocument: MyIdentityDocument | null;
+  /** Phiên bản cam kết đã chấp nhận. 0 nghĩa là chưa chấp nhận bản nào. */
+  commitmentVersion: number;
+  committedAt: string | null;
+  /** Server tự so với bản đang hiệu lực — frontend không giữ con số đó. */
+  commitmentsUpToDate: boolean;
   coverageAreas: { id: string; name: string; slug: string; level: AreaLevel }[] | null;
+}
+
+/**
+ * Cộng tác viên nhìn từ trang quản trị.
+ *
+ * Hai con số đếm trả lời hai câu khác nhau: `referredCount` là "đã mời được bao nhiêu",
+ * `verifiedCount` là "bao nhiêu người thật sự lên sàn" — và chỉ con số thứ hai đáng dùng
+ * để tính hoa hồng.
+ */
+export interface AdminCollaborator {
+  id: string;
+  code: string;
+  fullName: string;
+  phone: string | null;
+  status: 'ACTIVE' | 'DISABLED';
+  note: string | null;
+  createdAt: string;
+  referredCount: number;
+  verifiedCount: number;
+}
+
+/**
+ * Bản cam kết KTV, lấy từ backend.
+ *
+ * Nội dung **không** viết cứng ở frontend: đây là tài liệu pháp lý và cái cần chứng
+ * minh khi tranh chấp là "đã đồng ý với đúng những dòng này". `version` đi kèm để lượt
+ * xác nhận gắn được vào đúng bản người dùng vừa đọc.
+ */
+export interface KtvCommitments {
+  version: number;
+  items: string[];
+}
+
+/**
+ * Ảnh CCCD của chính chủ.
+ *
+ * Hai mặt, **một** trạng thái duyệt: chúng là một tấm thẻ nên được duyệt cùng nhau.
+ * URL là loại ký hạn ngắn (15 phút) — không bao giờ được đưa vào trang cache.
+ */
+export interface MyIdentityDocument {
+  id: string;
+  frontUrl: string;
+  backUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  submittedAt: string;
+  verifiedAt: string | null;
+}
+
+export interface MyKtvPhoto {
+  id: string;
+  url: string;
+  caption: string | null;
+  sortOrder: number;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+/**
+ * Chứng chỉ nhìn từ phía admin.
+ *
+ * Ít trường hơn `MyCertification`: hàng đợi duyệt chỉ cần biết tên, file để mở
+ * xem, và trạng thái hiện tại — không cần tổ chức cấp hay ngày cấp, vốn nằm
+ * trong chính file mà admin đang mở.
+ */
+export interface AdminCertification {
+  id: string;
+  name: string;
+  fileUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+}
+
+/** Hồ sơ KTV trong hàng đợi duyệt của admin. */
+export interface AdminKtvProfile {
+  id: string;
+  fullName: string;
+  slug: string;
+  bio: string | null;
+  baseAddress: string | null;
+  serviceRadiusKm: number;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  createdAt: string;
+  certifications: AdminCertification[];
+  /** Null khi KTV chưa gửi — hồ sơ đó **không duyệt được**. */
+  identityDocument: AdminIdentityDocument | null;
+  committedAt: string | null;
+  /** Điều kiện bắt buộc thứ hai để duyệt được hồ sơ. */
+  commitmentsUpToDate: boolean;
+  /** Cộng tác viên đã mời KTV này. Null khi hồ sơ tự đến qua SEO — đó là đa số. */
+  referredBy: { code: string; name: string; referredAt: string | null } | null;
+}
+
+/**
+ * CCCD nhìn từ phía admin.
+ *
+ * Không có `id`: đường duyệt đi theo `ktvId` vì một hồ sơ có nhiều nhất một CCCD, nên
+ * một định danh thứ hai chỉ thêm thứ để mang theo.
+ */
+export interface AdminIdentityDocument {
+  frontUrl: string;
+  backUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  submittedAt: string;
+}
+
+export interface AdminKtvList {
+  items: AdminKtvProfile[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Ảnh hồ sơ trong hàng đợi duyệt.
+ *
+ * Mang theo tên và slug KTV vì hàng đợi này xếp theo **ảnh**, không theo hồ sơ: một
+ * hồ sơ đã duyệt vẫn thêm ảnh mới, nên ảnh ở đây không nhất thiết đi kèm một hồ sơ
+ * đang chờ duyệt nào.
+ */
+export interface AdminKtvPhoto {
+  id: string;
+  ktvId: string;
+  ktvName: string;
+  ktvSlug: string;
+  url: string;
+  caption: string | null;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+export interface AdminKtvPhotoList {
+  items: AdminKtvPhoto[];
+  total: number;
+  page: number;
+  limit: number;
 }

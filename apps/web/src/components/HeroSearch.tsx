@@ -1,6 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { useRef, useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
 import { NearMeIcon, SearchIcon } from '@/components/icons';
@@ -18,7 +21,8 @@ import type { AreaSuggestion, ServiceItem } from '@/lib/types';
  * cách nhanh nhất để bị từ chối vĩnh viễn ở cấp trình duyệt. Khách bấm thì mới
  * hỏi, lúc đó họ đã hiểu vì sao cần.
  */
-export function HeroSearch({ services }: { services: ServiceItem[] }) {
+export function HeroSearch({ services, locale }: { services: ServiceItem[]; locale: Locale }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
@@ -47,7 +51,7 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
 
   function nearMe() {
     if (!navigator.geolocation) {
-      setGeoError('Trình duyệt không hỗ trợ định vị. Bạn có thể chọn quận/huyện.');
+      setGeoError(t('home.heroGeoUnsupported'));
       return;
     }
 
@@ -64,7 +68,7 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
       },
       () => {
         setLocating(false);
-        setGeoError('Chưa lấy được vị trí. Bạn có thể chọn quận/huyện bên dưới.');
+        setGeoError(t('filters.geoFailed'));
       },
       { timeout: 10_000 },
     );
@@ -102,11 +106,17 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
             còn ô khu vực phải chứa được "Phường Bến Nghé, Quận 1" mà không cắt chữ. */}
         <div className="grid items-stretch gap-1.5 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_auto]">
           <label className={fieldClass}>
-            <span className={labelClass}>Khu vực</span>
+            <span className={labelClass}>{t('home.heroAreaLabel')}</span>
             <AreaSearchBox
               onSelect={setArea}
               onClear={() => setArea(null)}
-              placeholder="Quận, huyện…"
+              placeholder={t('home.heroAreaPlaceholder')}
+              labels={{
+                clear: t('filters.areaClear'),
+                suggestions: t('filters.areaSuggestions'),
+                ktvCount: (n) =>
+                  n > 0 ? t('filters.areaKtvCount', { count: n }) : t('filters.areaNoKtv'),
+              }}
               inputClassName={controlClass}
             />
           </label>
@@ -114,14 +124,14 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
           {/* Vạch ngăn mảnh thay cho viền: chỉ để mắt biết đây là hai ô, không đóng
               khung cho từng ô. Ẩn ở mobile vì lúc đó hai ô xếp chồng. */}
           <label className={`${fieldClass} sm:border-l sm:border-ink-100`}>
-            <span className={labelClass}>Dịch vụ</span>
+            <span className={labelClass}>{t('home.heroServiceLabel')}</span>
             <select
               name="service"
               value={service}
               onChange={(e) => setService(e.target.value)}
               className={`${controlClass} cursor-pointer`}
             >
-              <option value="">Tất cả dịch vụ</option>
+              <option value="">{t('home.heroServiceAll')}</option>
               {services.map((s) => (
                 <option key={s.slug} value={s.slug}>
                   {s.name}
@@ -136,7 +146,7 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
             className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-500 px-6 py-3 text-body-l font-semibold text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
           >
             <SearchIcon size={16} className="h-4 w-4 shrink-0" />
-            Tìm KTV
+            {t('home.heroSubmit')}
           </button>
         </div>
       </form>
@@ -149,7 +159,7 @@ export function HeroSearch({ services }: { services: ServiceItem[] }) {
           className="inline-flex items-center gap-[7px] rounded-full border border-ink-200 bg-white px-3.5 py-2 text-body-s font-semibold text-brand-500 transition hover:border-brand-500 hover:bg-brand-50 disabled:opacity-60"
         >
           <NearMeIcon size={16} className="h-4 w-4 shrink-0" />
-          {locating ? 'Đang định vị…' : 'Tìm quanh tôi'}
+          {locating ? t('filters.locating') : t('filters.nearMe')}
         </button>
 
         {/*

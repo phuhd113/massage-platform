@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { CheckIcon as DoneIcon } from '@/components/icons';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
 import { formatVnd } from '@/lib/site';
 import type { KtvServiceItem } from '@/lib/types';
 
@@ -22,12 +25,15 @@ export function ContactButtons({
   ktvId,
   ktvName,
   cheapestService = null,
+  locale,
 }: {
   ktvId: string;
   ktvName: string;
   /** Dịch vụ rẻ nhất, dùng làm mức "giá từ". Null khi KTV chưa khai bảng giá. */
   cheapestService?: { priceFrom: number; durationMin: number } | null;
+  locale: Locale;
 }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const [phone, setPhone] = useState<string | null>(null);
   const [pending, setPending] = useState<Channel | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,11 +69,11 @@ export function ContactButtons({
       }
 
       if (res.status === 429) {
-        setError('Bạn đã bấm liên hệ quá nhiều lần. Thử lại sau ít phút.');
+        setError(t('contact.errorRateLimited'));
         return;
       }
       if (!res.ok) {
-        setError('Chưa lấy được số điện thoại. Vui lòng thử lại.');
+        setError(t('contact.errorNoPhone'));
         return;
       }
 
@@ -77,7 +83,7 @@ export function ContactButtons({
       window.location.href =
         channel === 'CALL' ? `tel:${data.phone}` : `https://zalo.me/${data.phone}`;
     } catch {
-      setError('Không kết nối được máy chủ. Kiểm tra mạng và thử lại.');
+      setError(t('contact.errorNetwork'));
     } finally {
       setPending(null);
     }
@@ -87,7 +93,7 @@ export function ContactButtons({
   // dòng trong khối liên hệ hẹp ở cột phải, và nút cao gấp đôi các nút khác.
   // Người Việt cũng gọi nhau bằng tên chứ không bằng họ.
   const firstName = ktvName.trim().split(/\s+/).at(-1) ?? ktvName;
-  const callLabel = `Gọi ${firstName}`;
+  const callLabel = t('contact.callName', { name: firstName });
 
   return (
     <>
@@ -95,13 +101,14 @@ export function ContactButtons({
         {/* Giá đứng đầu khối: đây là câu hỏi khách hỏi trước khi hỏi "gọi thế nào". */}
         {cheapestService && (
           <div className="mb-4 border-b border-ink-100 pb-4">
-            <div className="text-caption text-ink-500">Giá từ</div>
+            <div className="text-caption text-ink-500">{t('contact.priceFrom')}</div>
             <div className="mt-0.5 flex items-baseline gap-1.5">
               <span className="tabular text-h2 text-ink-900">
-                {formatVnd(cheapestService.priceFrom)}
+                {formatVnd(cheapestService.priceFrom, locale)}
               </span>
               <span className="text-body-s text-ink-500">
-                / <span className="tabular">{cheapestService.durationMin}</span> phút
+                / <span className="tabular">{cheapestService.durationMin}</span>{' '}
+                {t('contact.minutes')}
               </span>
             </div>
           </div>
@@ -114,7 +121,11 @@ export function ContactButtons({
             disabled={pending !== null}
             className="flex-1 rounded-full bg-brand-500 px-5 py-2.5 font-semibold text-white shadow-button transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
           >
-            <PendingLabel pending={pending === 'CALL'} label={callLabel} />
+            <PendingLabel
+              pending={pending === 'CALL'}
+              label={callLabel}
+              fetchingLabel={t('contact.fetching')}
+            />
           </button>
 
           <button
@@ -123,18 +134,18 @@ export function ContactButtons({
             disabled={pending !== null}
             className="flex-1 rounded-full border border-brand-500 px-5 py-2.5 font-semibold text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
           >
-            <PendingLabel pending={pending === 'ZALO'} label="Nhắn Zalo" />
+            <PendingLabel
+              pending={pending === 'ZALO'}
+              label={t('contact.zalo')}
+              fetchingLabel={t('contact.fetching')}
+            />
           </button>
         </div>
 
         {/* Bằng chứng đứng cạnh nút, không ở cuối trang: nỗi lo lên cao nhất
             đúng lúc ngón tay chạm "Gọi ngay". */}
         <ul className="mt-3.5 space-y-1.5">
-          {[
-            'Số điện thoại hiện ngay khi bấm gọi',
-            'Thanh toán trực tiếp sau buổi trị liệu',
-            'Nền tảng không thu phí đặt lịch',
-          ].map((line) => (
+          {[t('contact.trust1'), t('contact.trust2'), t('contact.trust3')].map((line) => (
             <li key={line} className="flex gap-2 text-body-s text-ink-600">
               <CheckIcon />
               {line}
@@ -144,7 +155,7 @@ export function ContactButtons({
 
         {phone && (
           <p className="mt-3 text-body-s text-ink-700">
-            Số điện thoại:{' '}
+            {t('contact.phoneLabel')}{' '}
             <a href={`tel:${phone}`} className="tabular font-semibold text-brand-600">
               {phone}
             </a>
@@ -169,12 +180,12 @@ export function ContactButtons({
         {cheapestService && (
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <span className="text-body text-ink-600">
-              Giá từ{' '}
+              {t('contact.priceFrom')}{' '}
               <strong className="tabular font-mono font-medium text-ink-900">
-                {formatVnd(cheapestService.priceFrom)}
+                {formatVnd(cheapestService.priceFrom, locale)}
               </strong>
             </span>
-            <span className="text-caption text-ink-500">Trả sau buổi trị liệu</span>
+            <span className="text-caption text-ink-500">{t('contact.payLater')}</span>
           </div>
         )}
 
@@ -185,7 +196,11 @@ export function ContactButtons({
           disabled={pending !== null}
           className="flex-[3] rounded-md bg-brand-500 px-4 py-3 font-medium text-white transition hover:bg-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
         >
-          <PendingLabel pending={pending === 'CALL'} label="Gọi ngay" />
+          <PendingLabel
+            pending={pending === 'CALL'}
+            label={t('contact.callNow')}
+            fetchingLabel={t('contact.fetching')}
+          />
         </button>
 
         <button
@@ -194,7 +209,11 @@ export function ContactButtons({
           disabled={pending !== null}
           className="flex-[2] rounded-md border border-brand-500 px-4 py-3 font-medium text-brand-600 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-60"
         >
-          <PendingLabel pending={pending === 'ZALO'} label="Zalo" />
+          <PendingLabel
+            pending={pending === 'ZALO'}
+            label={t('contact.zaloShort')}
+            fetchingLabel={t('contact.fetching')}
+          />
         </button>
         </div>
       </div>
@@ -210,7 +229,16 @@ export function ContactButtons({
  * và trên mobile việc đó đủ để trượt mất lượt bấm. Lượt bấm ở đây chính là đơn
  * vị đo doanh thu.
  */
-function PendingLabel({ pending, label }: { pending: boolean; label: string }) {
+function PendingLabel({
+  pending,
+  label,
+  fetchingLabel,
+}: {
+  pending: boolean;
+  label: string;
+  /** Nhãn cho trình đọc màn hình khi đang chờ — hàm con không tự tra dictionary. */
+  fetchingLabel: string;
+}) {
   return (
     <span className="relative inline-flex items-center justify-center">
       <span className={pending ? 'invisible' : undefined}>{label}</span>
@@ -227,7 +255,7 @@ function PendingLabel({ pending, label }: { pending: boolean; label: string }) {
           >
             <path d="M12 3a9 9 0 1 0 9 9" />
           </svg>
-          <span className="sr-only">Đang lấy số…</span>
+          <span className="sr-only">{fetchingLabel}</span>
         </span>
       )}
     </span>

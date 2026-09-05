@@ -1,7 +1,12 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { AreaIcon, CertifiedIcon } from '@/components/icons';
+import { initialOf, isOptimizable, mediaUrl } from '@/lib/media';
 import { showsVipFrame, tierBadgeLabel, tierFromBoost } from '@/lib/promotion-tier';
-import { formatDistance, formatVnd, ktvPath } from '@/lib/site';
+import { type Locale } from '@/i18n/config';
+import { getDictionary } from '@/i18n/dictionaries';
+import { createTranslator } from '@/i18n/t';
+import { formatDistance, formatRating, formatVnd, ktvPath } from '@/lib/site';
 import type { SearchItem } from '@/lib/types';
 
 /**
@@ -15,11 +20,12 @@ import type { SearchItem } from '@/lib/types';
  * sơ) mới là client — nhờ vậy tên, đánh giá và khoảng cách nằm trong HTML đầu
  * tiên, tức thứ Google đọc được.
  */
-export function KtvCard({ ktv }: { ktv: SearchItem }) {
+export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
+  const t = createTranslator(getDictionary(locale), locale);
   const distance = formatDistance(ktv.distanceM);
   const tier = tierFromBoost(ktv.boostPoints);
   const isVip = showsVipFrame(tier);
-  const href = ktvPath(ktv.slug, ktv.id);
+  const href = ktvPath(locale, ktv.slug, ktv.id);
 
   return (
     <li
@@ -41,16 +47,21 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-champagne-100 bg-champagne-50 px-4 py-2">
           <span className="inline-flex items-center gap-1.5 text-caption font-semibold text-champagne-600">
             <TierIcon vip={isVip} />
-            {tierBadgeLabel(tier)}
+            {tierBadgeLabel(tier, t)}
           </span>
           <span className="text-caption text-champagne-600">
-            Vị trí quảng cáo — KTV trả phí để hiện ở đây
+            {t('ktvCard.sponsoredTitle')}
           </span>
         </div>
       )}
 
       <div className="flex gap-4 p-4">
-        <Avatar name={ktv.fullName} href={href} sponsored={tier !== null} />
+        <Avatar
+          name={ktv.fullName}
+          href={href}
+          sponsored={tier !== null}
+          avatarUrl={ktv.avatarUrl}
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -74,16 +85,18 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
               {ktv.ratingCount > 0 ? (
                 <>
                   <div className="tabular text-h4 text-ink-900">
-                    <span aria-hidden>★</span> {ktv.ratingAvg.toFixed(1).replace('.', ',')}
+                    <span aria-hidden>★</span> {formatRating(ktv.ratingAvg, locale)}
                   </div>
-                  <div className="text-caption text-ink-500">{ktv.ratingCount} đánh giá</div>
+                  <div className="text-caption text-ink-500">
+                    {t('ktvCard.reviews', { count: ktv.ratingCount })}
+                  </div>
                 </>
               ) : (
                 // Hồ sơ mới hiện "chưa có đánh giá" chứ không hiện ★0,0 — điểm 0
                 // đọc như bị chê, trong khi thực tế là chưa ai đánh giá.
                 <>
-                  <div className="text-body-s text-ink-500">Hồ sơ mới</div>
-                  <div className="text-caption text-ink-400">chưa có đánh giá</div>
+                  <div className="text-body-s text-ink-500">{t('ktvCard.newProfile')}</div>
+                  <div className="text-caption text-ink-400">{t('ktvCard.noReviews')}</div>
                 </>
               )}
             </div>
@@ -143,20 +156,20 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
                         ·
                       </span>
                     )}
-                    {s.name} {s.durationMin} phút{' '}
+                    {s.name} {t('ktvCard.minutes', { n: s.durationMin })}{' '}
                     {/*
                       Giá đậm hơn tên dịch vụ vì đó là thứ khách quét mắt để so sánh
                       giữa các thẻ. `tabular` giữ chữ số thẳng cột khi nhiều thẻ xếp
                       chồng nhau.
                     */}
                     <strong className="tabular font-semibold text-ink-900">
-                      {formatVnd(s.priceFrom)}
+                      {formatVnd(s.priceFrom, locale)}
                     </strong>
                   </li>
                 ))}
               </ul>
             ) : (
-              <span className="text-body-s text-ink-400">Chưa khai báo bảng giá</span>
+              <span className="text-body-s text-ink-400">{t('ktvCard.noPrices')}</span>
             )}
 
             <div className="flex shrink-0 items-center gap-2">
@@ -165,7 +178,7 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
                 rel={tier ? 'sponsored' : undefined}
                 className="rounded-full border border-ink-300 px-4 py-2 text-body-s font-semibold text-ink-700 transition hover:border-ink-400 hover:bg-ink-50"
               >
-                Xem hồ sơ
+                {t('ktvCard.viewProfile')}
               </Link>
               {/*
                 "Gọi" dẫn sang trang hồ sơ chứ không phải `tel:` — số điện thoại chỉ
@@ -178,7 +191,7 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
                 rel={tier ? 'sponsored' : undefined}
                 className="rounded-full bg-brand-500 px-5 py-2 text-body-s font-semibold text-white shadow-button transition hover:bg-brand-600"
               >
-                Gọi
+                {t('ktvCard.call')}
               </Link>
             </div>
           </div>
@@ -198,9 +211,25 @@ export function KtvCard({ ktv }: { ktv: SearchItem }) {
  *
  * Chữ cái lấy từ tên riêng (từ cuối) vì người Việt gọi nhau bằng tên, không phải họ.
  */
-function Avatar({ name, href, sponsored }: { name: string; href: string; sponsored: boolean }) {
-  const parts = name.trim().split(/\s+/);
-  const initial = (parts.at(-1) ?? name).charAt(0).toUpperCase();
+/**
+ * Ảnh đại diện, hoặc chữ cái đầu tên khi KTV chưa đặt ảnh.
+ *
+ * `aria-hidden` + `tabIndex={-1}` giữ nguyên: tên KTV ngay bên cạnh đã là link tới
+ * cùng chỗ, nên với trình đọc màn hình đây là link trùng lặp. Vì vậy ảnh mang
+ * `alt=""` — mô tả nó sẽ đọc lại đúng cái tên vừa đọc xong.
+ */
+function Avatar({
+  name,
+  href,
+  sponsored,
+  avatarUrl,
+}: {
+  name: string;
+  href: string;
+  sponsored: boolean;
+  avatarUrl: string | null;
+}) {
+  const src = mediaUrl(avatarUrl);
 
   return (
     <Link
@@ -208,9 +237,24 @@ function Avatar({ name, href, sponsored }: { name: string; href: string; sponsor
       rel={sponsored ? 'sponsored' : undefined}
       aria-hidden
       tabIndex={-1}
-      className="hidden h-[132px] w-[132px] shrink-0 select-none items-center justify-center rounded-lg border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 transition hover:border-brand-300 sm:flex"
+      className="hidden h-[132px] w-[132px] shrink-0 select-none items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 transition hover:border-brand-300 sm:flex"
     >
-      {initial}
+      {src ? (
+        <Image
+          src={src}
+          alt=""
+          width={132}
+          height={132}
+          // Kích thước cố định trong bố cục nên khai đúng 132px: để Next tự đoán
+          // sẽ tải bản rộng theo viewport, tức vài trăm KB thừa cho mỗi thẻ trên
+          // một trang có tới 20 thẻ.
+          sizes="132px"
+          className="h-full w-full object-cover"
+          unoptimized={!isOptimizable(src)}
+        />
+      ) : (
+        initialOf(name)
+      )}
     </Link>
   );
 }
