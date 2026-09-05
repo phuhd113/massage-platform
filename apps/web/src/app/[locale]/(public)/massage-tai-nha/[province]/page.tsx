@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: t('areaProvince.metaTitle', { name, count: area.ktvCount }),
-    description: t('areaProvince.metaDescription', { name }),
+    description: t('areaProvince.metaDescription', { name, count: area.ktvCount }),
     alternates: alternatesFor(locale, basePath),
     robots: area.indexable ? undefined : { index: false, follow: true },
     openGraph: {

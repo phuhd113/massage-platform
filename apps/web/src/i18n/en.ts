@@ -136,9 +136,9 @@ export const en: Dictionary = {
   },
 
   areaProvince: {
-    metaTitle: 'Home massage therapy in {name} — {count} certified therapists',
+    metaTitle: 'Home massage in {name}',
     metaDescription:
-      'Find certified massage therapists who travel to your home in {name}, district by district. Verified practising certificates, prices and real client reviews.',
+      '{count} certified massage therapists travel to homes in {name}. Verified practising certificates, published prices and real client reviews.',
     ogTitle: 'Home massage in {name}',
     h1: 'Home massage therapy in {name}',
     lead: {
@@ -165,9 +165,9 @@ export const en: Dictionary = {
   },
 
   areaDistrict: {
-    metaTitle: 'Home massage therapy in {name} — {count} certified therapists',
+    metaTitle: 'Home massage in {name}',
     metaDescription:
-      'Massage therapists who travel to your home in {name}, {province}. Check practising certificates, prices and client reviews before you call.',
+      '{count} massage therapists travel to homes in {name}, {province}. Check certificates, prices and reviews before you call.',
     ogTitle: 'Home massage in {name}',
     h1: 'Home massage therapy in {name}',
 
@@ -199,7 +199,7 @@ export const en: Dictionary = {
   },
 
   servicePage: {
-    metaTitle: '{name} at home — certified therapists',
+    metaTitle: '{name} at home',
     metaDescriptionFallback:
       'Find certified therapists offering {nameLower} in your own home.',
     h1: '{name} at home',
@@ -207,7 +207,7 @@ export const en: Dictionary = {
   },
 
   ktvProfile: {
-    metaTitle: '{name} — home massage therapist{area}',
+    metaTitle: '{name} — home massage therapist',
     metaDescription:
       '{name}, {years} years of experience in home massage therapy{area}. Verified practising certificate, published prices and real client reviews.',
     metaAreaPrefix: ' in {area}',

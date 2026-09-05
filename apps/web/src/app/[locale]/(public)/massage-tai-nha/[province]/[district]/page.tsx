@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: t('areaDistrict.metaTitle', { name, count: area.ktvCount }),
-    description: t('areaDistrict.metaDescription', { name, province }),
+    description: t('areaDistrict.metaDescription', { name, province, count: area.ktvCount }),
     alternates: alternatesFor(locale, basePath),
     // Ngưỡng do backend quyết định (trường indexable). Trang thưa dữ liệu vẫn cho
     // follow để link chảy tiếp sang quận lân cận, và tự mở index khi đủ KTV.

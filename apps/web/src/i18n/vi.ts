@@ -135,9 +135,9 @@ export const vi = {
   },
 
   areaProvince: {
-    metaTitle: 'Massage trị liệu tại nhà {name} — {count} KTV có chứng chỉ',
+    metaTitle: 'Massage tại nhà {name}',
     metaDescription:
-      'Tìm kỹ thuật viên massage trị liệu đến tận nhà tại {name} theo từng quận/huyện. Chứng chỉ hành nghề đã duyệt, bảng giá và đánh giá thật của khách.',
+      '{count} kỹ thuật viên massage trị liệu nhận đến tận nhà tại {name}. Chứng chỉ hành nghề đã duyệt, có bảng giá và đánh giá thật của khách.',
     ogTitle: 'Massage tại nhà {name}',
     h1: 'Massage trị liệu tại nhà {name}',
     lead: {
@@ -164,9 +164,9 @@ export const vi = {
   },
 
   areaDistrict: {
-    metaTitle: 'Massage trị liệu tại nhà {name} — {count} KTV có chứng chỉ',
+    metaTitle: 'Massage tại nhà {name}',
     metaDescription:
-      'Danh sách kỹ thuật viên massage trị liệu nhận đến tận nhà tại {name}, {province}. Xem chứng chỉ hành nghề, bảng giá và đánh giá của khách trước khi gọi.',
+      '{count} kỹ thuật viên massage trị liệu nhận khách tại {name}, {province}. Xem chứng chỉ, bảng giá và đánh giá thật trước khi gọi.',
     ogTitle: 'Massage tại nhà {name}',
     h1: 'Massage trị liệu tại nhà {name}',
 
@@ -198,7 +198,7 @@ export const vi = {
   },
 
   servicePage: {
-    metaTitle: '{name} tại nhà — KTV có chứng chỉ',
+    metaTitle: '{name} tại nhà',
     metaDescriptionFallback:
       'Tìm kỹ thuật viên {nameLower} nhận đến tận nhà, có chứng chỉ hành nghề.',
     h1: '{name} tại nhà',
@@ -206,7 +206,7 @@ export const vi = {
   },
 
   ktvProfile: {
-    metaTitle: '{name} — KTV massage tại nhà{area}',
+    metaTitle: '{name} — KTV massage tại nhà',
     metaDescription:
       '{name}, {years} năm kinh nghiệm massage trị liệu tại nhà{area}. Chứng chỉ hành nghề đã duyệt, bảng giá công khai, đánh giá thật từ khách.',
     metaAreaPrefix: ' khu vực {area}',

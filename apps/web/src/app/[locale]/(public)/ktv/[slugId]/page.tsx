@@ -57,10 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .join(', ');
 
   return {
-    title: t('ktvProfile.metaTitle', {
-      name: profile.fullName,
-      area: khuVực ? ` ${khuVực}` : '',
-    }),
+    title: t('ktvProfile.metaTitle', { name: profile.fullName }),
     description: t('ktvProfile.metaDescription', {
       name: profile.fullName,
       years: profile.yearsExperience,
