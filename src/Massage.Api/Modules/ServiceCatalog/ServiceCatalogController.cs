@@ -63,12 +63,20 @@ public class ServiceCatalogController(
     /// Giá thấp nhất đang có trên sàn. Cố ý <c>null</c> chứ không phải 0 khi chưa KTV
     /// nào khai giá — "từ 0 ₫" đọc như dịch vụ miễn phí.
     /// </param>
+    /// <remarks>
+    /// Trả **cả hai** ngôn ngữ chứ không nhận tham số locale. Frontend cache ở tầng
+    /// fetch theo URL, nên một tham số <c>?locale=</c> sẽ tạo hai cache key cho cùng
+    /// một dữ liệu và nhân đôi số lượt gọi backend mỗi khi ISR revalidate. Đổi lại
+    /// payload dài thêm vài trăm byte cho một danh mục 10 dòng.
+    /// </remarks>
     internal static object ToDto(Service s, decimal? priceFrom = null) => new
     {
         s.Id,
         s.Name,
         s.Slug,
         s.Description,
+        s.NameEn,
+        s.DescriptionEn,
         s.SortOrder,
         PriceFrom = priceFrom,
     };

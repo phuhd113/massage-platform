@@ -15,6 +15,21 @@ public class Service
     public string Slug { get; set; } = null!;
 
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Tên và mô tả tiếng Anh cho trang /en/dich-vu/{slug}.
+    ///
+    /// Nullable vì bản dịch được nạp qua <c>seed-services</c> chứ không qua migration:
+    /// nhét bản dịch vào file migration là chôn nội dung biên tập vào chỗ không ai đọc
+    /// lại và không sửa được nữa. Frontend rơi về bản tiếng Việt khi còn NULL.
+    ///
+    /// Cố ý KHÔNG có slug riêng: URL bản EN dùng lại slug tiếng Việt
+    /// (/en/dich-vu/massage-tri-lieu) nên chỉ có đúng một slug phải giữ ổn định.
+    /// </summary>
+    public string? NameEn { get; set; }
+
+    public string? DescriptionEn { get; set; }
+
     public short SortOrder { get; set; }
 
     /// <summary>Ngừng bán thì tắt cờ này thay vì xoá — hồ sơ KTV cũ vẫn tham chiếu tới nó.</summary>
