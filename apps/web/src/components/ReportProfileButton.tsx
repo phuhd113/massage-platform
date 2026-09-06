@@ -29,7 +29,7 @@ type Reason = (typeof REASONS)[number]['value'];
 /**
  * Nút báo cáo hồ sơ vi phạm.
  *
- * **Vì sao trang hồ sơ cần nó ngay từ bây giờ**: mô hình "massage tại nhà" bị lợi
+ * **Vì sao trang hồ sơ cần nó ngay từ bây giờ**: mô hình "massage tận nơi" bị lợi
  * dụng làm vỏ bọc cho dịch vụ trá hình khá thường xuyên, và rủi ro đó chạm đúng hai
  * trụ cột của dự án — pháp lý, và kênh acquisition chính. Google hạ hạng mạnh tên
  * miền bị phân loại là nội dung người lớn, mà với sản phẩm sống bằng traffic organic

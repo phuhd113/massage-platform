@@ -7,7 +7,7 @@ namespace Massage.Api.Modules.Areas;
 /// Danh mục tỉnh/quận cho trang landing theo khu vực.
 ///
 /// Đường dẫn phân cấp tỉnh → quận cố ý khớp 1:1 với URL công khai
-/// <c>/massage-tai-nha/{tinh}/{quan}</c>, và slug quận **chỉ duy nhất trong phạm vi
+/// <c>/massage-tan-noi/{tinh}/{quan}</c>, và slug quận **chỉ duy nhất trong phạm vi
 /// tỉnh**: cả nước có 10 tỉnh cùng chứa "Huyện Châu Thành", nên không có endpoint nào
 /// tra quận chỉ bằng slug — thiếu vế tỉnh là trả về một trong mười mà không có gì
 /// quyết định là cái nào.

@@ -11,7 +11,7 @@ namespace Massage.Api.Data;
 /// <summary>
 /// Seed danh mục hành chính toàn quốc từ <c>Data/SeedData/vietnam-areas.json</c>:
 /// 63 tỉnh, 696 quận/huyện, ~10.000 phường/xã theo cơ cấu <b>trước sáp nhập 2025</b>
-/// (URL /massage-tai-nha/{tinh}/{quan} đã được index — xem tools/area-dataset/README.md).
+/// (URL /massage-tan-noi/{tinh}/{quan} đã được index — xem tools/area-dataset/README.md).
 ///
 /// Idempotent theo <c>(level, code)</c> chứ <b>không</b> theo slug. Khớp theo slug là
 /// cách bản cũ làm, và nó vỡ khi mở toàn quốc: "Huyện Châu Thành" có ở 11+ tỉnh, nên

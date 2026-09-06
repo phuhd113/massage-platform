@@ -247,7 +247,7 @@ từng liên hệ mới được đánh giá" ở Phase 4 không thể thực th
   mới càng lên trước (tài khoản lập xong đánh giá ngay là hình dạng của việc bơm sao) → mới nhất.
 
 **`ƒ (Dynamic)` trong output của `next build` KHÔNG có nghĩa là mất cache** (đo ngày 2026-09-04).
-Các trang SEO — `/`, `/ktv/{slugId}`, `/massage-tai-nha/*`, `/dich-vu/{slug}` — đều hiện `ƒ` chứ
+Các trang SEO — `/`, `/ktv/{slugId}`, `/massage-tan-noi/*`, `/dich-vu/{slug}` — đều hiện `ƒ` chứ
 không phải `○`, và điều đó **đúng như thiết kế**, không phải lỗi:
 
 - Chữ `ƒ` chỉ nói "không prerender lúc build". Trang chủ khai `force-dynamic` tường minh để **build
@@ -496,6 +496,52 @@ campaign ACTIVE ngay trong transaction mua và search đọc thẳng Postgres, n
 [blueprint](https://claude.ai/code/artifact/a6b39c02-9ed5-4b79-abb1-d7bf68c0c6c0) — đã cập nhật
 theo stack .NET; khi kiến trúc đổi, cập nhật lại artifact đó thay vì tạo bản mới.
 
+**Đổi tên dịch vụ "massage tại nhà" → "massage tận nơi" và slug URL** (2026-09-06). Kèm theo
+đó, tên sàn tách khỏi cụm từ khoá: `SITE_NAME` nay là **MasGo** ở cả hai ngôn ngữ, khớp domain
+masgo.vn. Sáu điều đừng vô tình đảo ngược:
+
+- **`/massage-tai-nha/*` phải 301 vĩnh viễn về `/massage-tan-noi/*`, mãi mãi.** ~760 URL cũ đã
+  được index và đó là kênh acquisition chính; gỡ luật redirect trong `next.config.mjs` là vứt
+  toàn bộ link equity đã tích. Luật khai **hai vế** — có prefix `/en` và không — vì redirect của
+  `next.config` chạy **trước** middleware, nên `/en/massage-tai-nha/...` không tự khớp luật
+  không prefix. Thiếu vế thứ hai thì hỏng đúng một nửa, và là nửa ít người mở nên lâu mới lộ.
+- **`permanent: true` phát ra 308, không phải 301.** Google xử lý 308 y hệt 301 cho việc index,
+  nên đây không phải lỗi — nhưng ai `curl -I` đi tìm chữ "301" sẽ tưởng sai và "sửa" thành
+  redirect tạm, tức giữ URL cũ trong index vô thời hạn.
+- **Tiền tố URL khai đúng một lần mỗi phía**: `AREA_PATH_PREFIX` (`lib/site.ts`) và
+  `SitemapController.AreaPathPrefix`. Hai hằng này phải đổi cùng lúc — sitemap khai URL đang bị
+  redirect nghĩa là tự bảo Google đi qua một hop rồi mới tới đích, trong khi canonical trên
+  trang lại trỏ thẳng: hai lời khai mâu thuẫn về cùng một trang.
+- **Tên sàn không còn là cụm từ khoá.** Trước đây `SITE_NAME` chính là "Massage tại nhà", nên
+  template title dựng ra "Massage tận nơi Quận 7 | Massage tận nơi" — lặp từ khoá mà không thêm
+  thông tin, và không để lại cái tên nào cho khách nhớ. Từ khoá đã nằm ở vế trái của title; vế
+  phải giờ là thứ phân biệt sàn này với sàn khác trong cùng trang kết quả.
+- **`common.siteName` trong `i18n/*.ts` đã xoá, không phải bỏ sót.** Không nơi nào đọc nó —
+  mọi chỗ dùng `SITE_NAME` từ `lib/site.ts`. Thêm lại là dựng nguồn sự thật thứ hai cho tên sàn,
+  và bản lệch sẽ chỉ lộ ra ở đúng trang nào lỡ dùng nhầm key.
+- **`NEXT_PUBLIC_SITE_URL` ở `docker-compose.yml` và `.env.example` vẫn là localhost, cố ý.**
+  Biến này đi thẳng vào canonical, hreflang và `og:url`; đặt domain thật ở stack dev thì mọi
+  trang chạy trên máy dev tự khai canonical trỏ về production. Domain thật khai bằng
+  `SITE_URL=https://masgo.vn` ở môi trường deploy. Mặc định trong code (`site.ts`) là
+  `https://masgo.vn` để bản deploy quên khai biến vẫn không rơi về localhost.
+- **`NEXT_PUBLIC_SITE_URL` phải là build arg, KHÔNG chỉ là biến lúc chạy** — bẫy thứ hai cùng
+  hình dạng với `NEXT_PUBLIC_MEDIA_BASE_URL`, phát hiện khi audit lần này. `app/robots.ts` là
+  route **tĩnh**: Next đánh giá nó một lần lúc build rồi ghi thẳng ra file, trong khi
+  `sitemap.xml` là route **động** và đọc env lúc chạy. Khai thiếu vế build thì `robots.txt` giữ
+  host lúc build còn sitemap dùng host lúc chạy — hai file mà Googlebot luôn đọc cùng nhau lại
+  khai hai host khác nhau, dòng `Sitemap:` trỏ sang host khác với chính các `<loc>` bên trong,
+  và Google bỏ qua sitemap đó. Cả hai file vẫn trả 200 và trông hợp lệ khi mở riêng lẻ. Vì vậy
+  đổi domain phải `docker compose up -d --build web`, restart không đủ. Đã kiểm chứng cả hai
+  cấu hình: dev cho localhost ở cả robots/sitemap/canonical, `SITE_URL=https://masgo.vn` cho
+  masgo.vn ở cả ba.
+
+Chuỗi "massage tại nhà" **còn lại đúng ba chỗ và cả ba đều đúng**: comment lịch sử trong
+`site.ts`, alt text `HomeHeroMedia` (mô tả bối cảnh thật — trị liệu tận nơi *tại nhà khách*), và
+`ServiceSeeder` mô tả nơi diễn ra dịch vụ. Các dòng trong docs nói "người tìm *massage tại nhà
+Quận 7*" cũng giữ nguyên: đó là hành vi tìm kiếm có thật trên Google, không đổi theo cách sàn tự
+gọi tên dịch vụ. Migration `20260903015608_AreasNationwide.cs` giữ nguyên chữ cũ vì migration đã
+áp là lịch sử, không sửa lại.
+
 **Đăng nhập gửi OTP qua Zalo ZNS** (2026-09-05, `Modules/Auth/Sms/` + bảng `zalo_tokens`).
 Thay chỗ cắm bỏ ngỏ từ Phase 0. Hướng dẫn lấy credential: [docs/zalo-zns-setup.md](docs/zalo-zns-setup.md).
 Bảy điều đừng vô tình đảo ngược:
@@ -553,7 +599,7 @@ Lưu ý vận hành hiện tại:
 
 **Bản tiếng Anh cho khách đã chạy** (2026-09-05, `apps/web/src/i18n/` + `src/middleware.ts`).
 Tiếng Việt là mặc định và **không có prefix**; bản tiếng Anh nằm dưới `/en` và dùng lại
-slug tiếng Việt (`/en/massage-tai-nha/tp-ho-chi-minh`). Chín điều đừng vô tình đảo ngược:
+slug tiếng Việt (`/en/massage-tan-noi/tp-ho-chi-minh`). Chín điều đừng vô tình đảo ngược:
 
 - **Middleware `rewrite`, KHÔNG bao giờ `redirect`, và không negotiate `Accept-Language`.**
   URL tiếng Việt phải giữ nguyên từng ký tự vì Google đã index chúng; thêm một hop redirect

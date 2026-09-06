@@ -177,7 +177,7 @@ public class AreaServiceTests(PostgresFixture fixture)
 
         // Tỉnh có parent_id NULL, mà UNIQUE (parent_id, slug) coi mọi NULL là khác
         // nhau — nên nếu thiếu partial index uq_area_root_slug thì lệnh này lọt, và
-        // hai trang /massage-tai-nha/{slug} cùng nhận canonical. Test này canh đúng
+        // hai trang /massage-tan-noi/{slug} cùng nhận canonical. Test này canh đúng
         // cái bẫy đó: bỏ index đi là nó đỏ.
         var thử = async () => await TestData.CreateAreaAsync(db, AreaLevels.Province, slug: slug);
 

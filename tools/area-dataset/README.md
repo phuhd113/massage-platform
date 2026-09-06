@@ -1,7 +1,7 @@
 # Sinh lại `vietnam-areas.json`
 
 Dữ liệu 63 tỉnh / 696 quận-huyện / 10.051 phường-xã theo **cơ cấu hành chính trước
-sáp nhập 2025**. Chọn cơ cấu cũ có chủ đích: URL `/massage-tai-nha/{tinh}/{quan}`
+sáp nhập 2025**. Chọn cơ cấu cũ có chủ đích: URL `/massage-tan-noi/{tinh}/{quan}`
 đã được index và từ khoá kiểu "massage tại nhà Quận 7" là kênh acquisition chính.
 
 ```bash

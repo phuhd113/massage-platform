@@ -47,7 +47,7 @@ public static class ProfileReportStatuses
 /// <summary>
 /// Một lần khách báo cáo hồ sơ KTV có vi phạm.
 ///
-/// Vì sao bảng này tồn tại từ sớm chứ không đợi Phase 4: mô hình "massage tại nhà"
+/// Vì sao bảng này tồn tại từ sớm chứ không đợi Phase 4: mô hình "massage tận nơi"
 /// bị lợi dụng làm vỏ bọc cho dịch vụ trá hình khá thường xuyên, và rủi ro đó chạm
 /// đúng hai trụ cột của dự án — pháp lý, và kênh acquisition chính. Google hạ hạng
 /// mạnh tên miền bị phân loại là nội dung người lớn, mà mất SEO ở đây là mất gần như

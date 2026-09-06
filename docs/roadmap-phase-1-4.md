@@ -96,7 +96,7 @@ Tạo `apps/web` (App Router, TypeScript, Tailwind), thêm service vào `docker-
 | Route | Render | SEO |
 |---|---|---|
 | `/` | ISR | `Organization` + `WebSite` kèm `SearchAction` |
-| `/massage-tai-nha/{tinh}/{quan}` | ISR 60–300s | `BreadcrumbList` + `ItemList`; `noindex, follow` khi < 3 KTV |
+| `/massage-tan-noi/{tinh}/{quan}` | ISR 60–300s | `BreadcrumbList` + `ItemList`; `noindex, follow` khi < 3 KTV |
 | `/ktv/{slug}-{id}` | ISR | `ProfessionalService` + `AggregateRating` + `Review` — chỉ dữ liệu thật |
 | `/dich-vu/{slug}` | ISR | Liên kết chéo sang các khu vực có dịch vụ đó |
 | `/tim-kiem` | SSR | Canonical về URL gốc cho mọi biến thể `?sort=`, `?page=` |
@@ -375,7 +375,7 @@ mình đang giữ lock. Chỉ ràng buộc DB mới chặn được. Nếu Redis
 
 ### Kiểm duyệt nội dung — rủi ro chưa có trong kế hoạch hiện tại
 
-Mô hình "massage tại nhà" ở Việt Nam bị lợi dụng làm vỏ bọc cho dịch vụ trá hình khá thường xuyên. Rủi ro
+Mô hình "massage tận nơi" ở Việt Nam bị lợi dụng làm vỏ bọc cho dịch vụ trá hình khá thường xuyên. Rủi ro
 này chạm đúng hai trụ cột của dự án: pháp lý, và **kênh acquisition chính** — Google hạ hạng mạnh tên miền
 bị phân loại là nội dung người lớn, mà mất SEO ở đây là mất gần như toàn bộ khách. Cần chuẩn bị từ Phase 1,
 không đợi Phase 4:

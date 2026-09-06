@@ -127,8 +127,8 @@ Next.js 14 App Router, chạy ở <http://localhost:3000>. Mọi trang public re
 | Route | Render | Ghi chú |
 |---|---|---|
 | `/` | theo request, data cache 300s | `WebSite` + `Organization` |
-| `/massage-tai-nha/{tinh}` | ISR 300s | Danh sách quận theo số KTV |
-| `/massage-tai-nha/{tinh}/{quan}` | ISR 300s | `noindex, follow` khi dưới 3 KTV; `ItemList` + `BreadcrumbList` |
+| `/massage-tan-noi/{tinh}` | ISR 300s | Danh sách quận theo số KTV |
+| `/massage-tan-noi/{tinh}/{quan}` | ISR 300s | `noindex, follow` khi dưới 3 KTV; `ItemList` + `BreadcrumbList` |
 | `/ktv/{slug}-{id}` | ISR 600s | `ProfessionalService` + `AggregateRating` (chỉ khi có đánh giá thật) |
 | `/dich-vu/{slug}` | ISR 300s | Trang trung chuyển dịch vụ ↔ khu vực |
 | `/tim-kiem` | SSR | `noindex, follow`; canonical về URL gốc |

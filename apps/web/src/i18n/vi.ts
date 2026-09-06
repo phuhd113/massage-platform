@@ -13,7 +13,6 @@
  */
 export const vi = {
   common: {
-    siteName: 'Massage tại nhà',
     home: 'Trang chủ',
     ktvUnit: 'KTV',
     from: 'từ',
@@ -30,7 +29,7 @@ export const vi = {
     navHowWeVerify: 'Cách chúng tôi duyệt hồ sơ',
     navForKtv: 'Dành cho KTV',
     footerBlurb:
-      '{siteName} — nền tảng kết nối khách với kỹ thuật viên massage trị liệu tại nhà. Mọi hồ sơ hiển thị đều đã qua duyệt chứng chỉ hành nghề.',
+      '{siteName} — nền tảng kết nối khách với kỹ thuật viên massage trị liệu tận nơi. Mọi hồ sơ hiển thị đều đã qua duyệt chứng chỉ hành nghề.',
     languageLabel: 'Ngôn ngữ',
     switchToEnglish: 'English',
     switchToVietnamese: 'Tiếng Việt',
@@ -39,12 +38,12 @@ export const vi = {
   home: {
     metaTitle: '{siteName} — KTV trị liệu có chứng chỉ',
     metaDescription:
-      'Tìm kỹ thuật viên massage trị liệu tại nhà theo khu vực, xem chứng chỉ hành nghề và đánh giá thật trước khi liên hệ.',
+      'Tìm kỹ thuật viên massage trị liệu tận nơi theo khu vực, xem chứng chỉ hành nghề và đánh giá thật trước khi liên hệ.',
     verifiedBadge: {
       one: '{count} kỹ thuật viên đã đối chiếu chứng chỉ hành nghề',
       other: '{count} kỹ thuật viên đã đối chiếu chứng chỉ hành nghề',
     },
-    heroTitle: 'Massage trị liệu tại nhà, người thật có chứng chỉ thật',
+    heroTitle: 'Massage trị liệu tận nơi, người thật có chứng chỉ thật',
     heroSubtitle:
       'Xem ảnh, chứng chỉ hành nghề và khoảng cách của từng kỹ thuật viên trước khi gọi. Không mất phí đặt lịch, thanh toán sau buổi trị liệu.',
 
@@ -137,11 +136,11 @@ export const vi = {
   },
 
   areaProvince: {
-    metaTitle: 'Massage tại nhà {name}',
+    metaTitle: 'Massage tận nơi {name}',
     metaDescription:
       '{count} kỹ thuật viên massage trị liệu nhận đến tận nhà tại {name}. Chứng chỉ hành nghề đã duyệt, có bảng giá và đánh giá thật của khách.',
-    ogTitle: 'Massage tại nhà {name}',
-    h1: 'Massage trị liệu tại nhà {name}',
+    ogTitle: 'Massage tận nơi {name}',
+    h1: 'Massage trị liệu tận nơi {name}',
     lead: {
       one: '{count} kỹ thuật viên đang nhận khách tại {name}. Chọn quận/huyện của bạn để xem những người ở gần nhất.',
       other: '{count} kỹ thuật viên đang nhận khách tại {name}. Chọn quận/huyện của bạn để xem những người ở gần nhất.',
@@ -166,11 +165,11 @@ export const vi = {
   },
 
   areaDistrict: {
-    metaTitle: 'Massage tại nhà {name}',
+    metaTitle: 'Massage tận nơi {name}',
     metaDescription:
       '{count} kỹ thuật viên massage trị liệu nhận khách tại {name}, {province}. Xem chứng chỉ, bảng giá và đánh giá thật trước khi gọi.',
-    ogTitle: 'Massage tại nhà {name}',
-    h1: 'Massage trị liệu tại nhà {name}',
+    ogTitle: 'Massage tận nơi {name}',
+    h1: 'Massage trị liệu tận nơi {name}',
 
     leadPre: 'Hiện có ',
     leadPost: {
@@ -196,21 +195,21 @@ export const vi = {
     howTo4:
       'Nếu KTV ở xa {name}, hãy xác nhận lại phí di chuyển — bán kính nhận khách của mỗi người khác nhau.',
 
-    jsonLdItemList: 'Kỹ thuật viên massage tại nhà {name}',
+    jsonLdItemList: 'Kỹ thuật viên massage tận nơi {name}',
   },
 
   servicePage: {
-    metaTitle: '{name} tại nhà',
+    metaTitle: '{name} tận nơi',
     metaDescriptionFallback:
       'Tìm kỹ thuật viên {nameLower} nhận đến tận nhà, có chứng chỉ hành nghề.',
-    h1: '{name} tại nhà',
+    h1: '{name} tận nơi',
     byArea: 'Tìm {nameLower} theo khu vực',
   },
 
   ktvProfile: {
-    metaTitle: '{name} — KTV massage tại nhà',
+    metaTitle: '{name} — KTV massage tận nơi',
     metaDescription:
-      '{name}, {years} năm kinh nghiệm massage trị liệu tại nhà{area}. Chứng chỉ hành nghề đã duyệt, bảng giá công khai, đánh giá thật từ khách.',
+      '{name}, {years} năm kinh nghiệm massage trị liệu tận nơi{area}. Chứng chỉ hành nghề đã duyệt, bảng giá công khai, đánh giá thật từ khách.',
     metaAreaPrefix: ' khu vực {area}',
 
     avatarAlt: 'Ảnh đại diện của {name}',
@@ -256,7 +255,7 @@ export const vi = {
   },
 
   search: {
-    metaTitle: 'Tìm kỹ thuật viên massage tại nhà',
+    metaTitle: 'Tìm kỹ thuật viên massage tận nơi',
     metaDescription:
       'Tìm kỹ thuật viên massage trị liệu nhận đến tận nhà theo vị trí hiện tại hoặc theo quận/huyện.',
 

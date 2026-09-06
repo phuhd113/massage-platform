@@ -12,7 +12,7 @@ public class KtvServiceItemDtoValidator : AbstractValidator<KtvServiceItemDto>
     {
         RuleFor(x => x.ServiceId).NotEmpty();
         // Trần 50 triệu là để chặn lỗi nhập liệu (thừa số 0), không phải giới hạn
-        // kinh doanh — giá thật của dịch vụ tại nhà nằm dưới mức này rất xa.
+        // kinh doanh — giá thật của dịch vụ tận nơi nằm dưới mức này rất xa.
         RuleFor(x => x.PriceFrom).InclusiveBetween(0, 50_000_000)
             .WithMessage("Giá phải trong khoảng 0 – 50.000.000đ");
         RuleFor(x => x.PriceFrom).Must(p => p == decimal.Truncate(p))

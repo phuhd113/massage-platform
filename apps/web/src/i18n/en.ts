@@ -13,7 +13,6 @@ import type { Dictionary } from './dictionaries';
  */
 export const en: Dictionary = {
   common: {
-    siteName: 'Home Massage Vietnam',
     home: 'Home',
     ktvUnit: 'therapists',
     from: 'from',

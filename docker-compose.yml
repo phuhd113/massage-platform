@@ -77,6 +77,11 @@ services:
         # Phải là build arg, không chỉ là biến lúc chạy: next.config.mjs dựng
         # images.remotePatterns từ nó và Next chốt danh sách đó vào bản build.
         NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+        # Cùng lý do, khác cơ chế: `app/robots.ts` là route tĩnh nên host được ghi
+        # thẳng vào robots.txt lúc build. Phải khai ở **cả hai** chỗ (arg và
+        # environment) — sitemap.xml là route động và đọc biến lúc chạy, nên khai
+        # thiếu một vế là robots.txt và sitemap.xml trỏ hai host khác nhau.
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
     container_name: massage_web
     depends_on:
       - api
@@ -86,7 +91,12 @@ services:
       # Trình duyệt gọi thẳng API khi ghi lead, để backend thấy đúng IP khách
       # thay vì IP của Next.
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:5080/api/v1"
-      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+      # Giữ localhost ở stack dev: biến này đi thẳng vào canonical, hreflang và
+      # og:url. Đặt "https://masgo.vn" ở đây thì mọi trang chạy trên máy dev tự khai
+      # canonical trỏ về production — và nếu bản dev nào lọt ra ngoài cho Googlebot
+      # thấy, nó khai hộ luôn. Deploy thật đặt SITE_URL=https://masgo.vn, và phải
+      # `up -d --build web` chứ không chỉ restart: robots.txt chốt host lúc build.
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
       # next/image chặn mọi host không khai trước, nên origin ảnh phải tới được cả
       # lúc build (dựng remotePatterns) lẫn lúc chạy. Để trống thì ảnh đi qua
       # /uploads của API như trước.

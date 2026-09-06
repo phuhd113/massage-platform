@@ -1,6 +1,6 @@
 # Bối cảnh nghiệp vụ
 
-Two-sided marketplace kết nối khách với kỹ thuật viên (KTV) massage trị liệu tại nhà, theo mô hình
+Two-sided marketplace kết nối khách với kỹ thuật viên (KTV) massage trị liệu tận nơi, theo mô hình
 Listing & Bidding: KTV tạo hồ sơ miễn phí, khách tìm theo vị trí GPS, **doanh thu đến từ việc KTV
 trả phí đẩy tin lên top** (ghim VIP theo khu vực, boost theo khung giờ vàng, huy hiệu nổi bật).
 

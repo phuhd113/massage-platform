@@ -46,7 +46,7 @@ Mô hình `khu-vực × dịch-vụ` sinh ra hàng nghìn tổ hợp URL. Nếu 
 
 ## 5. URL & internal linking
 
-- [ ] URL đọc được, tiếng Việt không dấu, phân cấp theo địa danh: `/massage-tai-nha/{tinh-thanh}/{quan-huyen}`, `/ktv/{slug}-{id}`
+- [ ] URL đọc được, tiếng Việt không dấu, phân cấp theo địa danh: `/massage-tan-noi/{tinh-thanh}/{quan-huyen}`, `/ktv/{slug}-{id}`
 - [ ] Có breadcrumb hiển thị **và** đánh dấu `BreadcrumbList`
 - [ ] Có link hai chiều: khu vực ↔ khu vực lân cận, khu vực ↔ dịch vụ, hồ sơ KTV ↔ trang khu vực của họ
 - [ ] Trang mới đã nằm trong `sitemap.xml` động

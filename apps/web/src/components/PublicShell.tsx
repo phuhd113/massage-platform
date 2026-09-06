@@ -6,7 +6,7 @@ import { LogoMark } from '@/components/icons';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
-import { SITE_NAME } from '@/lib/site';
+import { SITE_NAME, areaPath } from '@/lib/site';
 
 /**
  * Khung trang công khai: header + footer.
@@ -54,13 +54,13 @@ export function PublicShell({
               {t('shell.navFindKtv')}
             </Link>
             <Link
-              href={localePath(locale, '/massage-tai-nha/tp-ho-chi-minh')}
+              href={areaPath(locale, 'tp-ho-chi-minh')}
               className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
             >
               {t('shell.navHcm')}
             </Link>
             <Link
-              href={localePath(locale, '/massage-tai-nha/ha-noi')}
+              href={areaPath(locale, 'ha-noi')}
               className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
             >
               {t('shell.navHanoi')}

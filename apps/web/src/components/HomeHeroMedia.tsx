@@ -36,7 +36,7 @@ export function HomeHeroMedia({ stats }: { stats: SiteStats }) {
             <circle cx="8.5" cy="9.5" r="1.75" />
             <path d="m3.5 17 4.5-4.5 3.5 3.5 3-3 6 6" />
           </svg>
-          Ảnh KTV đang trị liệu tại nhà khách
+          Ảnh KTV đang trị liệu tận nơi tại nhà khách hàng
         </span>
       </div>
 

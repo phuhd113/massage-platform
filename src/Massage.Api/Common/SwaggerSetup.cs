@@ -21,7 +21,7 @@ public static class SwaggerSetup
                 Title = "Massage Platform API",
                 Version = "v1",
                 Description =
-                    "Marketplace kết nối khách với kỹ thuật viên massage trị liệu tại nhà.\n\n"
+                    "Marketplace kết nối khách với kỹ thuật viên massage trị liệu tận nơi.\n\n"
                     + "**Đăng nhập để thử các endpoint có khoá:** gọi `POST /api/v1/auth/otp/request` "
                     + "→ lấy `debugCode` trong response (OTP đang ở chế độ stub) → gọi "
                     + "`POST /api/v1/auth/otp/verify` → bấm **Authorize** và dán `accessToken`.",

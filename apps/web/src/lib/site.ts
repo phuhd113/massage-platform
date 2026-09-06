@@ -1,15 +1,20 @@
 import { INTL_LOCALE, type Locale, localePath } from '@/i18n/config';
 
 /**
- * Tên sàn theo ngôn ngữ. Bản tiếng Anh không phải bản dịch sát nghĩa của bản tiếng
- * Việt: nó phải tự đứng được như một cái tên trong kết quả tìm kiếm tiếng Anh.
+ * Tên thương hiệu, **giống nhau ở cả hai ngôn ngữ** và khớp với domain masgo.vn.
+ *
+ * Trước đây tên sàn chính là cụm từ khoá dịch vụ ("Massage tại nhà" / "Home Massage
+ * Vietnam"), nên meta title đọc thành "Massage tận nơi Quận 7 | Massage tận nơi" —
+ * lặp từ khoá mà không thêm thông tin, và không để lại cái tên nào cho khách nhớ khi
+ * quay lại. Từ khoá đã nằm sẵn ở vế trái của title; vế phải giờ là thứ phân biệt sàn
+ * này với sàn khác trong cùng một trang kết quả.
  */
 export const SITE_NAME: Record<Locale, string> = {
-  vi: 'Massage tại nhà',
-  en: 'Home Massage Vietnam',
+  vi: 'MasGo',
+  en: 'MasGo',
 };
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://masgo.vn').replace(
   /\/$/,
   '',
 );
@@ -17,14 +22,26 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3
 export const absolute = (path: string) => `${SITE_URL}${path}`;
 
 /**
+ * Tiền tố của mọi URL trang khu vực, khai **đúng một lần** ở đây.
+ *
+ * Nó phải khớp đồng thời ở bốn nơi: đường dựng link của frontend, sitemap do backend
+ * sinh, luật redirect 301 từ tiền tố cũ, và canonical/hreflang. Lệch một chỗ nghĩa là
+ * canonical trỏ tới một URL đang redirect — Google bỏ qua cả cụm hreflang khi đó.
+ */
+export const AREA_PATH_PREFIX = '/massage-tan-noi';
+
+/**
  * Slug trong URL **giữ nguyên tiếng Việt ở cả hai ngôn ngữ**
- * (/en/massage-tai-nha/tp-ho-chi-minh).
+ * (/en/massage-tan-noi/tp-ho-chi-minh).
  *
  * Slug tiếng Anh riêng sẽ đòi một cột slug thứ hai cho 696 quận/huyện — tức một
  * nguồn lệch mới phải giữ khớp mãi mãi, đổi lấy vài từ khoá trong đường dẫn.
  */
 export const areaPath = (locale: Locale, province: string, district?: string | null) =>
-  localePath(locale, district ? `/massage-tai-nha/${province}/${district}` : `/massage-tai-nha/${province}`);
+  localePath(
+    locale,
+    district ? `${AREA_PATH_PREFIX}/${province}/${district}` : `${AREA_PATH_PREFIX}/${province}`,
+  );
 
 export const ktvPath = (locale: Locale, slug: string, id: string) => localePath(locale, `/ktv/${slug}-${id}`);
 
