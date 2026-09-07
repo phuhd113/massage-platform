@@ -62,6 +62,8 @@ export function PublicShell({
                 locating: t('filters.locating'),
                 failed: t('filters.geoFailed'),
                 unsupported: t('filters.geoUnsupported'),
+                denied: t('filters.geoDenied'),
+                dismiss: t('filters.geoDismiss'),
               }}
               className="flex max-w-[9rem] shrink items-center gap-1.5 rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-60 sm:max-w-[12rem]"
             />

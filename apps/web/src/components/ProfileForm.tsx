@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
 import { CoverageAreaPicker, type CoverageAreaLabel } from '@/components/CoverageAreaPicker';
+import { geoErrorMessage, getPosition } from '@/lib/geolocate';
 import type { MyKtvProfile } from '@/lib/types';
 
 const MAX_AREAS = 30;
@@ -50,25 +51,29 @@ export function ProfileForm({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  function useMyLocation() {
-    if (!navigator.geolocation) {
-      setError('Trình duyệt không hỗ trợ định vị. Nhập toạ độ thủ công bên dưới.');
+  // Dashboard KTV cố ý chỉ có tiếng Việt (xem project-status), nên chuỗi ghi thẳng
+  // ở đây thay vì đi qua i18n — khác ba nút của khách.
+  async function useMyLocation() {
+    setLocating(true);
+    setError(null);
+
+    const result = await getPosition();
+    setLocating(false);
+
+    if (!result.ok) {
+      setError(
+        geoErrorMessage(result.kind, {
+          unsupported: 'Trình duyệt không hỗ trợ định vị. Nhập toạ độ thủ công bên dưới.',
+          denied:
+            'Bạn đã chặn quyền vị trí cho trang này. Bật lại trong cài đặt trình duyệt, hoặc nhập toạ độ thủ công bên dưới.',
+          unavailable: 'Chưa lấy được vị trí. Nhập toạ độ thủ công bên dưới.',
+        }),
+      );
       return;
     }
 
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(Number(pos.coords.latitude.toFixed(6)));
-        setLon(Number(pos.coords.longitude.toFixed(6)));
-        setLocating(false);
-      },
-      () => {
-        setLocating(false);
-        setError('Chưa lấy được vị trí. Nhập toạ độ thủ công bên dưới.');
-      },
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
+    setLat(Number(result.coords.latitude.toFixed(6)));
+    setLon(Number(result.coords.longitude.toFixed(6)));
   }
 
   async function submit(e: React.FormEvent) {

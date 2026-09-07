@@ -124,6 +124,7 @@ export const en: Dictionary = {
     errorWrongCredentials: 'That phone number or password is wrong.',
     errorPhoneTaken: 'That phone number already has an account. Please log in.',
     errorLocked: 'Too many wrong attempts, so this account is locked for a few minutes.',
+    errorInvalidPhone: 'That phone number is not in a valid format. Example: 0901234567.',
     errorPasswordMismatch: 'The two passwords do not match.',
     errorPasswordShort: 'Your password must be at least {length} characters.',
 
@@ -355,6 +356,9 @@ export const en: Dictionary = {
     fetching: 'Getting the number…',
     payLater: 'Pay after the session',
     phoneLabel: 'Phone number:',
+    phoneRevealed: "{name}'s phone number",
+    copy: 'Copy',
+    copied: 'Copied',
     trust1: 'The phone number appears as soon as you tap call',
     trust2: 'You pay the therapist directly after the session',
     trust3: 'We charge no booking fee',
@@ -446,7 +450,11 @@ export const en: Dictionary = {
     viewList: 'List',
     viewMap: 'Map',
     geoUnsupported: 'Your browser does not support location.',
-    geoFailed: 'Could not get your location. You can choose a district below instead.',
+    geoDenied:
+      'Location is blocked for this site. Open your browser permission settings (the lock icon next to the address bar) to allow it, or choose a district below.',
+    geoFailed:
+      'Could not get your location. Try again somewhere with a clear view of the sky, or choose a district below.',
+    geoDismiss: 'Got it',
     areaClear: 'Clear the selected area',
     areaSuggestions: 'Area suggestions',
     areaKtvCount: { one: '{count} therapist', other: '{count} therapists' },

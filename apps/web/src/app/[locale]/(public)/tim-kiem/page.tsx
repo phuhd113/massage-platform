@@ -104,7 +104,10 @@ export default async function SearchPage({ params, searchParams }: Props) {
     </p>
   );
 
-  const showMap = isMapView && results !== null && (results.items.length > 0 || origin !== null);
+  // Điều kiện phải khớp `canShowMap` bên dưới, nếu không nút nổi mời khách sang một
+  // chế độ rồi ở đó không có bản đồ nào — bấm xong thấy đúng không có gì đổi.
+  // Bản đồ rỗng vẫn có ích: nó cho thấy vùng đang tìm và kéo sang chỗ khác được.
+  const showMap = isMapView && results !== null;
 
   // Tên khu vực để dựng tiêu đề ("37 kỹ thuật viên tại Quận 7").
   //
@@ -142,8 +145,18 @@ export default async function SearchPage({ params, searchParams }: Props) {
         : t('search.headingPlain', { count: results.total })
     : t('search.headingIdle');
 
-  // Nút nổi chỉ có nghĩa khi thật sự có gì để đặt lên bản đồ.
-  const canShowMap = results !== null && (results.items.length > 0 || origin !== null);
+  // Nút nổi hiện bất cứ khi nào đã có một lượt tìm, kể cả lượt trả về 0 kết quả.
+  //
+  // Bản cũ đòi `items.length > 0 || origin !== null`, nên trang "0 KTV tại Quận 7"
+  // (tìm theo `areaSlug`, không có toạ độ) mất nút. Đó lại đúng lúc bản đồ có ích
+  // nhất: khách nhìn thấy vùng mình đang tìm và kéo sang quận bên cạnh, thay vì đọc
+  // một câu báo rỗng rồi không biết đi đâu tiếp.
+  //
+  // Ở mobile đây là lối **duy nhất** đổi cách xem — cụm "Danh sách / Bản đồ" trong
+  // khối lọc là `sm:hidden` vì ba phần tử không vừa 390px (xem `SearchFilters`).
+  // Nên điều kiện ở đây không được chặt hơn cần thiết: mất nút nổi ở mobile là mất
+  // hẳn bản đồ, không phải chỉ mất một lối tắt.
+  const canShowMap = results !== null;
 
   return (
     <>

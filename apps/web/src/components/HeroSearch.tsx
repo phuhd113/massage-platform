@@ -10,6 +10,7 @@ import { useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
 import { NearMeIcon, SearchIcon } from '@/components/icons';
 import { areaScopeParams } from '@/lib/area-search';
+import { geoErrorMessage, getPosition } from '@/lib/geolocate';
 import type { AreaSuggestion, ServiceItem } from '@/lib/types';
 
 /**
@@ -51,29 +52,31 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
     startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
   }
 
-  function nearMe() {
-    if (!navigator.geolocation) {
-      setGeoError(t('home.heroGeoUnsupported'));
+  async function nearMe() {
+    setLocating(true);
+    setGeoError(null);
+
+    const result = await getPosition();
+    setLocating(false);
+
+    if (!result.ok) {
+      // Ba loại lỗi, ba câu khác nhau: bị chặn quyền thì bấm lại vô ích, còn mất tín
+      // hiệu thì thử lại là được. Bản cũ hiện chung một câu cho cả ba.
+      setGeoError(
+        geoErrorMessage(result.kind, {
+          unsupported: t('home.heroGeoUnsupported'),
+          denied: t('filters.geoDenied'),
+          unavailable: t('filters.geoFailed'),
+        }),
+      );
       return;
     }
 
-    setLocating(true);
-    setGeoError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const q = new URLSearchParams();
-        q.set('lat', pos.coords.latitude.toFixed(6));
-        q.set('lon', pos.coords.longitude.toFixed(6));
-        if (service) q.set('service', service);
-        setLocating(false);
-        startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
-      },
-      () => {
-        setLocating(false);
-        setGeoError(t('filters.geoFailed'));
-      },
-      { timeout: 10_000 },
-    );
+    const q = new URLSearchParams();
+    q.set('lat', result.coords.latitude.toFixed(6));
+    q.set('lon', result.coords.longitude.toFixed(6));
+    if (service) q.set('service', service);
+    startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
   }
 
   const busy = pending || locating;

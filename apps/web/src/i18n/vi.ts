@@ -132,6 +132,10 @@ export const vi = {
     errorWrongCredentials: 'Số điện thoại hoặc mật khẩu không đúng.',
     errorPhoneTaken: 'Số điện thoại này đã có tài khoản. Vui lòng đăng nhập.',
     errorLocked: 'Sai quá nhiều lần nên tài khoản tạm khoá. Vui lòng thử lại sau ít phút.',
+    // Backend trả 400 khi số điện thoại sai định dạng. Câu này phải nói rõ ô nào
+    // sai: trước đây 400 bị map thành errorLocked, nên người gõ nhầm một chữ số
+    // được bảo là tài khoản đang bị khoá và ngồi chờ 15 phút một cách vô ích.
+    errorInvalidPhone: 'Số điện thoại chưa đúng định dạng. Ví dụ: 0901234567.',
     errorPasswordMismatch: 'Hai lần nhập mật khẩu không giống nhau.',
     errorPasswordShort: 'Mật khẩu phải có ít nhất {length} ký tự.',
 
@@ -369,6 +373,9 @@ export const vi = {
     fetching: 'Đang lấy số…',
     payLater: 'Trả sau buổi trị liệu',
     phoneLabel: 'Số điện thoại:',
+    phoneRevealed: 'Số điện thoại của {name}',
+    copy: 'Sao chép',
+    copied: 'Đã chép',
     trust1: 'Số điện thoại hiện ngay khi bấm gọi',
     trust2: 'Thanh toán trực tiếp sau buổi trị liệu',
     trust3: 'Nền tảng không thu phí đặt lịch',
@@ -460,7 +467,15 @@ export const vi = {
     viewList: 'Danh sách',
     viewMap: 'Bản đồ',
     geoUnsupported: 'Trình duyệt không hỗ trợ định vị.',
-    geoFailed: 'Chưa lấy được vị trí. Bạn có thể chọn quận/huyện bên dưới.',
+    // Ba câu cho ba tình huống, vì việc khách phải làm tiếp khác hẳn nhau. Trước đây
+    // cả ba dùng chung `geoFailed`: người bị chặn quyền đọc "chưa lấy được vị trí"
+    // rồi bấm lại mãi mà không bao giờ có popup nào hiện ra, vì trình duyệt đã nhớ
+    // lựa chọn "Chặn" và không hỏi lại nữa.
+    geoDenied:
+      'Bạn đã chặn quyền vị trí cho trang này. Mở phần cài đặt quyền của trình duyệt (biểu tượng khoá cạnh địa chỉ web) để bật lại, hoặc chọn quận/huyện bên dưới.',
+    geoFailed:
+      'Chưa lấy được vị trí. Thử lại ở nơi thoáng, hoặc chọn quận/huyện bên dưới.',
+    geoDismiss: 'Đã hiểu',
     areaClear: 'Xoá khu vực đang chọn',
     areaSuggestions: 'Gợi ý khu vực',
     areaKtvCount: { one: '{count} KTV', other: '{count} KTV' },

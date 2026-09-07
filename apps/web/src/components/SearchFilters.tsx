@@ -15,6 +15,7 @@ import {
   clearAreaScope,
   resolveArea,
 } from '@/lib/area-search';
+import { geoErrorMessage, getPosition } from '@/lib/geolocate';
 import type { ServiceItem } from '@/lib/types';
 
 /**
@@ -127,33 +128,33 @@ export function SearchFilters({
     apply(next);
   }
 
-  function useMyLocation() {
-    if (!navigator.geolocation) {
-      setGeoError(t('filters.geoUnsupported'));
+  async function useMyLocation() {
+    setLocating(true);
+    setGeoError(null);
+
+    const result = await getPosition();
+    setLocating(false);
+
+    if (!result.ok) {
+      setGeoError(
+        geoErrorMessage(result.kind, {
+          unsupported: t('filters.geoUnsupported'),
+          denied: t('filters.geoDenied'),
+          unavailable: t('filters.geoFailed'),
+        }),
+      );
       return;
     }
 
-    setLocating(true);
-    setGeoError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        // Toạ độ và khu vực là hai chế độ khác nhau, giữ cả hai sẽ lọc chồng lên
-        // nhau và ra kết quả rỗng khó hiểu — applyCoords lo việc xoá cặp
-        // areaSlug/provinceSlug, kể cả vế tỉnh mà bản cũ để sót lại.
-        //
-        // Chỉ ghi toạ độ vào URL rồi thôi: tên khu vực do effect ở trên dò, theo dõi
-        // chính toạ độ trong URL. Gọi thẳng ở đây cũng chạy, nhưng chỉ đúng cho một
-        // trong ba lối vào — hai lối kia (đến từ trang chủ, mở lại link đã lưu) không
-        // đi qua hàm này và sẽ có ô khu vực trống.
-        setLocating(false);
-        apply(applyCoords(params, pos.coords));
-      },
-      () => {
-        setLocating(false);
-        setGeoError(t('filters.geoFailed'));
-      },
-      { timeout: 10_000 },
-    );
+    // Toạ độ và khu vực là hai chế độ khác nhau, giữ cả hai sẽ lọc chồng lên
+    // nhau và ra kết quả rỗng khó hiểu — applyCoords lo việc xoá cặp
+    // areaSlug/provinceSlug, kể cả vế tỉnh mà bản cũ để sót lại.
+    //
+    // Chỉ ghi toạ độ vào URL rồi thôi: tên khu vực do effect ở trên dò, theo dõi
+    // chính toạ độ trong URL. Gọi thẳng ở đây cũng chạy, nhưng chỉ đúng cho một
+    // trong ba lối vào — hai lối kia (đến từ trang chủ, mở lại link đã lưu) không
+    // đi qua hàm này và sẽ có ô khu vực trống.
+    apply(applyCoords(params, result.coords));
   }
 
   const isMap = params.get('view') === 'map';
@@ -241,9 +242,15 @@ export function SearchFilters({
         )}
 
         {/*
-          Ba chip gộp một hàng cuộn ngang ở mobile — đúng hình dạng artboard. Cuộn
-          ngang thay vì wrap: wrap ba chip ở 390px thành hai dòng và đẩy kết quả
-          xuống thêm một tầng nữa.
+          Hai chip trạng thái gộp một hàng ở mobile — đúng hình dạng artboard. Cuộn
+          ngang thay vì wrap: wrap ở 390px thành hai dòng và đẩy kết quả xuống thêm
+          một tầng nữa.
+
+          Cụm "Danh sách / Bản đồ" **không** nằm trong hàng này ở mobile (xem
+          `sm:hidden` của nó bên dưới): ba phần tử không vừa 390px nên nó bị cắt
+          mất ở mép phải, và vì hàng cuộn ngang không có dấu hiệu nào cho biết còn
+          nội dung phía sau, khách chỉ thấy một nút "Danh s…" đứt đoạn rồi hết —
+          đúng thứ trông như trang bị vỡ chứ không như thứ cuộn được.
         */}
         <div className="order-5 -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5 sm:order-none sm:mx-0 sm:contents sm:overflow-visible sm:px-0">
         {/*
@@ -276,10 +283,20 @@ export function SearchFilters({
           {t('filters.verifiedOnly')}
         </span>
 
+        {/*
+          Chỉ hiện từ `sm` trở lên — ảnh phản chiếu của `MapViewFab`, vốn là
+          `sm:hidden`. Hai nút điều khiển cùng tham số `view` nhưng không bao giờ
+          xuất hiện cùng lúc, nên không có hai chỗ bấm cho cùng một việc trên cùng
+          một màn hình.
+
+          Ở mobile nút nổi làm việc này tốt hơn hẳn: nó dính đáy nên nằm trong tầm
+          ngón cái suốt lúc cuộn, còn cụm này cuộn mất từ lâu khi khách đọc tới hồ
+          sơ thứ ba — đúng lúc họ nghĩ tới việc xem trên bản đồ.
+        */}
         <div
           role="group"
           aria-label={t('filters.viewGroupLabel')}
-          className="flex shrink-0 self-end rounded-full border border-ink-300 bg-white p-[3px] text-sm sm:ml-auto"
+          className="hidden shrink-0 self-end rounded-full border border-ink-300 bg-white p-[3px] text-sm sm:ml-auto sm:flex"
         >
           {/*
             Trạng thái chọn dùng nền brand đặc, không phải viền hay chữ đậm: hai
