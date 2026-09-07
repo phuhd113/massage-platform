@@ -86,14 +86,32 @@ printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGA
 cp "$tmp/tiny.png" "$tmp/tiny2.png"
 
 phone="09$(shuf -i 10000000-99999999 -n 1)"
-code=$(curl -s -X POST "$API/auth/otp/request" -H 'Content-Type: application/json' \
-  -d "{\"phone\":\"$phone\"}" | grep -o '"debugCode":"[0-9]*"' | cut -d'"' -f4)
-token=$(curl -s -X POST "$API/auth/otp/verify" -H 'Content-Type: application/json' \
-  -d "{\"phone\":\"$phone\",\"code\":\"$code\",\"role\":\"KTV\"}" \
+
+# Hai đường tạo tài khoản, chọn theo môi trường — script này phải chạy được ở CẢ HAI.
+#
+# Production cố ý TẮT OTP stub (Program.cs từ chối khởi động nếu bật): stub trả mã
+# thẳng trong response, nên bật nó ở production nghĩa là ai biết số điện thoại đều
+# chiếm được tài khoản đó. Vì vậy /auth/otp/request ở đó trả 503 và đường OTP bên
+# dưới không bao giờ lấy được token — script sẽ dừng ở đúng mục này.
+#
+# Thử /auth/register (đường mật khẩu, lối vào đang dùng trên production) trước, rồi
+# mới rơi về OTP cho môi trường dev.
+pw="KiemTraR2-$(date +%s)"
+token=$(curl -s -X POST "$API/auth/register" -H 'Content-Type: application/json' \
+  -d "{\"phone\":\"$phone\",\"password\":\"$pw\",\"role\":\"KTV\"}" \
   | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 
 if [ -z "$token" ]; then
-  bad "Không đăng nhập được (OTP stub có đang bật không?)"
+  code=$(curl -s -X POST "$API/auth/otp/request" -H 'Content-Type: application/json' \
+    -d "{\"phone\":\"$phone\"}" | grep -o '"debugCode":"[0-9]*"' | cut -d'"' -f4)
+  token=$(curl -s -X POST "$API/auth/otp/verify" -H 'Content-Type: application/json' \
+    -d "{\"phone\":\"$phone\",\"code\":\"$code\",\"role\":\"KTV\"}" \
+    | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+fi
+
+if [ -z "$token" ]; then
+  bad "Không tạo được tài khoản qua /auth/register lẫn /auth/otp/*"
+  echo "    Rate limit 'auth' là 10 lượt/5 phút — chạy lại script liên tục sẽ chạm."
   exit 1
 fi
 

@@ -245,11 +245,26 @@ Làm theo `docs/cloudflare-r2-setup.md` mục 3 và 4. Tóm tắt các điểm k
    ```
 6. Kiểm chứng:
    ```bash
-   API=https://api.masgo.vn/api/v1 WEB=https://masgo.vn bash tools/verify-r2.sh
+   cd ~/masgo
+   COMPOSE_FILE=docker-compose.prod.yml COMPOSE_ENV_FILES=.env.production \
+     API=https://api.masgo.vn/api/v1 WEB=https://masgo.vn bash tools/verify-r2.sh
    ```
 
-> Cho tới khi làm xong bước này, **ảnh CCCD và chứng chỉ của KTV tải được công khai bởi
-> ai có key**. Đừng mời KTV thật tải giấy tờ lên trước đó.
+   Hai biến `COMPOSE_*` là **bắt buộc trên production**: script gọi `docker compose` trần,
+   không kèm `-f`, nên thiếu chúng là nó soi nhầm stack dev hoặc không thấy container nào.
+
+   Script tự chọn đường tạo tài khoản — thử `/auth/register` (mật khẩu) trước rồi mới rơi
+   về OTP cho môi trường dev, vì production cố ý tắt OTP stub nên đường OTP luôn trả 503.
+
+   **Script không tự dọn file test khỏi bucket** (nó nói rõ ở dòng cuối). Xoá trong R2
+   dashboard, hoặc bằng boto3 — lưu ý image `amazon/aws-cli` **không chạy** trên VPS này
+   (`Fatal glibc error: CPU does not support x86-64-v2`), dùng `python:3.12-alpine` thay thế.
+
+> **Đã hoàn thành 2026-09-07.** Trước đó, vì còn dùng `r2.dev` (không đặt WAF rule được),
+> ảnh CCCD và chứng chỉ **tải được công khai bởi ai có key**. Nay đã đo bằng key thật của
+> một file vừa upload: 403 qua `cdn.masgo.vn`, 401 qua `r2.dev` cũ (đã tắt), và URL ký hạn
+> 15 phút vẫn 200. Nếu dựng lại môi trường mới, đừng mời KTV thật tải giấy tờ lên trước khi
+> bước này xong.
 
 ## 9. Kiểm chứng
 

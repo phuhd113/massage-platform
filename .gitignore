@@ -19,6 +19,11 @@ coverage/
 # cổng thanh toán. Pattern `.env` chỉ khớp đúng tên file đó, không khớp `.env.production`.
 .env.production
 
+# Bản sao lưu .env sinh khi đổi cấu hình (vd lúc chuyển dev sang đĩa local).
+# Chúng chứa nguyên credential cũ, và `.env` ở trên không khớp tên có hậu tố.
+.env.bak
+.env.bak.*
+
 !.env.example
 !.env.production.example
 appsettings.Local.json
