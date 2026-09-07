@@ -43,7 +43,27 @@ public class StartTopUpUseCase(AppDbContext db, IPaymentGateway gateway, IClock 
     }
 }
 
-public sealed record ConfirmTopUpResult(bool Credited, string Reason);
+/// <summary>
+/// Kết quả xử lý IPN.
+///
+/// <c>RspCode</c> là thứ cổng thực sự đọc để quyết định có gọi lại hay không —
+/// HTTP status chỉ nói request tới được server. Mã phải phản ánh đúng chuyện đã
+/// xảy ra: báo "00" cho một giao dịch bị từ chối vì lệch số tiền sẽ khiến cổng
+/// ghi nhận là đã đối soát xong, và khoản lệch đó biến mất khỏi báo cáo của cả
+/// hai bên đúng lúc cần nó nhất.
+/// </summary>
+public sealed record ConfirmTopUpResult(bool Credited, string Reason, string RspCode);
+
+/// <summary>Mã trả về cho IPN theo đặc tả VNPay.</summary>
+public static class IpnCodes
+{
+    public const string Success = "00";
+    public const string OrderNotFound = "01";
+    public const string AlreadyConfirmed = "02";
+    public const string InvalidAmount = "04";
+    public const string InvalidSignature = "97";
+    public const string UnknownError = "99";
+}
 
 /// <summary>
 /// Ghi nhận kết quả nạp tiền do cổng gọi về (IPN).
@@ -68,7 +88,8 @@ public class ConfirmTopUpUseCase(
         {
             logger.LogWarning("IPN {Provider} tham chiếu phiên không tồn tại: {Ref}",
                 provider, callback.ProviderRef);
-            return new ConfirmTopUpResult(false, "Không tìm thấy phiên nạp tiền");
+            return new ConfirmTopUpResult(
+                false, "Không tìm thấy phiên nạp tiền", IpnCodes.OrderNotFound);
         }
 
         if (intent.Amount != callback.Amount)
@@ -78,7 +99,8 @@ public class ConfirmTopUpUseCase(
             logger.LogError(
                 "IPN {Provider} lệch số tiền cho {Ref}: phiên {Expected}, cổng báo {Actual}",
                 provider, callback.ProviderRef, intent.Amount, callback.Amount);
-            return new ConfirmTopUpResult(false, "Số tiền không khớp với phiên đã mở");
+            return new ConfirmTopUpResult(
+                false, "Số tiền không khớp với phiên đã mở", IpnCodes.InvalidAmount);
         }
 
         intent.RawCallback = rawPayload;
@@ -89,7 +111,12 @@ public class ConfirmTopUpUseCase(
         {
             intent.Status = PaymentIntentStatuses.Failed;
             await db.SaveChangesAsync(ct);
-            return new ConfirmTopUpResult(false, "Cổng thanh toán báo giao dịch thất bại");
+            // "00" ở đây không mâu thuẫn với việc giao dịch thất bại: mã này nói về
+            // việc *ta đã ghi nhận đúng* thông báo, không phải về kết quả thanh toán.
+            // Trả mã lỗi cho một lượt huỷ hợp lệ sẽ khiến cổng gọi lại mãi một tin
+            // vốn không có gì để sửa.
+            return new ConfirmTopUpResult(
+                false, "Cổng thanh toán báo giao dịch thất bại", IpnCodes.Success);
         }
 
         await using var tx = await uow.BeginAsync(ct);
@@ -106,9 +133,11 @@ public class ConfirmTopUpUseCase(
         await tx.CommitAsync(ct);
 
         return credited
-            ? new ConfirmTopUpResult(true, "Đã cộng tiền vào ví")
-            // Trùng là kết quả bình thường của retry, không phải lỗi. Người gọi vẫn
-            // trả 200 để cổng ngừng gọi lại.
-            : new ConfirmTopUpResult(false, "Giao dịch đã được ghi nhận trước đó");
+            ? new ConfirmTopUpResult(true, "Đã cộng tiền vào ví", IpnCodes.Success)
+            // Trùng là kết quả bình thường của retry, không phải lỗi. Cổng nhận mã
+            // riêng "đã xác nhận trước đó" thay vì "00": cả hai đều làm nó ngừng gọi
+            // lại, nhưng chỉ mã này nói đúng rằng lần gọi ấy không cộng thêm đồng nào.
+            : new ConfirmTopUpResult(
+                false, "Giao dịch đã được ghi nhận trước đó", IpnCodes.AlreadyConfirmed);
     }
 }

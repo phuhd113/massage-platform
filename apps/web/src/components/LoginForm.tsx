@@ -7,6 +7,8 @@ import { CheckIcon, LogoMark } from '@/components/icons';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { messagesFor } from '@/lib/validation-messages';
 import { SITE_NAME } from '@/lib/site';
 
 type Step = 'phone' | 'code';
@@ -38,6 +40,7 @@ export function LoginForm({
 }) {
   const router = useRouter();
   const t = createTranslator(getDictionary(locale), locale);
+  const formRef = useFormValidation(messagesFor(locale));
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -151,7 +154,7 @@ export function LoginForm({
           </p>
 
           {step === 'phone' ? (
-            <form onSubmit={requestOtp} className="mt-7 grid gap-4">
+            <form ref={formRef} onSubmit={requestOtp} className="mt-7 grid gap-4">
               <label className="block">
                 <span className="mb-1.5 block text-body font-semibold text-ink-700">
                   {t('login.phoneLabel')}
@@ -184,7 +187,7 @@ export function LoginForm({
               </button>
             </form>
           ) : (
-            <form onSubmit={verify} className="mt-7">
+            <form ref={formRef} onSubmit={verify} className="mt-7">
               <div className="text-label uppercase text-ink-500">{t('login.step2')}</div>
 
               <CodeInput

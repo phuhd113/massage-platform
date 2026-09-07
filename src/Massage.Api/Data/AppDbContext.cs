@@ -53,6 +53,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.PasswordHash).HasColumnName("password_hash");
             e.Property(x => x.Role).HasColumnName("role").HasMaxLength(20).IsRequired();
             e.Property(x => x.PhoneVerifiedAt).HasColumnName("phone_verified_at");
+            e.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts");
+            e.Property(x => x.LockedUntil).HasColumnName("locked_until");
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             e.HasIndex(x => x.Phone).IsUnique();
@@ -124,6 +126,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.UserId).HasColumnName("user_id");
             e.Property(x => x.FullName).HasColumnName("full_name").HasMaxLength(120).IsRequired();
             e.Property(x => x.Slug).HasColumnName("slug").HasMaxLength(160).IsRequired();
+            // `bio` đã ngừng dùng (2026-09-07) — xem ghi chú trên KtvProfile.Bio. Mapping
+            // giữ nguyên để snapshot EF còn cột, không để migration sau lỡ tay drop nó.
             e.Property(x => x.Bio).HasColumnName("bio");
             e.Property(x => x.YearsExperience).HasColumnName("years_experience");
             // Kiểu geography (không phải geometry) để ST_DWithin tính bán kính theo mét.

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Massage.Api.Common;
+using Massage.Api.Modules.Collaborators;
 using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.KtvProfiles.Entities;
 
@@ -8,7 +9,12 @@ namespace Massage.Api.Tests;
 [Collection(PostgresCollection.Name)]
 public class PublicProfileTests(PostgresFixture fixture)
 {
-    private KtvProfileService Service() => new(fixture.CreateContext());
+    private KtvProfileService Service()
+    {
+        // Cùng một context cho cả hai service, đúng như DI scope của một HTTP request.
+        var db = fixture.CreateContext();
+        return new KtvProfileService(db, TestMedia.Urls, new CollaboratorService(db));
+    }
 
     [Fact]
     public async Task Hồ_sơ_chưa_duyệt_không_xem_được_qua_đường_công_khai()
@@ -36,21 +42,21 @@ public class PublicProfileTests(PostgresFixture fixture)
             {
                 KtvId = ktv.Id,
                 Name = "Chứng chỉ đã duyệt",
-                FileUrl = "/uploads/a.pdf",
+                StorageKey = "certifications/2026/09/a.pdf",
                 VerifyStatus = VerificationStatuses.Verified,
             },
             new Certification
             {
                 KtvId = ktv.Id,
                 Name = "Chứng chỉ chờ duyệt",
-                FileUrl = "/uploads/b.pdf",
+                StorageKey = "certifications/2026/09/b.pdf",
                 VerifyStatus = VerificationStatuses.Pending,
             },
             new Certification
             {
                 KtvId = ktv.Id,
                 Name = "Chứng chỉ bị từ chối",
-                FileUrl = "/uploads/c.pdf",
+                StorageKey = "certifications/2026/09/c.pdf",
                 VerifyStatus = VerificationStatuses.Rejected,
                 RejectionReason = "Ảnh mờ không đọc được",
             });

@@ -64,6 +64,13 @@ services:
       Zalo__Zns__CodeParamName: ${ZALO_ZNS_CODE_PARAM:-otp}
       Zalo__Zns__ExpiryParamName: ${ZALO_ZNS_EXPIRY_PARAM:-}
       Zalo__Zns__DevMode: ${ZALO_ZNS_DEV_MODE:-false}
+      # VNPay: để trống thì app vẫn khởi động bình thường và chỉ báo lỗi rõ ràng khi
+      # có người bấm nạp tiền — xem docs/vnpay-setup.md. Sandbox không tự gọi được
+      # IPN vào localhost, nên cần một tunnel công khai (VnPay__IpnUrlNote trong tài liệu).
+      VnPay__TmnCode: ${VNPAY_TMN_CODE:-}
+      VnPay__HashSecret: ${VNPAY_HASH_SECRET:-}
+      VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VnPay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:3000/nap-tien/ket-qua}
     ports:
       - '5080:8080'
     volumes:

@@ -57,11 +57,23 @@ async function forward(request: Request, path: string[]) {
     cache: "no-store",
   });
 
+  const responseType = res.headers.get('Content-Type') ?? 'application/json';
+
+  // File (ảnh, PDF chứng chỉ) phải đi qua nguyên dạng nhị phân. `res.text()` giải mã
+  // theo UTF-8, và mọi byte không hợp lệ trở thành U+FFFD — file tải về vẫn có kích
+  // thước hợp lý nhưng không mở được, mà không có lỗi nào ở bất kỳ đâu.
+  if (!responseType.startsWith('application/json') && !responseType.startsWith('text/')) {
+    return new NextResponse(await res.arrayBuffer(), {
+      status: res.status,
+      headers: { 'Content-Type': responseType },
+    });
+  }
+
   const text = await res.text();
 
   return new NextResponse(text || null, {
     status: res.status,
-    headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json' },
+    headers: { 'Content-Type': responseType },
   });
 }
 

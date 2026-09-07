@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { TopUpForm } from '@/components/TopUpForm';
 import { api } from '@/lib/api';
 import { packageLabel, transactionLabel } from '@/lib/labels';
+import { requireKtvProfile } from '@/lib/require-profile';
 import { UnauthenticatedError, authFetch } from '@/lib/session';
 import { formatDateTime, formatVnd } from '@/lib/site';
 import type { Campaign, WalletBalance, WalletTransactionList } from '@/lib/types';
@@ -10,6 +11,9 @@ import type { Campaign, WalletBalance, WalletTransactionList } from '@/lib/types
 export const metadata: Metadata = { title: 'Ví' };
 
 export default async function WalletPage() {
+  // Chưa tạo hồ sơ thì ví chưa dùng được vào việc gì — mua gói đòi hồ sơ đã duyệt.
+  await requireKtvProfile();
+
   let wallet: WalletBalance;
   let ledger: WalletTransactionList;
   let campaigns: Campaign[];

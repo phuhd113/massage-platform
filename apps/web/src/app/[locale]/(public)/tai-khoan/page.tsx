@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ChangePasswordForm } from '@/components/ChangePasswordForm';
+import { messagesFor } from '@/lib/validation-messages';
 import { LogoutButton } from '@/components/LogoutButton';
 import { UnauthenticatedError, authFetch, getSessionRole } from '@/lib/session';
 import { localePath, normalizeLocale } from '@/i18n/config';
@@ -43,8 +45,14 @@ export default async function AccountPage({ params }: { params: { locale: string
   if (getSessionRole() === 'KTV') redirect('/dashboard');
 
   let reviews: MyReview[];
+  let me: { hasPassword: boolean };
   try {
-    reviews = await authFetch<MyReview[]>('/me/reviews');
+    // Hai lời gọi song song: chúng độc lập, và xếp tuần tự chỉ để cộng thêm một
+    // vòng đi backend vào thời gian chờ của trang.
+    [reviews, me] = await Promise.all([
+      authFetch<MyReview[]>('/me/reviews'),
+      authFetch<{ hasPassword: boolean }>('/auth/me'),
+    ]);
   } catch (err) {
     if (err instanceof UnauthenticatedError) redirect('/dang-nhap?next=/tai-khoan');
     throw err;
@@ -123,6 +131,37 @@ export default async function AccountPage({ params }: { params: { locale: string
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Đặt dưới danh sách đánh giá: đổi mật khẩu là việc hiếm, còn xem đánh giá
+          của mình là lý do người ta mở trang này. */}
+      <section className="mt-8">
+        <h2 className="text-h2 text-ink-900">
+          {me.hasPassword ? t('myAccount.passwordTitle') : t('myAccount.passwordTitleSet')}
+        </h2>
+        <ChangePasswordForm
+          hasPassword={me.hasPassword}
+          validation={messagesFor(locale)}
+          labels={{
+            title: t('myAccount.passwordTitle'),
+            intro: me.hasPassword
+              ? t('myAccount.passwordIntro')
+              : t('myAccount.passwordIntroSet'),
+            currentLabel: t('myAccount.passwordCurrent'),
+            newLabel: t('myAccount.passwordNew'),
+            confirmLabel: t('myAccount.passwordConfirm'),
+            hint: t('myAccount.passwordHint', { length: 8 }),
+            submit: me.hasPassword
+              ? t('myAccount.passwordSubmit')
+              : t('myAccount.passwordSubmitSet'),
+            submitting: t('myAccount.passwordSubmitting'),
+            success: t('myAccount.passwordSuccess'),
+            errorMismatch: t('myAccount.passwordErrorMismatch'),
+            errorShort: t('myAccount.passwordErrorShort', { length: 8 }),
+            errorWrongCurrent: t('myAccount.passwordErrorWrongCurrent'),
+            errorGeneric: t('myAccount.passwordErrorGeneric'),
+          }}
+        />
       </section>
     </div>
   );

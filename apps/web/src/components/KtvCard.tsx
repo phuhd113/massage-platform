@@ -131,16 +131,7 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
             )}
           </div>
 
-          {/*
-            Bio cắt còn 2 dòng bằng CSS chứ không cắt chuỗi ở JS: cắt theo số ký tự
-            sẽ chặt giữa từ tiếng Việt và làm hỏng dấu, còn line-clamp cắt theo đúng
-            chỗ dòng thật sự tràn ở từng bề rộng màn hình.
-          */}
-          {ktv.bio && (
-            <p className="mt-2.5 line-clamp-2 text-body text-ink-600">
-              {ktv.yearsExperience} năm kinh nghiệm · {ktv.bio}
-            </p>
-          )}
+          <p className="mt-2.5 text-body text-ink-600">{ktv.yearsExperience} năm kinh nghiệm</p>
 
           {/*
             Hàng giá và hai nút hành động ngăn bằng một đường kẻ: phần trên là "người

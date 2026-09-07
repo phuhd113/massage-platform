@@ -51,6 +51,12 @@ export const config = {
    * - `.*\..*`: mọi đường dẫn có phần mở rộng — `robots.txt`, `sitemap.xml`,
    *   `favicon.ico` và file trong `public/`. Rewrite chúng làm hỏng đúng hai file
    *   mà SEO phụ thuộc vào.
+   * - `dashboard`, `admin`: hai cây route này **cố ý** chỉ có tiếng Việt nên nằm
+   *   ngoài `[locale]` — cả hai nhóm người dùng đều là người Việt, dịch ~420 chuỗi
+   *   ở đó là công lớn mà gần như không ai đọc. Rewrite chúng thành `/vi/dashboard`
+   *   là trỏ tới nhánh không tồn tại, nên **mọi** trang dashboard và admin trả 404
+   *   ngay sau khi đăng nhập — trong khi build vẫn xanh và `routes-manifest.json`
+   *   vẫn khai đủ route, nên không có gì báo lỗi ngoài chính trang 404.
    */
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+  matcher: ['/((?!api|dashboard|admin|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };

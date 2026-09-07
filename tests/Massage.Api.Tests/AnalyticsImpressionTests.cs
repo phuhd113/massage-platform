@@ -21,7 +21,7 @@ public class AnalyticsImpressionTests(PostgresFixture fixture)
 
         for (var i = 0; i < 3; i++) await TestData.CreateKtvAsync(db, lat, lon);
 
-        var result = await new SearchService(fixture.CreateContext(), queue)
+        var result = await new SearchService(fixture.CreateContext(), queue, TestMedia.Urls)
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 5));
 
         var impressions = queue.OfType(AnalyticsEventTypes.Impression);
@@ -43,7 +43,7 @@ public class AnalyticsImpressionTests(PostgresFixture fixture)
 
         for (var i = 0; i < 4; i++) await TestData.CreateKtvAsync(db, lat, lon);
 
-        await new SearchService(fixture.CreateContext(), queue)
+        await new SearchService(fixture.CreateContext(), queue, TestMedia.Urls)
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 5, Page: 2, Size: 2));
 
         // Không cộng phần bù trang thì mọi trang đều báo hạng 1..N, và "hạng trung bình"
@@ -62,7 +62,7 @@ public class AnalyticsImpressionTests(PostgresFixture fixture)
 
         await TestData.CreateKtvAsync(db, lat, lon);
 
-        await new SearchService(fixture.CreateContext(), queue)
+        await new SearchService(fixture.CreateContext(), queue, TestMedia.Urls)
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 5));
 
         // Chưa xác định được khu vực hành chính của khách khi tìm theo toạ độ. Gán bừa
@@ -84,7 +84,7 @@ public class AnalyticsImpressionTests(PostgresFixture fixture)
         var ktv = await TestData.CreateKtvAsync(db, lat, lon);
         await TestData.CoverAsync(db, ktv.Id, quận.Id);
 
-        await new SearchService(fixture.CreateContext(), queue)
+        await new SearchService(fixture.CreateContext(), queue, TestMedia.Urls)
             .SearchAsync(new SearchQueryDto(AreaSlug: quận.Slug, ProvinceSlug: tỉnh.Slug));
 
         queue.OfType(AnalyticsEventTypes.Impression)
@@ -98,7 +98,7 @@ public class AnalyticsImpressionTests(PostgresFixture fixture)
         var queue = new FakeAnalyticsQueue();
 
         // Bán kính quanh một điểm ngẫu nhiên không có KTV nào.
-        await new SearchService(fixture.CreateContext(), queue)
+        await new SearchService(fixture.CreateContext(), queue, TestMedia.Urls)
             .SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 1));
 
         queue.Events.Should().BeEmpty();

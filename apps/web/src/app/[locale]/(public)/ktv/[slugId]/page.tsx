@@ -104,6 +104,12 @@ export default async function KtvPage({ params }: Props) {
   // trả về origin của API, vẫn tuyệt đối; nhưng nếu vì lý do nào đó còn đường tương
   // đối thì lọc bỏ — Google bỏ qua nó trong im lặng, và một mảng có phần tử hỏng
   // khó phát hiện hơn hẳn một mảng ngắn.
+  // Cùng cách dựng với generateMetadata: hai khu vực đầu, đã dịch.
+  const khuVựcSchema = profile.coverageAreas
+    .map((a) => translateAreaName(a.name, locale))
+    .slice(0, 2)
+    .join(', ');
+
   const schemaImages = [avatar, ...profile.photos.map((p) => mediaUrl(p.url))].filter(
     (url): url is string => url !== null && /^https?:\/\//.test(url),
   );
@@ -246,26 +252,8 @@ export default async function KtvPage({ params }: Props) {
               </section>
             )}
 
-            {profile.bio && (
-              <section className="mt-8">
-                <h2 className="text-h2 text-ink-900">
-                  {t('ktvProfile.bioTitle')}
-                  <VietnameseNote label={viNote} />
-                </h2>
-                {/* lang="vi" đặt ngay trên element chứa chữ: trình đọc màn hình phát
-                    âm đúng, và Google hiểu đây là nội dung song ngữ có chủ đích chứ
-                    không phải một bản dịch làm dở. */}
-                <p
-                  lang="vi"
-                  className="mt-2 max-w-prose whitespace-pre-line text-body-l text-ink-700"
-                >
-                  {profile.bio}
-                </p>
-              </section>
-            )}
-
-            {/*
-              Ảnh đứng sau phần giới thiệu và trước bảng giá: nó là bằng chứng cho
+                        {/*
+              Ảnh đứng sau phần chứng chỉ và trước bảng giá: nó là bằng chứng cho
               những gì vừa đọc, và khách nhìn nó trước khi quyết định giá có đáng
               không. Chỉ ảnh đã duyệt tới được đây — backend lọc, frontend không tự
               lọc lại để hai nơi không thể lệch nhau.
@@ -442,7 +430,17 @@ export default async function KtvPage({ params }: Props) {
           '@id': absolute(path),
           name: profile.fullName,
           url: absolute(path),
-          description: profile.bio ?? undefined,
+          // Mô tả dựng từ dữ liệu có cấu trúc (tên + số năm + khu vực), dùng đúng
+          // chuỗi của <meta description> ở generateMetadata. Trước đây trường này
+          // lấy từ bio do KTV tự nhập — nguồn đó đã gỡ, và một mô tả dựng bằng luật
+          // thì không bao giờ lệch khỏi thẻ meta của cùng trang.
+          description: t('ktvProfile.metaDescription', {
+            name: profile.fullName,
+            years: profile.yearsExperience,
+            area: khuVựcSchema
+              ? t('ktvProfile.metaAreaPrefix', { area: khuVựcSchema })
+              : '',
+          }),
           // Ảnh trong structured data là điều kiện để Google hiện rich result có
           // hình. Chỉ khai URL tuyệt đối — đường tương đối bị bỏ qua trong im lặng,
           // và mất luôn phần hiển thị nổi bật nhất trên trang kết quả.

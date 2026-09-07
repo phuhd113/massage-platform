@@ -130,7 +130,7 @@ public static class TestData
         {
             KtvId = ktvId,
             Name = $"Chứng chỉ {Guid.NewGuid().ToString("N")[..8]}",
-            FileUrl = $"https://example.test/{Guid.NewGuid():N}.pdf",
+            StorageKey = $"certifications/2026/09/{Guid.NewGuid():N}.pdf",
             VerifyStatus = status ?? VerificationStatuses.Verified,
         };
         db.Certifications.Add(cert);

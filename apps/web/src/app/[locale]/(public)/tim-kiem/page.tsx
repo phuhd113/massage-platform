@@ -221,7 +221,7 @@ export default async function SearchPage({ params, searchParams }: Props) {
                 </div>
               </div>
             ) : results.items.length > 0 ? (
-              // Một cột: thẻ mang ảnh, chip, bio và hàng giá — chia đôi bề ngang
+              // Một cột: thẻ mang ảnh, chip và hàng giá — chia đôi bề ngang
               // sẽ ép mọi thứ xuống dòng và hàng nút hành động vỡ trước tiên.
               <ul className="grid gap-3">
                 {results.items.map((ktv) => (

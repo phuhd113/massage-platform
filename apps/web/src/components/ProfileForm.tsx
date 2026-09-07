@@ -2,25 +2,39 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { AreaNode, MyKtvProfile } from '@/lib/types';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { viMessages } from '@/lib/validation-messages';
+import { CoverageAreaPicker, type CoverageAreaLabel } from '@/components/CoverageAreaPicker';
+import type { MyKtvProfile } from '@/lib/types';
 
 const MAX_AREAS = 30;
 
 export function ProfileForm({
   profile,
-  areas,
+  coverageLabels,
 }: {
   profile: MyKtvProfile | null;
-  areas: AreaNode[];
+  /**
+   * Tên các khu vực KTV đang chọn, tra sẵn ở server.
+   *
+   * Cố ý **không** nhận cả cây hành chính: form chỉ cần đọc tên cho vài cái chip, mà
+   * cây có 759 khu vực và đi thẳng vào payload RSC gửi xuống trình duyệt (~140KB cho
+   * một trang form). Khu vực thêm mới lấy tên từ chính gợi ý đã dùng để thêm nó.
+   */
+  coverageLabels: CoverageAreaLabel[];
 }) {
   const router = useRouter();
-  const districts = areas.flatMap((p) => p.children.map((d) => ({ ...d, province: p.name })));
+  // Thông báo validate tiếng Việt — dashboard/admin cố ý chỉ có một ngôn ngữ.
+  const formRef = useFormValidation(viMessages());
 
   const [fullName, setFullName] = useState(profile?.fullName ?? '');
-  const [bio, setBio] = useState(profile?.bio ?? '');
   const [years, setYears] = useState(profile?.yearsExperience ?? 0);
   const [address, setAddress] = useState(profile?.baseAddress ?? '');
   const [radius, setRadius] = useState(profile?.serviceRadiusKm ?? 5);
+
+  // Chỉ dùng khi TẠO hồ sơ. Hồ sơ đã tồn tại thì mã đã chốt và backend không nhận
+  // trường này ở đường sửa — xem `CreateKtvProfileDto`.
+  const [referralCode, setReferralCode] = useState('');
 
   // GeoJSON là [lon, lat] — đảo thứ tự ở đây là lỗi im lặng đưa KTV sang nửa kia
   // bán cầu mà form vẫn trông bình thường.
@@ -57,16 +71,6 @@ export function ProfileForm({
     );
   }
 
-  function toggleArea(id: string) {
-    setSelectedAreas((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length >= MAX_AREAS
-          ? prev
-          : [...prev, id],
-    );
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
@@ -75,13 +79,15 @@ export function ProfileForm({
 
     const payload = {
       fullName,
-      bio: bio || null,
       yearsExperience: years,
       lat: Number(lat),
       lon: Number(lon),
       baseAddress: address || null,
       serviceRadiusKm: radius,
       coverageAreaIds: selectedAreas,
+      // Chỉ gửi khi tạo mới. Gửi kèm ở đường PATCH thì backend bỏ qua, nhưng để nó
+      // trong payload sẽ khiến người đọc code sau này tưởng mã sửa được.
+      ...(profile ? {} : { referralCode: referralCode.trim() || null }),
     };
 
     try {
@@ -119,7 +125,7 @@ export function ProfileForm({
   const coordsValid = lat !== '' && lon !== '' && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lon)) <= 180;
 
   return (
-    <form onSubmit={submit} className="space-y-6 rounded-lg border border-ink-200 bg-white p-5 shadow-card">
+    <form ref={formRef} onSubmit={submit} className="space-y-6 rounded-lg border border-ink-200 bg-white p-5 shadow-card">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="text-ink-700">Họ tên hiển thị *</span>
@@ -145,21 +151,6 @@ export function ProfileForm({
           />
         </label>
       </div>
-
-      <label className="block text-sm">
-        <span className="text-ink-700">Giới thiệu</span>
-        <textarea
-          rows={4}
-          maxLength={2000}
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          placeholder="Kinh nghiệm, phương pháp trị liệu, đối tượng khách phù hợp…"
-          className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-        />
-        <span className="mt-1 block text-xs text-ink-500">
-          Nội dung này hiển thị công khai và được kiểm duyệt trước khi đăng. {bio.length}/2000
-        </span>
-      </label>
 
       <fieldset className="rounded-md border border-ink-200 p-4">
         <legend className="px-1 text-sm font-medium text-ink-700">Vị trí xuất phát</legend>
@@ -240,40 +231,51 @@ export function ProfileForm({
           Quyết định bạn xuất hiện ở trang khu vực nào, và là khu vực bạn mua được gói đẩy tin.
         </p>
 
-        <div className="mt-3 space-y-4">
-          {areas.map((province) => (
-            <div key={province.id}>
-              <div className="text-sm font-medium text-ink-700">{province.name}</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {province.children.map((d) => {
-                  const on = selectedAreas.includes(d.id);
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => toggleArea(d.id)}
-                      aria-pressed={on}
-                      className={`rounded-full border px-3 py-1 text-sm ${
-                        on
-                          ? 'border-brand-500 bg-brand-50 text-brand-700'
-                          : 'border-ink-300 text-ink-700 hover:border-brand-500'
-                      }`}
-                    >
-                      {d.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <div className="mt-3">
+          <CoverageAreaPicker
+            initialLabels={coverageLabels}
+            selected={selectedAreas}
+            onChange={setSelectedAreas}
+            max={MAX_AREAS}
+          />
         </div>
-
-        {districts.length === 0 && (
-          <p className="mt-2 text-sm text-ink-500">
-            Chưa có danh mục khu vực. Chạy lệnh seed-areas trước.
-          </p>
-        )}
       </fieldset>
+
+      {/*
+        Chỉ hiện khi TẠO hồ sơ: mã chốt lúc tạo và không sửa được, nên hiện một ô nhập
+        đã khoá ở trang sửa chỉ tạo ra câu hỏi "vì sao tôi không đổi được".
+
+        Đặt cuối form vì đa số KTV tự tìm tới qua SEO và không có mã nào — để nó lên đầu
+        là bắt phần lớn người dùng dừng lại ở một ô không liên quan tới họ.
+      */}
+      {!profile && (
+        <fieldset className="rounded-md border border-ink-200 p-4">
+          <legend className="px-1 text-sm font-medium text-ink-700">
+            Mã giới thiệu (không bắt buộc)
+          </legend>
+          <p className="text-sm text-ink-600">
+            Nếu có cộng tác viên mời bạn tham gia, nhập mã họ đưa. Không có thì để trống — hồ sơ
+            vẫn được duyệt bình thường.
+          </p>
+
+          <label className="mt-3 block text-sm">
+            <span className="sr-only">Mã giới thiệu</span>
+            <input
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
+              maxLength={32}
+              placeholder="VD: AN-01"
+              // uppercase chỉ là hiển thị; backend vẫn tự chuẩn hoá, nên dán mã chữ
+              // thường từ tin nhắn vẫn khớp.
+              className="w-full max-w-[240px] rounded-md border border-ink-200 bg-white px-3 py-2 font-mono uppercase tracking-wide transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </label>
+
+          <p className="mt-2 text-xs text-ink-500">
+            Mã sai sẽ được báo ngay khi bấm tạo hồ sơ. Sau khi tạo, mã không đổi được.
+          </p>
+        </fieldset>
+      )}
 
       <div className="flex flex-wrap items-center gap-4">
         <button

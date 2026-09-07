@@ -16,7 +16,20 @@ import { DEFAULT_LOCALE, type Locale, localePath, stripLocale } from '@/i18n/con
  * URL đích, mở tab mới được, và Google lần theo được để tìm ra bản dịch — cùng lý
  * do với thẻ hreflang, chỉ khác là dành cho người đọc.
  */
-export function LanguageSwitcher({ locale, label }: { locale: Locale; label: string }) {
+export function LanguageSwitcher({
+  locale,
+  label,
+  className = 'shrink-0 font-medium underline underline-offset-4 transition hover:text-brand-700',
+}: {
+  locale: Locale;
+  label: string;
+  /**
+   * Mặc định là kiểu dùng ở footer. Nhận qua prop vì component này từng ghi cứng
+   * `hidden … sm:block` cho header — lớp đó đi theo xuống footer sẽ giấu mất lối
+   * đổi ngôn ngữ **duy nhất** trên toàn bộ màn hình điện thoại.
+   */
+  className?: string;
+}) {
   const pathname = usePathname() ?? '/';
   const searchParams = useSearchParams();
 
@@ -36,9 +49,13 @@ export function LanguageSwitcher({ locale, label }: { locale: Locale; label: str
       hrefLang={target}
       lang={target}
       aria-label={label}
-      className="hidden shrink-0 rounded-md px-2.5 py-1.5 text-body-s text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
+      className={className}
     >
-      {target === 'en' ? 'EN' : 'VI'}
+      {/* Tên ngôn ngữ đích viết bằng chính ngôn ngữ đó — "English" / "Tiếng Việt",
+          không phải "EN" / "VI". Trên header hai chữ cái là đủ vì chỗ hẹp và biểu
+          tượng nằm cạnh nhau; ở footer thì nó nằm giữa những link chữ, và "EN" một
+          mình đọc như một từ viết tắt chứ không như một lựa chọn. */}
+      {target === 'en' ? 'English' : 'Tiếng Việt'}
     </Link>
   );
 }

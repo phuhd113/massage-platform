@@ -22,7 +22,27 @@ export const vi = {
     cancel: 'Huỷ',
   },
 
+  /**
+   * Thông báo validate của form.
+   *
+   * Thay chuỗi mặc định của trình duyệt, vốn theo ngôn ngữ **trình duyệt** chứ không
+   * theo ngôn ngữ trang — xem `lib/use-form-validation.ts`. Viết như người nói với
+   * người: nói cần làm gì, không đọc lại tên thuộc tính HTML.
+   */
+  validation: {
+    required: 'Vui lòng điền vào ô này.',
+    tooShort: 'Cần ít nhất {min} ký tự — bạn đang nhập {current}.',
+    tooLong: 'Tối đa {max} ký tự.',
+    rangeUnderflow: 'Giá trị phải từ {min} trở lên.',
+    rangeOverflow: 'Giá trị không được vượt quá {max}.',
+    stepMismatch: 'Giá trị này không hợp lệ.',
+    patternMismatch: 'Định dạng chưa đúng.',
+    typeMismatch: 'Định dạng chưa đúng.',
+    invalid: 'Giá trị chưa hợp lệ.',
+  },
+
   shell: {
+    navLocation: 'Chọn vị trí',
     navFindKtv: 'Tìm KTV',
     navHcm: 'TP.HCM',
     navHanoi: 'Hà Nội',
@@ -69,6 +89,7 @@ export const vi = {
     heroServiceAll: 'Tất cả dịch vụ',
     heroSubmit: 'Tìm KTV',
     heroGeoUnsupported: 'Trình duyệt không hỗ trợ định vị. Bạn có thể chọn quận/huyện.',
+    heroGeoPromise: 'Chỉ hỏi vị trí khi bạn bấm — không tự xin quyền.',
   },
 
   notFound: {
@@ -85,10 +106,34 @@ export const vi = {
   login: {
     metaTitleCustomer: 'Đăng nhập',
     metaTitleKtv: 'Đăng ký kỹ thuật viên',
+    metaTitleRegister: 'Tạo tài khoản',
     headingCustomer: 'Đăng nhập hoặc tạo tài khoản',
     headingKtv: 'Đăng nhập cho kỹ thuật viên',
     intro:
       'Nhập số điện thoại, chúng tôi gửi mã {length} chữ số qua Zalo. Chưa có tài khoản thì hệ thống tự tạo. Không cần mật khẩu.',
+
+    // Đăng nhập bằng mật khẩu (đường đang dùng). Các key OTP ở trên giữ nguyên cho
+    // LoginForm, sẽ bật lại khi có giấy phép kinh doanh để dùng Zalo ZNS.
+    headingLogin: 'Đăng nhập',
+    headingRegisterCustomer: 'Tạo tài khoản',
+    headingRegisterKtv: 'Đăng ký làm kỹ thuật viên',
+    introLogin: 'Nhập số điện thoại và mật khẩu của bạn.',
+    introRegister: 'Chỉ cần số điện thoại và mật khẩu. Không mất phí.',
+    passwordLabel: 'Mật khẩu',
+    passwordHint: 'Ít nhất {length} ký tự.',
+    passwordConfirmLabel: 'Nhập lại mật khẩu',
+    submitLogin: 'Đăng nhập',
+    submitRegister: 'Tạo tài khoản',
+    submitting: 'Đang xử lý…',
+    noAccountQuestion: 'Chưa có tài khoản?',
+    noAccountAction: 'Tạo tài khoản mới',
+    hasAccountQuestion: 'Đã có tài khoản?',
+    hasAccountAction: 'Đăng nhập',
+    errorWrongCredentials: 'Số điện thoại hoặc mật khẩu không đúng.',
+    errorPhoneTaken: 'Số điện thoại này đã có tài khoản. Vui lòng đăng nhập.',
+    errorLocked: 'Sai quá nhiều lần nên tài khoản tạm khoá. Vui lòng thử lại sau ít phút.',
+    errorPasswordMismatch: 'Hai lần nhập mật khẩu không giống nhau.',
+    errorPasswordShort: 'Mật khẩu phải có ít nhất {length} ký tự.',
 
     phoneLabel: 'Số điện thoại',
     sendCode: 'Gửi mã xác thực',
@@ -231,7 +276,6 @@ export const vi = {
 
     certsTitle: 'Chứng chỉ hành nghề đã duyệt',
     certChecked: 'Đã đối chiếu',
-    bioTitle: 'Giới thiệu',
     photosTitle: 'Hình ảnh',
     areasTitle: 'Khu vực nhận khách',
     priceFrom: 'giá từ',
@@ -295,6 +339,24 @@ export const vi = {
     statusPending: 'Đánh giá đang chờ kiểm duyệt, chưa hiển thị công khai.',
     logout: 'Đăng xuất',
     loggingOut: 'Đang thoát…',
+
+    passwordTitle: 'Đổi mật khẩu',
+    passwordTitleSet: 'Đặt mật khẩu',
+    passwordIntro: 'Nhập mật khẩu hiện tại rồi chọn mật khẩu mới.',
+    passwordIntroSet:
+      'Tài khoản của bạn chưa có mật khẩu. Đặt một mật khẩu để lần sau đăng nhập nhanh hơn.',
+    passwordCurrent: 'Mật khẩu hiện tại',
+    passwordNew: 'Mật khẩu mới',
+    passwordConfirm: 'Nhập lại mật khẩu mới',
+    passwordHint: 'Ít nhất {length} ký tự.',
+    passwordSubmit: 'Đổi mật khẩu',
+    passwordSubmitSet: 'Đặt mật khẩu',
+    passwordSubmitting: 'Đang lưu…',
+    passwordSuccess: 'Đã cập nhật mật khẩu.',
+    passwordErrorMismatch: 'Hai lần nhập mật khẩu mới không giống nhau.',
+    passwordErrorShort: 'Mật khẩu phải có ít nhất {length} ký tự.',
+    passwordErrorWrongCurrent: 'Mật khẩu hiện tại không đúng.',
+    passwordErrorGeneric: 'Không lưu được mật khẩu. Vui lòng thử lại.',
   },
 
   contact: {

@@ -186,8 +186,14 @@ public class ApiMoneyTests(PostgresFixture fixture) : IAsyncLifetime
             "/api/v1/wallet/topup/callback?vnp_TxnRef=gia-mao&vnp_Amount=100000000" +
             "&vnp_ResponseCode=00&vnp_TransactionStatus=00&vnp_SecureHash=deadbeef");
 
-        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // HTTP **200** kể cả với request giả mạo, và đó không phải là chấp nhận nó:
+        // VNPay đọc `RspCode` trong body để quyết định có gọi lại hay không, và coi
+        // mọi mã HTTP khác 200 là "chưa tới nơi". Trả 400 ở đây biến mỗi request giả
+        // thành một vòng retry không bao giờ dứt. Lời từ chối nằm ở RspCode=97.
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadAsStringAsync()).Should().Contain("97");
 
+        // Bảo đảm thật sự cần giữ: không đồng nào được cộng.
         var balance = await (await client.GetAsync("/api/v1/wallet/balance")).ReadAsync<WalletBalanceDto>();
         balance!.Balance.Should().Be(0);
     }

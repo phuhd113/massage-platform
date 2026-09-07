@@ -22,7 +22,20 @@ export const en: Dictionary = {
     cancel: 'Cancel',
   },
 
+  validation: {
+    required: 'Please fill in this field.',
+    tooShort: 'Please use at least {min} characters — you have {current}.',
+    tooLong: 'Please use at most {max} characters.',
+    rangeUnderflow: 'Please enter {min} or more.',
+    rangeOverflow: 'Please enter {max} or less.',
+    stepMismatch: 'That value is not allowed.',
+    patternMismatch: 'That format is not quite right.',
+    typeMismatch: 'That format is not quite right.',
+    invalid: 'That value is not valid.',
+  },
+
   shell: {
+    navLocation: 'Set location',
     navFindKtv: 'Find a therapist',
     navHcm: 'Ho Chi Minh City',
     navHanoi: 'Hanoi',
@@ -70,6 +83,7 @@ export const en: Dictionary = {
     heroServiceAll: 'All services',
     heroSubmit: 'Find therapists',
     heroGeoUnsupported: 'Your browser does not support location. You can choose a district instead.',
+    heroGeoPromise: 'We only ask for your location when you tap — never on our own.',
   },
 
   notFound: {
@@ -86,10 +100,32 @@ export const en: Dictionary = {
   login: {
     metaTitleCustomer: 'Log in',
     metaTitleKtv: 'Register as a therapist',
+    metaTitleRegister: 'Create an account',
     headingCustomer: 'Log in or create an account',
     headingKtv: 'Therapist login',
     intro:
       'Enter your phone number and we will send a {length}-digit code to your Zalo. If you do not have an account yet, one is created for you. No password needed.',
+
+    headingLogin: 'Log in',
+    headingRegisterCustomer: 'Create an account',
+    headingRegisterKtv: 'Sign up as a therapist',
+    introLogin: 'Enter your phone number and password.',
+    introRegister: 'All you need is a phone number and a password. It is free.',
+    passwordLabel: 'Password',
+    passwordHint: 'At least {length} characters.',
+    passwordConfirmLabel: 'Confirm password',
+    submitLogin: 'Log in',
+    submitRegister: 'Create account',
+    submitting: 'Working…',
+    noAccountQuestion: 'No account yet?',
+    noAccountAction: 'Create one',
+    hasAccountQuestion: 'Already have an account?',
+    hasAccountAction: 'Log in',
+    errorWrongCredentials: 'That phone number or password is wrong.',
+    errorPhoneTaken: 'That phone number already has an account. Please log in.',
+    errorLocked: 'Too many wrong attempts, so this account is locked for a few minutes.',
+    errorPasswordMismatch: 'The two passwords do not match.',
+    errorPasswordShort: 'Your password must be at least {length} characters.',
 
     phoneLabel: 'Phone number',
     sendCode: 'Send code',
@@ -232,7 +268,6 @@ export const en: Dictionary = {
 
     certsTitle: 'Verified practising certificates',
     certChecked: 'Checked',
-    bioTitle: 'About',
     photosTitle: 'Photos',
     areasTitle: 'Areas covered',
     priceFrom: 'from',
@@ -290,6 +325,24 @@ export const en: Dictionary = {
     statusPending: 'This review is awaiting moderation and is not public yet.',
     logout: 'Log out',
     loggingOut: 'Logging out…',
+
+    passwordTitle: 'Change password',
+    passwordTitleSet: 'Set a password',
+    passwordIntro: 'Enter your current password, then choose a new one.',
+    passwordIntroSet:
+      'Your account does not have a password yet. Set one to log in faster next time.',
+    passwordCurrent: 'Current password',
+    passwordNew: 'New password',
+    passwordConfirm: 'Confirm new password',
+    passwordHint: 'At least {length} characters.',
+    passwordSubmit: 'Change password',
+    passwordSubmitSet: 'Set password',
+    passwordSubmitting: 'Saving…',
+    passwordSuccess: 'Password updated.',
+    passwordErrorMismatch: 'The two new passwords do not match.',
+    passwordErrorShort: 'Your password must be at least {length} characters.',
+    passwordErrorWrongCurrent: 'That is not your current password.',
+    passwordErrorGeneric: 'Could not save your password. Please try again.',
   },
 
   contact: {

@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { BuyPackageForm } from '@/components/BuyPackageForm';
 import { packageLabel } from '@/lib/labels';
-import { UnauthenticatedError, authFetch, authFetchOrNull } from '@/lib/session';
+import { requireKtvProfile } from '@/lib/require-profile';
+import { UnauthenticatedError, authFetch } from '@/lib/session';
 import { formatVnd } from '@/lib/site';
 import type { MyKtvProfile, PromotionPackage, WalletBalance } from '@/lib/types';
 
@@ -12,14 +13,16 @@ export const metadata: Metadata = { title: 'Mua gói đẩy tin' };
 const MAX_BASE_SCORE = 100;
 
 export default async function PackagesPage() {
+  // Chưa tạo hồ sơ thì không có gì để đẩy tin — về trang hồ sơ trước.
+  // Hàm này cũng trả luôn hồ sơ, nên không phải hỏi backend lần thứ hai.
+  const profile = await requireKtvProfile();
+
   let wallet: WalletBalance;
-  let profile: MyKtvProfile | null;
   let packages: PromotionPackage[];
 
   try {
-    [wallet, profile, packages] = await Promise.all([
+    [wallet, packages] = await Promise.all([
       authFetch<WalletBalance>('/wallet/balance'),
-      authFetchOrNull<MyKtvProfile>('/ktv/profile/me'),
       authFetch<PromotionPackage[]>('/promotions/packages'),
     ]);
   } catch (err) {
@@ -27,7 +30,9 @@ export default async function PackagesPage() {
     throw err;
   }
 
-  const canBuy = profile?.verificationStatus === 'VERIFIED';
+  // Vẫn phải kiểm VERIFIED: có hồ sơ mới chỉ là điều kiện để vào trang này, còn
+  // mua gói thì backend đòi hồ sơ đã duyệt.
+  const canBuy = profile.verificationStatus === 'VERIFIED';
 
   // Bảng điểm dựng từ chính dữ liệu gói đang bán, không gõ tay: đây là bảng KTV
   // dùng để so hạng trước khi trả tiền, nên nó phải luôn khớp với công thức đang
@@ -53,9 +58,10 @@ export default async function PackagesPage() {
 
       {!canBuy && (
         <p className="mt-4 rounded-xl border border-warning-bd bg-warning-bg px-[18px] py-3.5 text-body-l text-warning-fg">
-          {profile
-            ? 'Hồ sơ chưa được duyệt nên chưa mua được gói. Gói chỉ có tác dụng khi hồ sơ đã hiển thị trong tìm kiếm.'
-            : 'Tài khoản chưa có hồ sơ kỹ thuật viên nên chưa mua được gói.'}
+          {/* Chỉ còn một nhánh: tài khoản chưa có hồ sơ không vào được tới đây nữa,
+              `requireKtvProfile` đã đưa họ về trang hồ sơ từ trước. */}
+          Hồ sơ chưa được duyệt nên chưa mua được gói. Gói chỉ có tác dụng khi hồ sơ đã hiển thị
+          trong tìm kiếm.
         </p>
       )}
 

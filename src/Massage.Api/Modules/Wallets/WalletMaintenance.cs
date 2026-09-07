@@ -1,9 +1,13 @@
+using Massage.Api.Data;
+using Massage.Api.Modules.Wallets.Entities;
 using Massage.Promotion.Domain.Ports;
 using Massage.Wallet.Domain.Ports;
+using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Modules.Wallets;
 
-public sealed record MaintenanceReport(int HoldsReleased, int CampaignsExpired, int WalletsDrifting);
+public sealed record MaintenanceReport(
+    int HoldsReleased, int CampaignsExpired, int WalletsDrifting, int IntentsAbandoned);
 
 /// <summary>
 /// Tác vụ định kỳ của vùng chạm tiền.
@@ -13,6 +17,7 @@ public sealed record MaintenanceReport(int HoldsReleased, int CampaignsExpired, 
 /// sẵn ở đây để lúc đó chỉ phải gắn lịch, không phải viết lại nghiệp vụ.
 /// </summary>
 public class WalletMaintenance(
+    AppDbContext db,
     IWalletRepository wallets,
     IWalletUnitOfWork uow,
     ICampaignRepository campaigns,
@@ -22,13 +27,22 @@ public class WalletMaintenance(
 {
     private const int BatchSize = 500;
 
+    /// <summary>
+    /// Sau bao lâu thì một phiên nạp tiền còn PENDING được coi là đã bỏ dở. Rộng hơn
+    /// hẳn hạn 15 phút của chính phiên VNPay: cổng vẫn có thể gửi IPN muộn sau khi
+    /// người dùng đã đóng tab, và đánh dấu bỏ dở một phiên mà tiền đang trên đường về
+    /// là tự tay tạo ra tranh chấp "đã trả mà không thấy vào ví".
+    /// </summary>
+    private static readonly TimeSpan AbandonAfter = TimeSpan.FromHours(24);
+
     public async Task<MaintenanceReport> RunAsync(CancellationToken ct = default)
     {
         var released = await ReleaseExpiredHoldsAsync(ct);
         var expired = await ExpireCampaignsAsync(ct);
+        var abandoned = await AbandonStaleIntentsAsync(ct);
         var drifting = await ReconcileAsync(ct);
 
-        return new MaintenanceReport(released, expired, drifting);
+        return new MaintenanceReport(released, expired, drifting, abandoned);
     }
 
     /// <summary>
@@ -86,6 +100,50 @@ public class WalletMaintenance(
         }
 
         return due.Count;
+    }
+
+    /// <summary>
+    /// Đánh dấu những phiên nạp tiền chưa bao giờ được cổng gọi về.
+    ///
+    /// Đây **không** phải là dọn rác cho gọn bảng: một phiên PENDING vĩnh viễn là một
+    /// dòng "đang chờ thanh toán" mà KTV nhìn thấy mãi mãi, và là thứ làm nhiễu đúng
+    /// câu hỏi cần trả lời khi có tranh chấp — *phiên nào thật sự còn đang treo?*
+    ///
+    /// Ba ràng buộc, cả ba đều cần thiết:
+    /// <list type="bullet">
+    /// <item>Chỉ đụng vào hàng còn PENDING. SUCCEEDED/FAILED là kết luận đã có.</item>
+    /// <item>Chỉ đụng vào hàng <b>chưa có callback nào</b> (<c>raw_callback IS NULL</c>).
+    /// Có callback nghĩa là cổng đã nói chuyện với ta; trạng thái phải do đường IPN
+    /// quyết định, không phải do một job đoán.</item>
+    /// <item>Trạng thái mới là ABANDONED chứ không phải FAILED: "hết hạn mà không ai
+    /// trả tiền" khác hẳn "ngân hàng từ chối", và gộp hai thứ lại là mất đúng phần
+    /// thông tin cần đến khi đối soát với sao kê của cổng.</item>
+    /// </list>
+    ///
+    /// Không bao giờ đụng tới ví: phiên bỏ dở chưa từng sinh bút toán nào, nên ở đây
+    /// không có đồng nào để hoàn.
+    /// </summary>
+    public async Task<int> AbandonStaleIntentsAsync(CancellationToken ct = default)
+    {
+        var cutoff = clock.UtcNow - AbandonAfter;
+
+        // ExecuteUpdate: một câu lệnh cho cả lô, và không đọc hàng nào vào change
+        // tracker — job này có thể gặp hàng nghìn hàng cũ ở lần chạy đầu tiên.
+        var count = await db.PaymentIntents
+            .Where(i => i.Status == PaymentIntentStatuses.Pending
+                        && i.RawCallback == null
+                        && i.CreatedAt < cutoff)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(i => i.Status, PaymentIntentStatuses.Abandoned), ct);
+
+        if (count > 0)
+        {
+            logger.LogInformation(
+                "Đã đánh dấu {Count} phiên nạp tiền bỏ dở (quá {Hours} giờ, cổng chưa từng gọi về)",
+                count, AbandonAfter.TotalHours);
+        }
+
+        return count;
     }
 
     /// <summary>

@@ -4,7 +4,14 @@ import { redirect } from 'next/navigation';
 import { DashboardNav } from '@/components/DashboardNav';
 import { LogoMark } from '@/components/icons';
 import { LogoutButton } from '@/components/LogoutButton';
-import { UnauthenticatedError, authFetch, getSessionRole, getSessionToken } from '@/lib/session';
+import { fontVariables } from '@/lib/fonts';
+import {
+  UnauthenticatedError,
+  authFetch,
+  authFetchOrNull,
+  getSessionRole,
+  getSessionToken,
+} from '@/lib/session';
 import { formatVndShort } from '@/lib/site';
 import type { Campaign, WalletBalance } from '@/lib/types';
 
@@ -30,30 +37,43 @@ export default async function DashboardLayout({ children }: { children: React.Re
   //
   // Đây chỉ là điều hướng. Dữ liệu vẫn được backend bảo vệ ở từng lời gọi API bên
   // dưới — `getSessionRole` đọc JWT không kiểm chữ ký nên tự nó không cấp quyền gì.
-  if (getSessionRole() === 'CUSTOMER') return <CustomerNotice />;
+  if (getSessionRole() === 'CUSTOMER') {
+    return (
+      <Shell>
+        <CustomerNotice />
+      </Shell>
+    );
+  }
 
   // Số dư và số chiến dịch hiện ngay trên thanh điều hướng, nên phải lấy ở layout.
   // Lỗi ở đây **không** được làm hỏng cả trang con: nếu API ví chập chờn thì KTV vẫn
   // phải vào được trang hồ sơ. Thiếu số thì nhãn trống, không phải màn hình lỗi.
   let wallet: WalletBalance | null = null;
   let campaigns: Campaign[] = [];
+  let hasProfile = true;
 
   try {
-    [wallet, campaigns] = await Promise.all([
+    let profile: unknown;
+    [wallet, campaigns, profile] = await Promise.all([
       authFetch<WalletBalance>('/wallet/balance'),
       authFetch<Campaign[]>('/ktv/campaigns'),
+      // 404 → null khi tài khoản chưa tạo hồ sơ.
+      authFetchOrNull<unknown>('/ktv/profile/me'),
     ]);
+    hasProfile = profile !== null;
   } catch (err) {
     if (err instanceof UnauthenticatedError) redirect('/dang-nhap');
-    // Các lỗi khác nuốt có chủ ý — xem ghi chú ngay trên.
+    // Các lỗi khác nuốt có chủ ý — xem ghi chú ngay trên. `hasProfile` giữ `true`:
+    // API hỏng thì cho đi tiếp, chứ không nhốt KTV đã có hồ sơ vào trang tạo hồ sơ.
   }
 
   const running = campaigns.filter((c) => c.isRunning).length;
 
   return (
-    // Sidebar cố định 248px như artboard. Ở mobile đổi thành một khối xếp trên nội
-    // dung: 248px chiếm gần hết bề ngang điện thoại, giữ nguyên là không còn chỗ cho
-    // chính thứ khách vào đây để xem.
+    <Shell>
+    {/* Sidebar cố định 248px như artboard. Ở mobile đổi thành một khối xếp trên nội
+        dung: 248px chiếm gần hết bề ngang điện thoại, giữ nguyên là không còn chỗ cho
+        chính thứ khách vào đây để xem. */}
     <div className="grid min-h-screen bg-brand-50 lg:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="border-b border-ink-200 bg-white px-4 py-5 lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2.5 px-2 pb-5">
@@ -64,6 +84,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <DashboardNav
           balanceLabel={wallet ? formatVndShort(wallet.available, 'vi') : ''}
           runningCount={running}
+          hasProfile={hasProfile}
         />
 
         <div className="mt-6 border-t border-ink-100 px-3 pt-4">
@@ -85,6 +106,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="mx-auto max-w-[1000px]">{children}</div>
       </main>
     </div>
+    </Shell>
+  );
+}
+
+/**
+ * `<html>`/`<body>` cho cây `/dashboard`.
+ *
+ * **Bắt buộc, và đây là lỗi đã cắn**: root layout cố ý trả `children` trần để
+ * `lang` theo được ngôn ngữ trang mà không giết ISR (xem `app/layout.tsx`), nên
+ * `<html>` do `[locale]/layout.tsx` render. Nhưng `/dashboard` nằm **ngoài**
+ * `[locale]` — cố ý, vì nó chỉ có tiếng Việt — nên cây route này không có `<html>`
+ * ở bất kỳ đâu. Next chèn một khung rỗng thay thế, HTML server trả về **không có
+ * thẻ `<html>`**, React hydrate lệch (lỗi #418) rồi xoá sạch DOM: trang trắng
+ * hoàn toàn, không phải màn hình lỗi.
+ *
+ * Vì sao khó thấy: build vẫn xanh, `curl` vẫn trả HTTP 200 với ~36KB nội dung
+ * thật, và chỉ trình duyệt mới trắng. Kiểm bằng `curl ... | grep '<html'` — có
+ * thẻ và có `lang` thì đúng.
+ *
+ * `lang="vi"` ghi cứng: dashboard không có bản tiếng Anh.
+ */
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="vi" className={fontVariables}>
+      <body>{children}</body>
+    </html>
   );
 }
 

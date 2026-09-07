@@ -1,12 +1,15 @@
 using Massage.Api.Common;
+using Massage.Api.Common.Storage;
 using Massage.Api.Data;
+using Massage.Api.Modules.Collaborators;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 
 namespace Massage.Api.Modules.KtvProfiles;
 
-public class KtvProfileService(AppDbContext db)
+public class KtvProfileService(
+    AppDbContext db, MediaUrls urls, CollaboratorService collaborators)
 {
     private static Point ToPoint(double lon, double lat) =>
         new(lon, lat) { SRID = 4326 };
@@ -19,12 +22,17 @@ public class KtvProfileService(AppDbContext db)
         await AssertAreasExistAsync(dto.CoverageAreaIds, ct);
         await AssertWardExistsAsync(dto.BaseWardId, ct);
 
+        // Tra mã **trước** khi dựng hồ sơ: mã sai thì ném lỗi ở đây và không có gì được
+        // ghi. Bỏ trống là hợp lệ — đa số hồ sơ tự đến qua SEO, không qua cộng tác viên.
+        var referrer = string.IsNullOrWhiteSpace(dto.ReferralCode)
+            ? null
+            : await collaborators.RequireActiveByCodeAsync(dto.ReferralCode, ct);
+
         var profile = new KtvProfile
         {
             UserId = userId,
             FullName = dto.FullName,
             Slug = await GenerateUniqueSlugAsync(dto.FullName, ct),
-            Bio = dto.Bio,
             YearsExperience = dto.YearsExperience ?? 0,
             BasePoint = ToPoint(dto.Lon, dto.Lat),
             BaseAddress = dto.BaseAddress,
@@ -32,6 +40,8 @@ public class KtvProfileService(AppDbContext db)
             BaseStreet = dto.BaseStreet,
             ServiceRadiusKm = dto.ServiceRadiusKm,
             VerificationStatus = VerificationStatuses.Pending,
+            ReferredByCollaboratorId = referrer?.Id,
+            ReferredAt = referrer is null ? null : DateTimeOffset.UtcNow,
         };
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -50,7 +60,6 @@ public class KtvProfileService(AppDbContext db)
         await AssertWardExistsAsync(dto.BaseWardId, ct);
 
         if (dto.FullName is not null) profile.FullName = dto.FullName;
-        if (dto.Bio is not null) profile.Bio = dto.Bio;
         if (dto.YearsExperience.HasValue) profile.YearsExperience = dto.YearsExperience.Value;
         if (dto.BaseAddress is not null) profile.BaseAddress = dto.BaseAddress;
         if (dto.BaseWardId.HasValue) profile.BaseWardId = dto.BaseWardId;
@@ -78,11 +87,14 @@ public class KtvProfileService(AppDbContext db)
     }
 
     public async Task<KtvProfile> GetByUserIdAsync(Guid userId, CancellationToken ct = default) =>
-        await db.KtvProfiles.Include(p => p.Certifications).FirstOrDefaultAsync(p => p.UserId == userId, ct)
+        await db.KtvProfiles.Include(p => p.Certifications).Include(p => p.Photos)
+            .Include(p => p.IdentityDocument)
+            .FirstOrDefaultAsync(p => p.UserId == userId, ct)
         ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
 
     public async Task<KtvProfile> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        await db.KtvProfiles.Include(p => p.Certifications).FirstOrDefaultAsync(p => p.Id == id, ct)
+        await db.KtvProfiles.Include(p => p.Certifications).Include(p => p.Photos)
+            .FirstOrDefaultAsync(p => p.Id == id, ct)
         ?? throw new NotFoundException("Không tìm thấy hồ sơ KTV");
 
     /// <summary>
@@ -100,6 +112,7 @@ public class KtvProfileService(AppDbContext db)
         var profile = await db.KtvProfiles
             .AsNoTracking()
             .Include(p => p.Certifications)
+            .Include(p => p.Photos)
             .FirstOrDefaultAsync(p =>
                 p.VerificationStatus == VerificationStatuses.Verified &&
                 (id != null ? p.Id == id : p.Slug == slug), ct)
@@ -124,7 +137,6 @@ public class KtvProfileService(AppDbContext db)
             profile.Id,
             profile.FullName,
             profile.Slug,
-            profile.Bio,
             profile.YearsExperience,
             Math.Round(profile.BasePoint.Y, 3),
             Math.Round(profile.BasePoint.X, 3),
@@ -133,6 +145,12 @@ public class KtvProfileService(AppDbContext db)
             profile.RatingCount,
             profile.IsOnline,
             profile.CreatedAt,
+            urls.Public(profile.AvatarKey),
+            profile.Photos
+                .Where(x => x.VerifyStatus == VerificationStatuses.Verified)
+                .OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt)
+                .Select(x => new PublicKtvPhotoDto(x.Id, urls.Public(x.StorageKey)!, x.Caption))
+                .ToList(),
             profile.Certifications
                 .Where(c => c.VerifyStatus == VerificationStatuses.Verified)
                 .OrderBy(c => c.Name)
@@ -147,7 +165,7 @@ public class KtvProfileService(AppDbContext db)
     ///
     /// Tách riêng khỏi <see cref="GetByUserIdAsync"/> vì nav property
     /// <c>CoverageAreas</c> chỉ có cặp id — form sửa hồ sơ cần biết KTV đang chọn
-    /// những quận nào, không thể để họ chọn lại từ đầu mỗi lần sửa một dòng bio.
+    /// những quận nào, không thể để họ chọn lại từ đầu mỗi lần sửa một dòng thông tin.
     /// </summary>
     public async Task<List<PublicAreaDto>> ListCoverageAreasAsync(
         Guid ktvId, CancellationToken ct = default) =>
@@ -194,7 +212,7 @@ public class KtvProfileService(AppDbContext db)
             .ToListAsync(ct);
 
     public async Task<Certification> AddCertificationAsync(
-        Guid userId, CreateCertificationDto dto, string fileUrl, CancellationToken ct = default)
+        Guid userId, CreateCertificationDto dto, string storageKey, CancellationToken ct = default)
     {
         var profile = await GetByUserIdAsync(userId, ct);
 
@@ -204,7 +222,7 @@ public class KtvProfileService(AppDbContext db)
             Name = dto.Name,
             IssuingOrg = dto.IssuingOrg,
             IssuedAt = dto.IssuedAt,
-            FileUrl = fileUrl,
+            StorageKey = storageKey,
             VerifyStatus = VerificationStatuses.Pending,
         };
 
@@ -212,6 +230,190 @@ public class KtvProfileService(AppDbContext db)
         await db.SaveChangesAsync(ct);
         return cert;
     }
+
+    /// <summary>
+    /// Ghi nhận KTV đã chấp nhận bản cam kết.
+    ///
+    /// Từ chối khi <paramref name="version"/> không phải bản đang có hiệu lực: số đó
+    /// đến từ màn hình người dùng vừa đọc, nên lệch số nghĩa là họ đang nhìn một bản
+    /// khác với bản ta sắp ghi nhận — thường là tab mở từ trước lúc cập nhật.
+    ///
+    /// Ghi đè mốc cũ khi cam kết lại ở phiên bản mới: cái cần chứng minh là "đã đồng ý
+    /// với bản đang có hiệu lực", còn lịch sử các bản trước không có ai đọc tới. Nếu
+    /// sau này cần lịch sử đầy đủ thì đó là một bảng append-only riêng, không phải thêm
+    /// cột vào đây.
+    /// </summary>
+    public async Task<KtvProfile> AcceptCommitmentsAsync(
+        Guid userId, int version, string? ip, CancellationToken ct = default)
+    {
+        if (version != KtvCommitments.CurrentVersion)
+            throw new BadRequestException(
+                $"Bản cam kết đã được cập nhật (bản {KtvCommitments.CurrentVersion}). "
+                + "Tải lại trang và đọc lại trước khi xác nhận.");
+
+        var profile = await GetByUserIdAsync(userId, ct);
+
+        profile.CommitmentVersion = version;
+        profile.CommittedAt = DateTimeOffset.UtcNow;
+        profile.CommittedIp = ip;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(ct);
+        return profile;
+    }
+
+    /// <summary>
+    /// Gửi (hoặc gửi lại) ảnh CCCD. Trả về bản ghi mới cùng danh sách key **cũ** để
+    /// tầng gọi xoá file khỏi storage sau khi DB đã commit — cùng lý do với
+    /// <see cref="SetAvatarAsync"/>: xoá trước mà lưu DB hỏng là mất file không lấy lại được.
+    ///
+    /// Ghi đè tại chỗ chứ không thêm hàng: một KTV có nhiều nhất một CCCD
+    /// (<c>uq_identity_doc_ktv</c>), và giữ lại các lần gửi trước nghĩa là giữ thêm
+    /// nhiều bản sao giấy tờ tuỳ thân mà không ai đọc.
+    ///
+    /// Gửi lại luôn **đưa trạng thái về PENDING** và xoá lý do từ chối. Giữ nguyên
+    /// VERIFIED khi ảnh đã đổi là để một hồ sơ đã duyệt thay thẻ khác vào mà không ai
+    /// nhìn lại — tức là đúng cái lỗ mà việc bắt buộc CCCD sinh ra để bịt.
+    /// </summary>
+    public async Task<(IdentityDocument Document, List<string> PreviousKeys)> SubmitIdentityDocumentAsync(
+        Guid userId, string frontKey, string backKey, CancellationToken ct = default)
+    {
+        var profile = await GetByUserIdAsync(userId, ct);
+        var now = DateTimeOffset.UtcNow;
+
+        var doc = await db.IdentityDocuments.FirstOrDefaultAsync(d => d.KtvId == profile.Id, ct);
+        var previous = new List<string>();
+
+        if (doc is null)
+        {
+            doc = new IdentityDocument { KtvId = profile.Id, CreatedAt = now };
+            db.IdentityDocuments.Add(doc);
+        }
+        else
+        {
+            previous.Add(doc.FrontKey);
+            previous.Add(doc.BackKey);
+        }
+
+        doc.FrontKey = frontKey;
+        doc.BackKey = backKey;
+        doc.VerifyStatus = VerificationStatuses.Pending;
+        doc.RejectionReason = null;
+        doc.VerifiedBy = null;
+        doc.VerifiedAt = null;
+        doc.SubmittedAt = now;
+
+        await db.SaveChangesAsync(ct);
+        return (doc, previous);
+    }
+
+    /// <summary>
+    /// Tra CCCD theo key lưu trữ (mặt trước hoặc mặt sau), để đường tải file kiểm được
+    /// **ai** sở hữu nó. Cùng hình dạng và cùng lý do với
+    /// <see cref="FindCertificationByKeyAsync"/>.
+    /// </summary>
+    public async Task<IdentityDocument?> FindIdentityDocumentByKeyAsync(
+        string key, CancellationToken ct = default) =>
+        await db.IdentityDocuments.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.FrontKey == key || d.BackKey == key, ct);
+
+    /// <summary>
+    /// Tra chứng chỉ theo key lưu trữ, để đường tải file kiểm được **ai** sở hữu nó.
+    ///
+    /// Tra theo key chứ không theo id vì URL do <c>MediaUrls.Signed</c> dựng ra mang
+    /// key — cùng thứ mà adapter R2 ký. Hai đường dùng chung một định danh thì không
+    /// lệch nhau được.
+    /// </summary>
+    public async Task<Certification?> FindCertificationByKeyAsync(
+        string key, CancellationToken ct = default) =>
+        await db.Certifications.AsNoTracking().FirstOrDefaultAsync(c => c.StorageKey == key, ct);
+
+    /// <summary>
+    /// Đặt ảnh đại diện mới và trả về key **cũ** để tầng gọi xoá file khỏi storage.
+    ///
+    /// Trả key cũ ra ngoài thay vì tự xoá ở đây có chủ ý: xoá file phải xảy ra **sau**
+    /// khi DB đã commit. Đảo lại thì một lỗi lưu DB sẽ để hồ sơ trỏ tới file vừa bị
+    /// xoá — ảnh vỡ trên trang công khai, và không có cách nào lấy lại.
+    /// </summary>
+    public async Task<string?> SetAvatarAsync(Guid userId, string key, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
+                      ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+
+        var previous = profile.AvatarKey;
+        profile.AvatarKey = key;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        // Cùng key nghĩa là không có gì để dọn — không bao giờ xảy ra với GUID mới mỗi
+        // lần upload, nhưng xoá nhầm ở đây là mất đúng ảnh vừa đặt.
+        return previous == key ? null : previous;
+    }
+
+    public async Task<string?> RemoveAvatarAsync(Guid userId, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
+                      ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+
+        var previous = profile.AvatarKey;
+        profile.AvatarKey = null;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return previous;
+    }
+
+    /// <summary>
+    /// Thêm một ảnh vào gallery. Ảnh vào hàng đợi duyệt, chưa hiện trên trang công khai.
+    ///
+    /// Giới hạn số ảnh đếm **mọi trạng thái**, kể cả ảnh bị từ chối: đếm riêng ảnh đã
+    /// duyệt thì một tài khoản bị từ chối liên tục vẫn upload được không giới hạn, và
+    /// mỗi lần đều tốn dung lượng thật cùng một lượt người thật phải ngồi xem.
+    /// </summary>
+    public async Task<KtvPhoto> AddPhotoAsync(
+        Guid userId, string key, string? caption, int maxPhotos, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
+                      ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+
+        var count = await db.KtvPhotos.CountAsync(x => x.KtvId == profile.Id, ct);
+        if (count >= maxPhotos)
+            throw new BadRequestException($"Tối đa {maxPhotos} ảnh trong bộ sưu tập");
+
+        var photo = new KtvPhoto
+        {
+            KtvId = profile.Id,
+            StorageKey = key,
+            Caption = caption,
+            // Ảnh mới xuống cuối. Dùng số ảnh hiện có làm mốc chứ không dùng max+1:
+            // hai cách chỉ khác nhau khi đã có ảnh bị xoá, và ở đó "xuống cuối" vẫn đúng
+            // vì thứ tự chỉ cần so sánh được với nhau, không cần liền mạch.
+            SortOrder = (short)count,
+            VerifyStatus = VerificationStatuses.Pending,
+        };
+
+        db.KtvPhotos.Add(photo);
+        await db.SaveChangesAsync(ct);
+        return photo;
+    }
+
+    /// <summary>Xoá một ảnh của chính chủ, trả key để tầng gọi dọn file sau khi commit.</summary>
+    public async Task<string> RemovePhotoAsync(Guid userId, Guid photoId, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
+                      ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+
+        // Lọc theo cả KtvId: thiếu vế đó thì một id đoán được là đường xoá ảnh của
+        // người khác, và response 404 hay 204 đều không phân biệt nổi từ bên ngoài.
+        var photo = await db.KtvPhotos
+                        .FirstOrDefaultAsync(x => x.Id == photoId && x.KtvId == profile.Id, ct)
+                    ?? throw new NotFoundException("Không tìm thấy ảnh");
+
+        db.KtvPhotos.Remove(photo);
+        await db.SaveChangesAsync(ct);
+        return photo.StorageKey;
+    }
+
 
     /// <summary>
     /// Khu vực hoạt động phải tồn tại **và phải ở cấp quận/huyện**.

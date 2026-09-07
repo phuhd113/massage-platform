@@ -2,9 +2,18 @@ using FluentValidation;
 
 namespace Massage.Api.Modules.KtvProfiles;
 
+/// <param name="ReferralCode">
+/// Mã của cộng tác viên đã mời KTV này. Tuỳ chọn — phần lớn hồ sơ tự đến qua SEO và
+/// không có mã nào, nên bắt buộc sẽ chặn đúng nhóm đến miễn phí.
+///
+/// Có gửi thì <b>phải đúng</b>: mã không tồn tại hoặc đã ngừng hoạt động sẽ bị từ chối
+/// ngay, thay vì lưu một chuỗi không ai sở hữu và chỉ vỡ ra lúc đối soát hoa hồng.
+///
+/// Cố ý <b>không</b> có trong <see cref="UpdateKtvProfileDto"/>: đây là dữ liệu tính
+/// tiền, chốt lúc tạo. Sửa sai thì đi qua admin.
+/// </param>
 public record CreateKtvProfileDto(
     string FullName,
-    string? Bio,
     short? YearsExperience,
     double Lat,
     double Lon,
@@ -12,11 +21,11 @@ public record CreateKtvProfileDto(
     Guid? BaseWardId,
     string? BaseStreet,
     short ServiceRadiusKm,
-    List<Guid>? CoverageAreaIds);
+    List<Guid>? CoverageAreaIds,
+    string? ReferralCode = null);
 
 public record UpdateKtvProfileDto(
     string? FullName,
-    string? Bio,
     short? YearsExperience,
     double? Lat,
     double? Lon,
@@ -27,6 +36,16 @@ public record UpdateKtvProfileDto(
     List<Guid>? CoverageAreaIds);
 
 public record CreateCertificationDto(string Name, string? IssuingOrg, DateOnly? IssuedAt);
+
+/// <summary>
+/// Chấp nhận bản cam kết KTV.
+///
+/// Client gửi **số phiên bản mình vừa đọc**, không gửi một cờ "đã đồng ý". Người dùng
+/// có thể đang mở tab cũ trong lúc nội dung cam kết được cập nhật, và một cờ boolean sẽ
+/// ghi nhận họ đồng ý với bản mới trong khi màn hình họ nhìn là bản cũ — backend từ
+/// chối khi số không khớp bản đang có hiệu lực.
+/// </summary>
+public record AcceptCommitmentsDto(int Version);
 
 public record SitemapEntryDto(Guid Id, string Slug, DateTimeOffset LastModified);
 
@@ -45,6 +64,10 @@ public record BaseAreaDto(
 
 public record PublicKtvServiceDto(Guid ServiceId, string Name, string Slug, decimal PriceFrom, short DurationMin);
 
+/// <param name="Url">URL công khai, không ký hạn — nó nằm trong HTML của trang ISR.</param>
+/// <param name="Caption">Đi vào thuộc tính <c>alt</c>. Null thì frontend dựng từ tên KTV.</param>
+public record PublicKtvPhotoDto(Guid Id, string Url, string? Caption);
+
 /// <summary>
 /// Hồ sơ hiển thị cho khách và cho Googlebot.
 ///
@@ -54,11 +77,12 @@ public record PublicKtvServiceDto(Guid ServiceId, string Name, string Slug, deci
 /// khu vực nhận phục vụ.
 /// </summary>
 /// <param name="Lat">Toạ độ đã làm tròn ~100m, đủ để đặt ghim bản đồ.</param>
+/// <param name="AvatarUrl">Null khi KTV chưa đặt ảnh — frontend hiện ảnh thay thế, không để trống ô.</param>
+/// <param name="Photos">Chỉ ảnh đã duyệt. Ảnh chờ duyệt không bao giờ ra trang công khai.</param>
 public record PublicKtvProfileDto(
     Guid Id,
     string FullName,
     string Slug,
-    string? Bio,
     short YearsExperience,
     double Lat,
     double Lon,
@@ -67,6 +91,8 @@ public record PublicKtvProfileDto(
     int RatingCount,
     bool IsOnline,
     DateTimeOffset CreatedAt,
+    string? AvatarUrl,
+    List<PublicKtvPhotoDto> Photos,
     List<PublicCertificationDto> Certifications,
     List<PublicAreaDto> CoverageAreas,
     List<PublicKtvServiceDto> Services);
@@ -76,7 +102,6 @@ public class CreateKtvProfileDtoValidator : AbstractValidator<CreateKtvProfileDt
     public CreateKtvProfileDtoValidator()
     {
         RuleFor(x => x.FullName).NotEmpty().Length(2, 120);
-        RuleFor(x => x.Bio).MaximumLength(2000);
         RuleFor(x => x.YearsExperience).InclusiveBetween((short)0, (short)60).When(x => x.YearsExperience.HasValue);
         RuleFor(x => x.Lat).InclusiveBetween(-90, 90).WithMessage("Vĩ độ không hợp lệ");
         RuleFor(x => x.Lon).InclusiveBetween(-180, 180).WithMessage("Kinh độ không hợp lệ");
@@ -93,7 +118,6 @@ public class UpdateKtvProfileDtoValidator : AbstractValidator<UpdateKtvProfileDt
     public UpdateKtvProfileDtoValidator()
     {
         RuleFor(x => x.FullName).Length(2, 120).When(x => x.FullName is not null);
-        RuleFor(x => x.Bio).MaximumLength(2000);
         RuleFor(x => x.YearsExperience).InclusiveBetween((short)0, (short)60).When(x => x.YearsExperience.HasValue);
         RuleFor(x => x.Lat).InclusiveBetween(-90, 90).When(x => x.Lat.HasValue);
         RuleFor(x => x.Lon).InclusiveBetween(-180, 180).When(x => x.Lon.HasValue);

@@ -95,9 +95,14 @@ public class WalletController(
     /// <summary>
     /// Cổng thanh toán gọi về (IPN).
     ///
-    /// Luôn trả 200 khi đã xử lý xong — kể cả khi phát hiện trùng — vì cổng dùng
-    /// mã trạng thái để quyết định có gọi lại hay không. Trả lỗi cho một giao dịch
-    /// đã ghi nhận thành công sẽ khiến nó gọi lại mãi.
+    /// **Luôn trả HTTP 200**, kể cả khi chữ ký sai hoặc lệch số tiền. VNPay đọc
+    /// <c>RspCode</c> trong body để quyết định có gọi lại hay không và coi mọi mã
+    /// HTTP khác 200 là "chưa tới nơi" — trả 4xx cho một request giả sẽ biến nó
+    /// thành một vòng retry không bao giờ dứt, còn trả 4xx cho một giao dịch đã
+    /// cộng tiền thành công thì tệ hơn nữa.
+    ///
+    /// Tách bạch hai chiều: HTTP status nói *request có tới server không*,
+    /// <c>RspCode</c> nói *chuyện gì đã xảy ra với giao dịch*.
     /// </summary>
     [HttpPost("topup/callback")]
     [HttpGet("topup/callback")]
@@ -112,12 +117,25 @@ public class WalletController(
             // Endpoint này công khai nên ai cũng gọi được. Chữ ký sai là request giả
             // hoặc cấu hình sai secret — không xử lý gì và không tiết lộ lý do.
             logger.LogWarning("IPN {Provider} có chữ ký không hợp lệ", gateway.Provider);
-            return BadRequest(new { RspCode = "97", Message = "Invalid signature" });
+            return Ok(new { RspCode = IpnCodes.InvalidSignature, Message = "Invalid signature" });
         }
 
         var raw = string.Join('&', query.Select(kv => $"{kv.Key}={kv.Value}"));
-        var result = await confirmTopUp.ExecuteAsync(gateway.Provider, callback, raw, ct);
 
-        return Ok(new { RspCode = "00", Message = result.Reason });
+        try
+        {
+            var result = await confirmTopUp.ExecuteAsync(gateway.Provider, callback, raw, ct);
+            return Ok(new { RspCode = result.RspCode, Message = result.Reason });
+        }
+        catch (Exception ex)
+        {
+            // Lỗi hạ tầng (mất kết nối DB giữa chừng) là đúng trường hợp cần cổng gọi
+            // lại: mã 99 giữ giao dịch trong hàng đợi retry của VNPay thay vì để nó
+            // bị đánh dấu đã đối soát trong khi ví chưa được cộng. Vẫn 200 — để lộ
+            // exception ra thành 500 thì cổng cũng retry, nhưng ta mất câu trả lời.
+            logger.LogError(ex, "IPN {Provider} lỗi khi xử lý {Ref}",
+                gateway.Provider, callback.ProviderRef);
+            return Ok(new { RspCode = IpnCodes.UnknownError, Message = "Unknown error" });
+        }
     }
 }

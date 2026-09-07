@@ -124,7 +124,7 @@ public class MaintenanceJobsTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Tên_job_khớp_với_tên_trong_roadmap()
+    public void Tên_job_khớp_với_tên_trong_roadmap()
     {
         // Tên job là khoá định danh trong Hangfire: đổi nó ở code mà quên là sinh ra một
         // job mồ côi vẫn chạy theo lịch cũ, cạnh một job mới cùng nhiệm vụ. Ghim lại đây

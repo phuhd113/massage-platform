@@ -1,6 +1,7 @@
 using Massage.Api.Common;
 using Massage.Api.Modules.Auth.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Massage.Api.Modules.Auth;
@@ -35,6 +36,43 @@ public class AuthController(AuthService auth) : ControllerBase
         return Ok(tokens);
     }
 
+    /// <summary>Tạo tài khoản bằng số điện thoại + mật khẩu, trả JWT luôn.</summary>
+    /// <remarks>
+    /// Đây là đường đăng ký đang dùng ở giai đoạn đầu, khi chưa có giấy phép kinh
+    /// doanh để bật Zalo ZNS. Số điện thoại **chưa được xác thực** ở bước này.
+    /// </remarks>
+    [HttpPost("register")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    public async Task<IActionResult> Register(RegisterPasswordDto dto, CancellationToken ct)
+    {
+        var tokens = await auth.RegisterWithPasswordAsync(
+            dto.Phone, dto.Password, dto.Role ?? UserRoles.Customer, ct);
+
+        return Ok(tokens);
+    }
+
+    /// <summary>Đăng nhập bằng số điện thoại + mật khẩu.</summary>
+    [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    public async Task<IActionResult> Login(LoginPasswordDto dto, CancellationToken ct)
+    {
+        var tokens = await auth.LoginWithPasswordAsync(dto.Phone, dto.Password, ct);
+        return Ok(tokens);
+    }
+
+    /// <summary>Đặt hoặc đổi mật khẩu của tài khoản đang đăng nhập.</summary>
+    /// <remarks>
+    /// Tài khoản tạo bằng OTP chưa có mật khẩu — với chúng, <c>currentPassword</c>
+    /// không cần thiết. Tài khoản đã có mật khẩu thì bắt buộc phải gửi đúng.
+    /// </remarks>
+    [HttpPatch("password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDto dto, CancellationToken ct)
+    {
+        await auth.SetPasswordAsync(User.GetUserId(), dto.CurrentPassword, dto.NewPassword, ct);
+        return NoContent();
+    }
+
     /// <summary>Thông tin tài khoản đang đăng nhập.</summary>
     [HttpGet("me")]
     [Authorize]
@@ -43,6 +81,9 @@ public class AuthController(AuthService auth) : ControllerBase
         var user = await auth.FindByIdAsync(User.GetUserId(), ct);
         if (user is null) return NotFound();
 
-        return Ok(new { user.Id, user.Phone, user.Role, user.Email });
+        // hasPassword chứ không phải hash: trang tài khoản cần biết nên hỏi mật khẩu
+        // hiện tại hay không (tài khoản tạo bằng OTP thì chưa có), và đó là toàn bộ
+        // thứ nó cần biết về mật khẩu.
+        return Ok(new { user.Id, user.Phone, user.Role, user.Email, HasPassword = user.PasswordHash is not null });
     }
 }

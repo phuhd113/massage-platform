@@ -74,7 +74,7 @@ public sealed class WalletHarness(AppDbContext db, IClock clock) : IAsyncDisposa
         new(Db, Wallets, Uow, Clock, NullLogger<ConfirmTopUpUseCase>.Instance);
 
     public WalletMaintenance Maintenance =>
-        new(Wallets, Uow, Campaigns, Slots, Clock, NullLogger<WalletMaintenance>.Instance);
+        new(Db, Wallets, Uow, Campaigns, Slots, Clock, NullLogger<WalletMaintenance>.Instance);
 
     public ValueTask DisposeAsync() => Db.DisposeAsync();
 }

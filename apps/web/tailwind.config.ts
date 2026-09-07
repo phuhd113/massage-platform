@@ -135,7 +135,7 @@ export default {
       },
 
       maxWidth: {
-        prose: '68ch', // bio KTV, nội dung review
+        prose: '68ch', // nội dung review, mô tả dài
         shell: '1160px', // khung nội dung — khớp artboard
       },
 

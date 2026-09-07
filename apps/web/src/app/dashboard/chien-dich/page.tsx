@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { CancelCampaignButton } from '@/components/CancelCampaignButton';
 import { api } from '@/lib/api';
 import { campaignStatusLabel, packageLabel } from '@/lib/labels';
+import { requireKtvProfile } from '@/lib/require-profile';
 import { UnauthenticatedError, authFetch } from '@/lib/session';
 import { formatDate, formatVnd } from '@/lib/site';
 import type { Campaign } from '@/lib/types';
@@ -11,6 +12,9 @@ import type { Campaign } from '@/lib/types';
 export const metadata: Metadata = { title: 'Chiến dịch' };
 
 export default async function CampaignsPage() {
+  // Chưa tạo hồ sơ thì chắc chắn chưa có chiến dịch nào — mua gói đòi hồ sơ đã duyệt.
+  await requireKtvProfile();
+
   let campaigns: Campaign[];
 
   try {

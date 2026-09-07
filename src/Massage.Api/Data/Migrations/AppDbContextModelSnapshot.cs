@@ -140,6 +140,14 @@ namespace Massage.Api.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_login_attempts");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
                         .HasColumnName("password_hash");

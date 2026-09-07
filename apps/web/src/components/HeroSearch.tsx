@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { type Locale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
-import { useRef, useState, useTransition } from 'react';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { messagesFor } from '@/lib/validation-messages';
+import { useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
 import { NearMeIcon, SearchIcon } from '@/components/icons';
 import { areaScopeParams } from '@/lib/area-search';
@@ -23,6 +25,7 @@ import type { AreaSuggestion, ServiceItem } from '@/lib/types';
  */
 export function HeroSearch({ services, locale }: { services: ServiceItem[]; locale: Locale }) {
   const t = createTranslator(getDictionary(locale), locale);
+  const formRef = useFormValidation(messagesFor(locale));
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
@@ -32,7 +35,6 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
   // Khu vực đã chọn, không phải chữ đang gõ dở: chỉ gợi ý được chọn mới mang đủ vế
   // tỉnh để dựng URL đúng.
   const [area, setArea] = useState<AreaSuggestion | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   function submit() {
     const q = new URLSearchParams();
@@ -171,9 +173,7 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
             {geoError}
           </span>
         ) : (
-          <span className="text-body-s text-ink-500">
-            Chỉ hỏi vị trí khi bạn bấm — không tự xin quyền.
-          </span>
+          <span className="text-body-s text-ink-500">{t('home.heroGeoPromise')}</span>
         )}
       </div>
     </div>

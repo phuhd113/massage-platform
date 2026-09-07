@@ -11,6 +11,7 @@ import {
 } from '@/components/icons';
 import { api } from '@/lib/api';
 import { packageLabel, transactionLabel } from '@/lib/labels';
+import { requireKtvProfile } from '@/lib/require-profile';
 import { UnauthenticatedError, authFetch, authFetchOrNull } from '@/lib/session';
 import { formatDate, formatDateTime, formatVnd } from '@/lib/site';
 import type {
@@ -24,17 +25,16 @@ import type {
 } from '@/lib/types';
 
 export default async function DashboardPage() {
-  let profile: MyKtvProfile | null;
   let wallet: WalletBalance;
   let campaigns: Campaign[];
   let stats: KtvStats | null;
 
+  // Chưa tạo hồ sơ thì trang này không có gì để hiện — đưa thẳng về trang hồ sơ.
+  // `requireKtvProfile` tự redirect, nên phía dưới `profile` chắc chắn khác null.
+  const profile = await requireKtvProfile();
+
   try {
-    // Hồ sơ có thể chưa tồn tại (tài khoản mới), nên nó dùng biến thể trả null;
-    // ví và campaign thì luôn có, kể cả khi rỗng. Số liệu cũng có thể null vì
-    // endpoint đó đòi hồ sơ đã tạo.
-    [profile, wallet, campaigns, stats] = await Promise.all([
-      authFetchOrNull<MyKtvProfile>('/ktv/profile/me'),
+    [wallet, campaigns, stats] = await Promise.all([
       authFetch<WalletBalance>('/wallet/balance'),
       authFetch<Campaign[]>('/ktv/campaigns'),
       authFetchOrNull<KtvStats>('/ktv/profile/stats'),
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
   // endpoint đều đòi hồ sơ đã tạo, và tài khoản mới chưa có gì để hiển thị ở đó.
   // Sổ lấy 5 dòng — đây là bản tóm tắt, trang Ví mới là nơi đọc đủ.
   const [myServices, ledger] = await Promise.all([
-    profile ? ((await authFetchOrNull<KtvServiceItem[]>('/ktv/profile/services')) ?? []) : [],
+    (await authFetchOrNull<KtvServiceItem[]>('/ktv/profile/services')) ?? [],
     authFetch<WalletTransactionList>('/wallet/transactions?page=1&size=5'),
   ]);
 
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
 
       <ProfileStatus profile={profile} />
 
-      {profile && <ProfileCard profile={profile} services={myServices} />}
+      <ProfileCard profile={profile} services={myServices} />
 
       {/*
         Ba ô đầu xếp đúng thứ tự phễu: hiện ra → xem hồ sơ → bấm liên hệ. Đọc từ trái
@@ -286,9 +286,6 @@ function ProfileCard({
               {profile.isOnline ? 'Đang nhận khách' : 'Đang tắt nhận khách'}
             </span>
           </div>
-          <p className="mt-1.5 max-w-[62ch] text-body-l leading-[22px] text-ink-600">
-            {profile.bio ?? 'Chưa có giới thiệu. Khách đọc phần này trước khi quyết định gọi.'}
-          </p>
         </div>
 
         <Link
@@ -526,12 +523,6 @@ function TodoPanel({
       tone: 'warn',
     });
 
-  if (profile && !profile.bio)
-    todos.push({
-      text: 'Viết vài dòng giới thiệu — khách đọc phần này trước khi quyết định gọi.',
-      tone: 'info',
-    });
-
   if (profile && !profile.isOnline)
     todos.push({
       text: 'Bật trạng thái "đang nhận khách" vào giờ bạn rảnh để lên đầu danh sách.',
@@ -568,20 +559,13 @@ function TodoPanel({
  * hồ sơ chưa duyệt thì không xuất hiện trong tìm kiếm và không mua được gói. Nếu
  * không nói rõ ở đây, KTV sẽ nạp tiền rồi mới phát hiện không mua được.
  */
-function ProfileStatus({ profile }: { profile: MyKtvProfile | null }) {
-  if (!profile) {
-    return (
-      <p className="mt-[18px] rounded-xl border border-warning-bd bg-warning-bg px-[18px] py-3.5 text-body-l text-warning-fg">
-        Tài khoản chưa có hồ sơ kỹ thuật viên. Hồ sơ phải được tạo và duyệt trước khi hiển thị
-        trong tìm kiếm và trước khi mua được gói đẩy tin.{' '}
-        <Link href="/dashboard/ho-so" className="font-semibold underline">
-          Tạo hồ sơ ngay
-        </Link>
-        .
-      </p>
-    );
-  }
-
+/**
+ * Nhận `MyKtvProfile` chứ không phải `| null`: từ 2026-09-07, `requireKtvProfile`
+ * đưa tài khoản chưa có hồ sơ về thẳng `/dashboard/ho-so`, nên trang này không bao
+ * giờ render với hồ sơ rỗng. Nhánh "chưa có hồ sơ" cũ đã bỏ — giữ lại là để một
+ * thông báo không bao giờ hiện được nằm lẫn trong code còn sống.
+ */
+function ProfileStatus({ profile }: { profile: MyKtvProfile }) {
   if (profile.verificationStatus === 'VERIFIED') {
 
     return (

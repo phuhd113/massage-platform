@@ -94,3 +94,21 @@ export async function authFetchOrNull<T>(path: string): Promise<T | null> {
 }
 
 export const API_BASE = BASE;
+
+/**
+ * Lọc `?next=` để chỉ nhận đường dẫn nội bộ.
+ *
+ * Tham số này đến từ thanh địa chỉ, nên nhận nguyên trạng là mở một open redirect
+ * ngay trên trang đăng nhập thật: kẻ tấn công gửi link
+ * `/dang-nhap?next=https://trang-gia.example`, khách đăng nhập thật trên site của ta
+ * rồi bị đẩy sang trang giả đã dựng sẵn màn hình "phiên hết hạn, đăng nhập lại".
+ * Chặn cả `//host` vì trình duyệt hiểu nó là URL tuyệt đối.
+ *
+ * Nằm ở đây chứ không phải trong từng page: nay có ba trang đăng nhập/đăng ký cùng
+ * cần nó, và một bản chép tay ở trang thứ hai là đúng cách một trong các bản lệch đi
+ * rồi mở lại lỗ hổng ở nửa không ai kiểm.
+ */
+export function safeNext(next: string | undefined): string | undefined {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return undefined;
+  return next;
+}

@@ -12,7 +12,14 @@ public class VnPayOptions
     public string TmnCode { get; set; } = "";
     public string HashSecret { get; set; } = "";
     public string PaymentUrl { get; set; } = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public string ReturnUrl { get; set; } = "http://localhost:3000/vi/nap-tien/ket-qua";
+
+    /// <summary>
+    /// Nơi cổng trả trình duyệt về sau khi thanh toán. Tiếng Việt **không có prefix
+    /// locale** (xem middleware i18n), nên đường dẫn đúng là `/nap-tien/ket-qua`
+    /// chứ không phải `/vi/...` — bản có prefix trả 404, và trả đúng vào mặt KTV
+    /// ngay sau khi họ vừa trả tiền xong.
+    /// </summary>
+    public string ReturnUrl { get; set; } = "http://localhost:3000/nap-tien/ket-qua";
 }
 
 public sealed record PaymentSession(string ProviderRef, string RedirectUrl);
@@ -65,13 +72,21 @@ public class VnPayGateway(IOptions<VnPayOptions> options) : IPaymentGateway
                 "Chưa cấu hình VnPay:TmnCode và VnPay:HashSecret — không thể tạo phiên thanh toán.");
         }
 
+        // Giờ Việt Nam, không phải giờ máy chủ: cổng đọc hai mốc dưới đây theo GMT+7
+        // và container chạy UTC.
+        var now = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7));
+
         var fields = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
             ["vnp_Version"] = "2.1.0",
             ["vnp_Command"] = "pay",
             ["vnp_TmnCode"] = _opt.TmnCode,
-            // VNPay tính tiền theo đơn vị nhỏ nhất, tức nhân 100.
-            ["vnp_Amount"] = ((long)(amount * 100)).ToString(CultureInfo.InvariantCulture),
+            // VNPay tính tiền theo đơn vị nhỏ nhất, tức nhân 100. Làm tròn tường minh
+            // thay vì ép kiểu: `(long)` cắt cụt phần lẻ, nên một số tiền lỡ mang sai
+            // số dấu phẩy động sẽ **thu nhỏ** khoản khách phải trả và lệch luôn với
+            // số đã ghi ở phiên — IPN sau đó từ chối vì lệch tiền, và khách đã trả rồi.
+            ["vnp_Amount"] = ((long)decimal.Round(amount * 100, 0, MidpointRounding.AwayFromZero))
+                .ToString(CultureInfo.InvariantCulture),
             ["vnp_CurrCode"] = "VND",
             ["vnp_TxnRef"] = providerRef,
             ["vnp_OrderInfo"] = $"Nap tien vi {providerRef}",
@@ -79,7 +94,11 @@ public class VnPayGateway(IOptions<VnPayOptions> options) : IPaymentGateway
             ["vnp_Locale"] = "vn",
             ["vnp_ReturnUrl"] = _opt.ReturnUrl,
             ["vnp_IpAddr"] = clientIp,
-            ["vnp_CreateDate"] = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7))
+            ["vnp_CreateDate"] = now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
+            // Bắt buộc theo đặc tả 2.1.0. Thiếu nó thì phiên thanh toán không có hạn
+            // và một link nạp tiền cũ vẫn trả được nhiều ngày sau, trong khi KTV đã
+            // quên hẳn — 15 phút đủ cho một lượt chuyển khoản qua ngân hàng.
+            ["vnp_ExpireDate"] = now.AddMinutes(15)
                 .ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
         };
 

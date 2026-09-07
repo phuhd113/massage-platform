@@ -1,6 +1,7 @@
 import type {
   AreaDetail,
   AreaNode,
+  KtvCommitments,
   PublicKtvProfile,
   ReviewList,
   SearchResponse,
@@ -81,4 +82,13 @@ export const api = {
   },
 
   sitemap: () => get<Sitemap>('/public/sitemap', AREA_REVALIDATE),
+
+  /**
+   * Bản cam kết KTV đang có hiệu lực.
+   *
+   * Cache lâu vì nó gần như không đổi — nhưng **không** cache vĩnh viễn: khi nội dung
+   * được cập nhật, một trang còn hiển thị bản cũ sẽ gửi lên số phiên bản cũ và bị
+   * backend từ chối, tức KTV không cam kết được cho tới khi cache hết hạn.
+   */
+  ktvCommitments: () => get<KtvCommitments>('/ktv/commitments', AREA_REVALIDATE),
 };

@@ -14,6 +14,10 @@ const BLOCKED = [
   '/api',
   '/tim-kiem',
   '/dang-nhap',
+  // `/dang-ky` đã phủ luôn `/dang-ky-ktv` vì Disallow khớp theo tiền tố, nhưng khai
+  // cả hai để việc đổi tên một trong hai đường sau này không lặng lẽ mở trang kia ra
+  // cho Googlebot.
+  '/dang-ky',
   '/dang-ky-ktv',
   '/tai-khoan',
   '/nap-tien',

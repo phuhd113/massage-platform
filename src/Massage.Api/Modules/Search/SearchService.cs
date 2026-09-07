@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Massage.Api.Common.Storage;
 using Massage.Api.Data;
 using Massage.Api.Modules.Analytics;
 using Massage.Api.Modules.Analytics.Entities;
@@ -14,7 +15,7 @@ namespace Massage.Api.Modules.Search;
 /// Redis, lúc đó truy vấn này vẫn giữ nguyên vai trò fallback khi cache miss hoặc
 /// Redis chết — nên nó phải luôn tự chạy đúng một mình.
 /// </summary>
-public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
+public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls urls)
 {
     /// <summary>
     /// Số review "ảo" dùng để làm mượt rating theo kiểu Bayesian. Không có nó, một
@@ -78,7 +79,7 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
         candidates AS (
             SELECT k.id, k.full_name, k.slug, k.years_experience,
                    k.rating_avg, k.rating_count, k.response_rate, k.is_online,
-                   k.last_active_at, k.created_at, k.bio,
+                   k.last_active_at, k.created_at, k.avatar_key,
                    -- Làm tròn 3 chữ số (~100m) trước khi ra khỏi hệ thống. Khoảng
                    -- cách đã tính ở server nên client không cần toạ độ chính xác,
                    -- còn base_point là chỗ ở của KTV — đủ để đặt ghim bản đồ là đủ.
@@ -175,7 +176,7 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
                p.boost_points + p.base_score AS "Score",
                p.lat           AS "Lat",
                p.lon           AS "Lon",
-               p.bio           AS "Bio",
+               p.avatar_key    AS "AvatarKey",
                -- Chỉ đếm chứng chỉ ĐÃ DUYỆT: thẻ nói "n chứng chỉ đã duyệt", nên đếm
                -- cả hàng PENDING sẽ biến hồ sơ chờ xét thành hồ sơ đã xác minh trong
                -- mắt khách. Partial index idx_certification_ktv_verified phục vụ đúng
@@ -252,7 +253,8 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
                 r.Id, r.FullName, r.Slug, r.YearsExperience,
                 r.RatingAvg, r.RatingCount, r.IsOnline,
                 r.DistanceM, r.BoostPoints, r.BaseScore, r.Score, r.Lat, r.Lon,
-                r.Bio, r.VerifiedCertCount, ParseServices(r.ServicesJson))).ToList(),
+                urls.Public(r.AvatarKey), r.VerifiedCertCount,
+                ParseServices(r.ServicesJson))).ToList(),
             q.Page,
             q.Size,
             rows.Count > 0 ? rows[0].Total : 0);
@@ -376,7 +378,10 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics)
         public double Score { get; set; }
         public double Lat { get; set; }
         public double Lon { get; set; }
-        public string? Bio { get; set; }
+
+        /// <summary>Key thô; đổi thành URL ở tầng dựng DTO qua <c>MediaUrls</c>.</summary>
+        public string? AvatarKey { get; set; }
+
         public int VerifiedCertCount { get; set; }
 
         /// <summary>

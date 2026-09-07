@@ -12,7 +12,7 @@ namespace Massage.Api.Tests;
 /// <summary>
 /// Upload chứng chỉ — luồng multipart duy nhất của hệ thống.
 ///
-/// Binding form và kiểm tra file chỉ tồn tại ở tầng HTTP: <c>CertificationUpload</c>
+/// Binding form và kiểm tra file chỉ tồn tại ở tầng HTTP: <c>UploadService</c>
 /// nhận <c>IFormFile</c>, thứ chỉ ASP.NET dựng được. Một lỗi ở đây (mất boundary,
 /// tên trường sai, bỏ kiểm định dạng) không làm đỏ bất kỳ test service nào.
 /// </summary>
@@ -79,7 +79,12 @@ public class ApiUploadTests(PostgresFixture fixture) : IAsyncLifetime
         var body = await res.ReadAsync<Cert>();
         body!.VerifyStatus.Should().Be(VerificationStatuses.Pending,
             "chứng chỉ tự động được duyệt thì hàng rào chất lượng mất tác dụng");
-        body.FileUrl.Should().StartWith("/uploads/");
+        // Test chạy với LocalObjectStorage (không cấu hình R2), nên URL trỏ về endpoint
+        // có [Authorize] chứ không phải một đường dẫn tĩnh. Với R2 nó là URL ký hạn
+        // ngắn — hình dạng khác, nhưng cùng một luật: không ai mở được nếu không có
+        // quyền, và tên file của client không bao giờ thành tên lưu trữ.
+        body.FileUrl.Should().Contain("/ktv/certifications/file?key=");
+        body.FileUrl.Should().Contain("certifications%2F");
         body.FileUrl.Should().NotContain("cc.pdf",
             "tên file do client gửi không được dùng làm tên lưu trữ");
     }
@@ -131,6 +136,48 @@ public class ApiUploadTests(PostgresFixture fixture) : IAsyncLifetime
             Form("Chung chi", MinimalPdf(), "cc.pdf", "application/pdf"));
 
         res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task File_chứng_chỉ_KHÔNG_phục_vụ_qua_đường_tĩnh_công_khai()
+    {
+        var client = await KtvWithProfileAsync();
+
+        var res = await client.PostAsync("/api/v1/ktv/certifications",
+            Form("Chung chi", MinimalPdf(), "cc.pdf", "application/pdf"));
+        var body = await res.ReadAsync<Cert>();
+
+        // Đây là lỗ hổng đã sửa, không phải đề phòng: trước khi có lớp object storage,
+        // cả thư mục uploads được UseStaticFiles phục vụ công khai, nên ai đoán được
+        // tên file đều tải được ảnh chụp giấy tờ tuỳ thân của KTV.
+        var key = body!.FileUrl[(body.FileUrl.IndexOf("key=", StringComparison.Ordinal) + 4)..];
+        var direct = await _api.CreateClient().GetAsync($"/uploads/{Uri.UnescapeDataString(key)}");
+
+        direct.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "đường tĩnh chỉ mở cho avatars/ và photos/");
+    }
+
+    [Fact]
+    public async Task Không_tải_được_file_chứng_chỉ_của_KTV_khác()
+    {
+        var owner = await KtvWithProfileAsync();
+        var res = await owner.PostAsync("/api/v1/ktv/certifications",
+            Form("Cua toi", MinimalPdf(), "cc.pdf", "application/pdf"));
+        var body = await res.ReadAsync<Cert>();
+
+        // Chính chủ mở được.
+        (await owner.GetAsync(body!.FileUrl)).StatusCode
+            .Should().Be(HttpStatusCode.OK, _api.ErrorsOrEmpty());
+
+        // KTV khác thì không — và nhận 404 chứ không phải 403: 403 xác nhận key đó có
+        // thật, tức biến chính lời từ chối thành một kênh dò tìm.
+        var attacker = await KtvWithProfileAsync();
+        (await attacker.GetAsync(body.FileUrl)).StatusCode
+            .Should().Be(HttpStatusCode.NotFound);
+
+        // Chưa đăng nhập thì càng không.
+        (await _api.CreateClient().GetAsync(body.FileUrl)).StatusCode
+            .Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private sealed record Cert(Guid Id, string Name, string FileUrl, string VerifyStatus);

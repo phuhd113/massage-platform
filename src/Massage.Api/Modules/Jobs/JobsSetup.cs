@@ -133,5 +133,14 @@ public static class JobsSetup
             j => j.MaintainAnalyticsPartitionsAsync(CancellationToken.None),
             "0 2 * * *",
             new RecurringJobOptions { TimeZone = VietnamTime });
+
+        // 2 giờ 30 sáng: sau khi ngày đã khép lại, và **trước** job đối soát ví lúc 3 giờ
+        // để bảng phiên nạp tiền đã sạch khi có người đọc kết quả đối soát. Ngưỡng bỏ dở
+        // là 24 giờ nên chạy dày hơn hằng ngày không đổi được gì.
+        jobs.AddOrUpdate<MaintenanceJobs>(
+            MaintenanceJobs.TopUpIntentSweep,
+            j => j.AbandonStaleTopUpIntentsAsync(CancellationToken.None),
+            "30 2 * * *",
+            new RecurringJobOptions { TimeZone = VietnamTime });
     }
 }

@@ -9,6 +9,7 @@ public static class RateLimitPolicies
     public const string Reviews = "reviews";
     public const string Reports = "reports";
     public const string ProfileViews = "profile-views";
+    public const string Auth = "auth";
 }
 
 public static class RateLimitSetup
@@ -54,6 +55,19 @@ public static class RateLimitSetup
                     Window = TimeSpan.FromMinutes(10),
                 }));
 
+            // Khoá tài khoản sau 5 lần sai (User.LockedUntil) chặn việc dò mật khẩu
+            // của **một** người; policy này chặn việc quét **nhiều** số điện thoại từ
+            // cùng một nguồn, thứ mà khoá theo tài khoản không nhìn thấy. Cần cả hai.
+            //
+            // 10 lượt / 5 phút đủ rộng cho người gõ nhầm vài lần rồi đăng ký một tài
+            // khoản nữa cho người nhà, và đủ chặt để một vòng lặp tự động vô dụng.
+            opt.AddPolicy(RateLimitPolicies.Auth, ctx =>
+                RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(5),
+                }));
+
             opt.AddPolicy(RateLimitPolicies.Reviews, ctx =>
                 RateLimitPartition.GetFixedWindowLimiter(ClientKey(ctx), _ => new FixedWindowRateLimiterOptions
                 {
@@ -69,6 +83,11 @@ public static class RateLimitSetup
     /// mọi khách sẽ dùng chung một phân vùng. Khi đưa lên production phải bật
     /// <c>ForwardedHeaders</c> với danh sách proxy tin cậy — bật mà không khai báo
     /// proxy tin cậy còn tệ hơn không bật, vì lúc đó client tự đặt được IP giả.
+    ///
+    /// Từ khi có <c>auth</c>, điều đó không còn là ghi chú vận hành mà là điều kiện để
+    /// policy ấy có tác dụng: <c>/auth/login</c> luôn ẩn danh nên nó *chỉ* phân vùng
+    /// theo IP, và một phân vùng chung cho mọi khách nghĩa là 10 lượt/5 phút của cả
+    /// sàn — vừa không chặn được kẻ dò, vừa khoá hết người dùng thật.
     /// </summary>
     private static string ClientKey(HttpContext ctx) =>
         ctx.User.TryGetUserId()?.ToString()

@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { type Locale, localePath } from '@/i18n/config';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { messagesFor } from '@/lib/validation-messages';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,6 +36,8 @@ export function ReviewForm({
   locale: Locale;
 }) {
   const t = createTranslator(getDictionary(locale), locale);
+  // Thông báo validate theo ngôn ngữ trang, không theo ngôn ngữ trình duyệt.
+  const formRef = useFormValidation(messagesFor(locale));
   const router = useRouter();
   const pathname = usePathname();
 
@@ -176,7 +180,7 @@ export function ReviewForm({
   // KTV cũng có thể là khách của KTV khác, nên không chặn theo vai trò ở đây.
   // Backend mới là nơi biết chắc: nó từ chối người tự đánh giá hồ sơ của chính mình.
   return (
-    <form onSubmit={submit} className="mt-5 rounded-xl border border-ink-200 bg-white p-4 shadow-card">
+    <form ref={formRef} onSubmit={submit} className="mt-5 rounded-xl border border-ink-200 bg-white p-4 shadow-card">
       <h3 className="text-h4 text-ink-900">{t('reviewForm.title')}</h3>
       <p className="mt-1 text-body-s text-ink-500">{t('reviewForm.subtitle')}</p>
 

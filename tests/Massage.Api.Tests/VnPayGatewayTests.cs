@@ -133,4 +133,69 @@ public class VnPayGatewayTests
         session.RedirectUrl.Should().Contain("vnp_Amount=50000000");
         session.RedirectUrl.Should().Contain("vnp_SecureHash=");
     }
+
+    /// <summary>
+    /// `vnp_ExpireDate` là trường bắt buộc của đặc tả 2.1.0. Thiếu nó, cổng có thể
+    /// từ chối thẳng phiên thanh toán — và lỗi đó chỉ lộ ra ở môi trường thật, vì
+    /// mọi test tự ký đều không quan tâm trường nào có mặt.
+    /// </summary>
+    [Fact]
+    public void URL_thanh_toán_có_hạn_dùng_và_hạn_nằm_sau_thời_điểm_tạo()
+    {
+        var session = Gateway().CreateSession("ref-abc", 500_000, "127.0.0.1");
+
+        var query = System.Web.HttpUtility.ParseQueryString(
+            session.RedirectUrl[(session.RedirectUrl.IndexOf('?') + 1)..]);
+
+        var created = query["vnp_CreateDate"];
+        var expires = query["vnp_ExpireDate"];
+
+        created.Should().NotBeNull();
+        expires.Should().NotBeNull();
+
+        // Cùng định dạng yyyyMMddHHmmss nên so sánh chuỗi là so sánh thời gian.
+        expires.Should().NotBe(created);
+        string.CompareOrdinal(expires, created).Should().BePositive(
+            "hạn thanh toán phải nằm sau thời điểm tạo phiên");
+    }
+
+    /// <summary>
+    /// Ép kiểu `(long)` cắt cụt phần lẻ thay vì làm tròn. Với một số tiền lỡ mang
+    /// sai số dấu phẩy động, bản cắt cụt **thu nhỏ** khoản gửi sang cổng và lệch
+    /// luôn với số đã ghi ở phiên — IPN sau đó từ chối vì lệch tiền, trong khi
+    /// khách thì đã trả rồi.
+    /// </summary>
+    [Fact]
+    public void Số_tiền_gửi_sang_cổng_được_làm_tròn_chứ_không_bị_cắt_cụt()
+    {
+        // 123456.99 * 100 = 12345698.999... trong dấu phẩy động; cắt cụt ra 12345698.
+        var session = Gateway().CreateSession("ref-abc", 123_456.99m, "127.0.0.1");
+
+        session.RedirectUrl.Should().Contain("vnp_Amount=12345699");
+    }
+
+    /// <summary>
+    /// Khép vòng ký → verify bằng chính URL adapter dựng ra, thay vì bằng payload
+    /// do test tự ký. Các test khác dùng chung thuật toán ký của adapter nên chúng
+    /// vẫn xanh kể cả khi quy ước ký sai với VNPay thật; test này ít nhất bắt được
+    /// trường hợp hai chiều của adapter lệch nhau.
+    /// </summary>
+    [Fact]
+    public void Chữ_ký_do_adapter_dựng_được_chính_adapter_chấp_nhận()
+    {
+        var gateway = Gateway();
+        var session = gateway.CreateSession("ref-roundtrip", 500_000, "127.0.0.1");
+
+        var parsed = System.Web.HttpUtility.ParseQueryString(
+            session.RedirectUrl[(session.RedirectUrl.IndexOf('?') + 1)..]);
+
+        var query = parsed.AllKeys
+            .Where(k => k is not null)
+            .ToDictionary(k => k!, k => parsed[k]!);
+
+        // Cổng trả về thêm các trường kết quả; giữ nguyên phần đã ký và bổ sung
+        // chúng sẽ đổi chữ ký, nên ở đây chỉ kiểm đúng phần adapter tự dựng.
+        gateway.VerifyCallback(query).Should().NotBeNull(
+            "chữ ký adapter tự dựng phải qua được chính bước kiểm của nó");
+    }
 }

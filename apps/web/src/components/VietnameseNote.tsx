@@ -1,7 +1,7 @@
 /**
  * Nhãn nhỏ báo phần nội dung bên dưới do người dùng viết bằng tiếng Việt.
  *
- * Bio của KTV, nội dung đánh giá, tên chứng chỉ và chú thích ảnh đều là chữ người
+ * Nội dung đánh giá, tên chứng chỉ và chú thích ảnh đều là chữ người
  * thật gõ vào, và không có bản dịch. Không dịch máy chúng: Google coi nội dung dịch
  * máy hàng loạt là spam và hình phạt rơi lên **cả tên miền** — đúng loại rủi ro mà
  * ngành này vốn đã nhạy cảm sẵn.

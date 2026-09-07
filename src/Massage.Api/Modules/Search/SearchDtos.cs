@@ -63,8 +63,7 @@ public class SearchQueryDtoValidator : AbstractValidator<SearchQueryDto>
 public record SearchItemServiceDto(string Name, short DurationMin, decimal PriceFrom);
 
 /// <param name="Lat">Toạ độ đã làm tròn ~100m — đủ để đặt ghim bản đồ, không đủ để lần ra nhà KTV.</param>
-/// <param name="Bio">Giới thiệu ngắn. Thẻ tự cắt bớt khi dài — cắt ở server sẽ chặn mất
-/// trang hồ sơ dùng lại cùng DTO này về sau.</param>
+/// <param name="AvatarUrl">Null khi KTV chưa đặt ảnh — thẻ hiện ảnh thay thế, không để trống ô.</param>
 /// <param name="VerifiedCertCount">Số chứng chỉ **đã duyệt**. Hồ sơ đang chờ xét không được
 /// tính: thẻ hiển thị con số này kèm chữ "đã duyệt", nên đếm cả PENDING là nói sai với khách.</param>
 /// <param name="Services">Tối đa 2 dịch vụ, giá thấp trước.</param>
@@ -82,7 +81,7 @@ public record SearchItemDto(
     double Score,
     double Lat,
     double Lon,
-    string? Bio,
+    string? AvatarUrl,
     int VerifiedCertCount,
     IReadOnlyList<SearchItemServiceDto> Services);
 

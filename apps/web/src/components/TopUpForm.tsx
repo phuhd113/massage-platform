@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { viMessages } from '@/lib/validation-messages';
 import { formatVnd } from '@/lib/site';
 
 const PRESETS = [200_000, 500_000, 1_000_000, 2_000_000];
@@ -8,6 +10,7 @@ const MIN = 10_000;
 const MAX = 50_000_000;
 
 export function TopUpForm() {
+  const formRef = useFormValidation(viMessages());
   const [amount, setAmount] = useState<number>(500_000);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function TopUpForm() {
   const valid = amount >= MIN && amount <= MAX && Number.isInteger(amount);
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-ink-200 bg-white p-5">
+    <form ref={formRef} onSubmit={submit} className="rounded-xl border border-ink-200 bg-white p-5">
       <h2 className="font-display text-h3 text-ink-900">Nạp tiền</h2>
 
       <div className="mt-3.5 flex flex-wrap gap-2">

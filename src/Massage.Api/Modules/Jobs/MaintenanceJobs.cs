@@ -23,6 +23,7 @@ public class MaintenanceJobs(
     public const string PromotionExpireSweep = "promotion:expire-sweep";
     public const string WalletReconcile = "wallet:reconcile";
     public const string AnalyticsPartitions = "analytics:partitions";
+    public const string TopUpIntentSweep = "topup:abandon-stale";
 
     /// <summary>
     /// Nhả tiền của hold quá hạn (cron 5 phút).
@@ -97,6 +98,28 @@ public class MaintenanceJobs(
         }
 
         logger.LogInformation("[{Job}] đối soát ví: không có sai lệch", WalletReconcile);
+    }
+
+    /// <summary>
+    /// Đánh dấu phiên nạp tiền bỏ dở (cron hằng ngày).
+    ///
+    /// Chỉ đụng vào hàng PENDING mà cổng <b>chưa từng gọi về</b>, và không bao giờ chạm
+    /// tới ví — phiên bỏ dở chưa sinh bút toán nào nên không có gì để hoàn. Vì vậy đây
+    /// là job duy nhất trong nhóm chạm tiền được phép retry thoải mái: chạy lại chỉ
+    /// cập nhật đúng những hàng lần trước đã bỏ sót.
+    ///
+    /// Không ném lỗi khi có hàng bỏ dở: khách mở cổng rồi đổi ý là chuyện bình thường
+    /// hằng ngày, không phải sự cố cần ai thức dậy.
+    /// </summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 600)]
+    [AutomaticRetry(Attempts = 3)]
+    public async Task AbandonStaleTopUpIntentsAsync(CancellationToken ct)
+    {
+        var abandoned = await maintenance.AbandonStaleIntentsAsync(ct);
+
+        if (abandoned > 0)
+            logger.LogInformation(
+                "[{Job}] đã đánh dấu {Count} phiên nạp tiền bỏ dở", TopUpIntentSweep, abandoned);
     }
 
     /// <summary>

@@ -25,6 +25,10 @@ public class AppExceptionHandler(ILogger<AppExceptionHandler> logger) : IExcepti
             Modules.Auth.TooManyAttemptsException => HttpStatusCode.BadRequest,
             Modules.Auth.InvalidOtpException => HttpStatusCode.Unauthorized,
 
+            // Sai số điện thoại hoặc sai mật khẩu — cùng một mã, cùng một message,
+            // vì phân biệt hai trường hợp là cho phép dò xem số nào đã có tài khoản.
+            Modules.Auth.InvalidLoginException => HttpStatusCode.Unauthorized,
+
             // Không gửi được OTP là sự cố phía nhà cung cấp, không phải lỗi của người
             // dùng: 503 nói đúng bản chất và cho client biết thử lại là hợp lý, khác
             // 500 (lỗi của ta) và khác 400 (họ nhập sai).

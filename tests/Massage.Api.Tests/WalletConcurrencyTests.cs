@@ -244,4 +244,91 @@ public class WalletConcurrencyTests(PostgresFixture fixture)
         var wallet = await check.Wallets.AsNoTracking().FirstAsync(w => w.UserId == ktv.UserId);
         wallet.Balance.Should().Be(0);
     }
+
+    /// <summary>
+    /// Phiên mở rồi không ai trả tiền phải được đánh dấu bỏ dở, nếu không KTV nhìn
+    /// thấy một dòng "đang chờ thanh toán" vĩnh viễn — và nó làm nhiễu đúng câu hỏi
+    /// cần trả lời khi có tranh chấp: phiên nào thật sự còn treo?
+    /// </summary>
+    [Fact]
+    public async Task Phiên_nạp_tiền_quá_hạn_mà_cổng_chưa_gọi_về_bị_đánh_dấu_bỏ_dở()
+    {
+        await using var setup = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(setup, lat, lon);
+
+        var stale = new Massage.Api.Modules.Wallets.Entities.PaymentIntentRow
+        {
+            UserId = ktv.UserId,
+            Amount = 500_000,
+            Provider = "VNPAY",
+            ProviderRef = $"stale-{Guid.NewGuid():N}"[..20],
+            Status = Massage.Api.Modules.Wallets.Entities.PaymentIntentStatuses.Pending,
+        };
+        setup.PaymentIntents.Add(stale);
+        await setup.SaveChangesAsync();
+
+        // created_at do DB đặt mặc định now(), nên đẩy lùi bằng SQL để giả lập phiên cũ.
+        await setup.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE payment_intents SET created_at = now() - interval '48 hours' WHERE id = {stale.Id}");
+
+        await using var h = WalletTestData.Harness(fixture);
+        (await h.Maintenance.AbandonStaleIntentsAsync()).Should().BeGreaterThan(0);
+
+        await using var check = fixture.CreateContext();
+        var after = await check.PaymentIntents.AsNoTracking().FirstAsync(i => i.Id == stale.Id);
+        after.Status.Should().Be(
+            Massage.Api.Modules.Wallets.Entities.PaymentIntentStatuses.Abandoned);
+    }
+
+    /// <summary>
+    /// Ràng buộc quan trọng nhất của job dọn: <b>không đụng vào phiên mà cổng đã gọi
+    /// về</b>. Có callback nghĩa là cổng đã nói chuyện với ta, và trạng thái phải do
+    /// đường IPN quyết định — một job đoán thay sẽ ghi đè lên kết quả thật, đúng vào
+    /// những giao dịch đang tranh chấp.
+    /// </summary>
+    [Fact]
+    public async Task Job_dọn_không_đụng_tới_phiên_cổng_đã_gọi_về()
+    {
+        await using var setup = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(setup, lat, lon);
+        await WalletTestData.SeedWalletAsync(setup, ktv.UserId, 0);
+
+        var intent = new Massage.Api.Modules.Wallets.Entities.PaymentIntentRow
+        {
+            UserId = ktv.UserId,
+            Amount = 500_000,
+            Provider = "VNPAY",
+            ProviderRef = $"paid-{Guid.NewGuid():N}"[..20],
+            Status = Massage.Api.Modules.Wallets.Entities.PaymentIntentStatuses.Pending,
+        };
+        setup.PaymentIntents.Add(intent);
+        await setup.SaveChangesAsync();
+
+        // Cổng đã gọi về và tiền đã vào ví — nhưng hàng vẫn cũ hơn ngưỡng dọn.
+        await using var confirm = WalletTestData.Harness(fixture);
+        var result = await confirm.ConfirmTopUp.ExecuteAsync(
+            "VNPAY",
+            new PaymentCallback(intent.ProviderRef, $"txn-{Guid.NewGuid():N}"[..16], 500_000, true),
+            "raw");
+        result.Credited.Should().BeTrue();
+
+        await setup.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE payment_intents SET created_at = now() - interval '48 hours' WHERE id = {intent.Id}");
+
+        await using var h = WalletTestData.Harness(fixture);
+        await h.Maintenance.AbandonStaleIntentsAsync();
+
+        await using var check = fixture.CreateContext();
+        var after = await check.PaymentIntents.AsNoTracking().FirstAsync(i => i.Id == intent.Id);
+        after.Status.Should().Be(
+            Massage.Api.Modules.Wallets.Entities.PaymentIntentStatuses.Succeeded,
+            "job dọn không được ghi đè kết luận của đường IPN");
+
+        // Và tuyệt đối không chạm vào tiền: dọn phiên không phải là hoàn tiền.
+        var wallet = await check.Wallets.AsNoTracking().FirstAsync(w => w.UserId == ktv.UserId);
+        wallet.Balance.Should().Be(500_000);
+        (await WalletTestData.CountDriftingWalletsAsync(fixture)).Should().Be(0);
+    }
 }

@@ -161,9 +161,110 @@ user agent của khách để gộp lead trùng (5 phút) và lượt xem trùng
 mang chung IP của server và cả hai cơ chế gộp sập thành một nhóm. Đổi lại là phải khai origin tường
 minh — không dùng `AllowAnyOrigin` ở hai endpoint ghi thẳng vào số liệu tính tiền.
 
+**Thông báo validate của form đã theo ngôn ngữ trang** (2026-09-07,
+`lib/use-form-validation.ts` + `lib/validation-messages.ts` + namespace `validation` trong i18n).
+Trước đó bong bóng kiểu "Please lengthen this text to 8 characters or more" do **trình duyệt** sinh
+ra, theo ngôn ngữ **trình duyệt** — khách Việt dùng Chrome tiếng Anh đọc tiếng Anh giữa trang tiếng
+Việt. Cả 12 form đã gắn hook. Sáu điều đừng vô tình đảo ngược:
+
+- **Dịch theo `ValidityState`, KHÔNG đọc `validationMessage`.** Chuỗi của trình duyệt đổi theo cả
+  trình duyệt lẫn phiên bản; bắt nó bằng regex là dựng một bảng tra phải theo kịp Chrome, Firefox và
+  Safari mãi mãi. `ValidityState` là API chuẩn và nói đúng *loại* lỗi.
+- **KHÔNG dùng `noValidate`.** Bỏ hẳn validation trình duyệt là mất luôn những thứ nó làm tốt: chặn
+  submit, tự cuộn tới và focus vào ô sai đầu tiên, và vẫn chạy khi JS hỏng ở chỗ khác. Chỉ đổi *câu
+  chữ*, giữ nguyên cơ chế.
+- **Phải `setCustomValidity('')` ở `input`/`change`.** Đây là bẫy kinh điển của API này: để lại chuỗi
+  khác rỗng thì ô đó **vĩnh viễn không hợp lệ** — người dùng sửa đúng rồi vẫn không submit được. Đã
+  có test trong trình duyệt thật canh đúng ca đó.
+- **Nghe ở tầng `<form>` pha capture, không gắn `onInvalid` lên từng input.** Sự kiện `invalid` không
+  bubble nhưng **có** capture, nên một chỗ nghe phủ mọi ô — kể cả ô thêm sau. Form mới chỉ cần một
+  dòng `ref={formRef}`, và ô mới không thể quên phần dịch.
+- **Hai hàm dựng chuỗi, không một**: `messagesFor(locale)` cho trang khách (có vi + en),
+  `viMessages()` cho dashboard KTV và admin (cố ý chỉ tiếng Việt). `validation-messages.ts` **không**
+  khai `'use client'` — nó chỉ tra chuỗi, và server component `tai-khoan/page.tsx` gọi nó để truyền
+  xuống `ChangePasswordForm` qua prop.
+- **`{min}`/`{max}` định dạng theo `numberLocale`, không ghim `vi-VN`.** Ô nạp tiền khai
+  `max=50000000`; một câu "không được vượt quá 50000000" bắt người đọc tự đếm chữ số ngay trong màn
+  hình họ đang định chuyển tiền. Nhưng `50.000.000` trên trang tiếng Anh lại đọc thành số thập phân.
+
+Chuỗi hardcode `"Chỉ hỏi vị trí khi bạn bấm…"` trong `HeroSearch` cũng đã chuyển sang
+`home.heroGeoPromise` trong cùng đợt — nó vốn hiện nguyên tiếng Việt trên trang EN.
+
+**KTV chưa tạo hồ sơ bị giữ ở `/dashboard/ho-so`** (2026-09-07, `lib/require-profile.ts`).
+Tài khoản KTV mới đăng ký **không** tự có hồ sơ — phải gọi `POST /ktv/profile` riêng, và trước đó
+mọi trang dashboard đều mở nhưng rỗng. Năm điều đừng vô tình đảo ngược:
+
+- **Điều kiện là "đã tạo hồ sơ", KHÔNG phải "đã được duyệt".** Duyệt phụ thuộc admin xem CCCD bằng
+  mắt; lấy VERIFIED làm điều kiện là nhốt KTV đã làm xong phần việc của mình ở ngoài dashboard nhiều
+  giờ, và nhốt **vĩnh viễn** người bị REJECTED — trong khi việc họ cần làm lúc đó (sửa hồ sơ, gửi
+  lại CCCD) nằm ở đúng trang này. Hai điều kiện vẫn tách bạch: có hồ sơ thì vào được `/dashboard/goi`,
+  nhưng mua gói vẫn đòi VERIFIED.
+- **`/dashboard/ho-so` không bao giờ bị chặn.** Nó là nơi hồ sơ được tạo — chặn ở đó là một vòng lặp
+  kín không có lối ra.
+- **Guard nằm ở từng page, không ở layout.** Layout không biết đường dẫn hiện tại (middleware cố ý
+  loại trừ `/dashboard` khỏi matcher, nên không có header `x-pathname`), mà chặn ở layout mà không
+  biết đường dẫn thì chặn luôn cả trang hồ sơ. `requireKtvProfile()` gọi một dòng ở đầu mỗi page.
+- **`requireKtvProfile` trả luôn hồ sơ**, không chỉ `void`: trang gọi nó gần như luôn cần chính dữ
+  liệu đó, và tách làm hai lời gọi là bắt backend trả lời hai lần cho cùng câu hỏi.
+- **API hỏng thì cho đi tiếp.** Layout giữ `hasProfile = true` khi lời gọi ném lỗi khác 401 — nhốt
+  KTV **đã có** hồ sơ vào trang tạo hồ sơ vì ví chập chờn là biến một sự cố nhỏ thành mất quyền
+  truy cập.
+
+Sidebar làm mờ các mục chưa vào được (`DashboardNav` nhận `hasProfile`), nhưng đó chỉ là nói trước
+cho đỡ bấm nhầm — **guard thật nằm ở server**. Trang công khai không bị chặn: người đang cân nhắc
+tạo hồ sơ có lý do chính đáng để xem sàn hoạt động thế nào trước.
+
 **Ba nhóm route, ba khung trang khác nhau** (2026-09-03): `(public)` có header/footer,
 `(auth)` không có gì (màn đăng nhập chiếm trọn màn hình, chia hai cột), `/dashboard` có sidebar
 riêng. Route group không đi vào URL nên mọi đường dẫn giữ nguyên.
+
+**Header rút còn hai mục + mục vị trí** (2026-09-07, `LocationNavButton` + `lib/saved-area.ts`).
+Trước đó có bảy mục. Nay: **vị trí · Dành cho KTV**. Bảy điều đừng vô tình đảo ngược:
+
+- **Bỏ khỏi header không phải là bỏ khỏi site.** "Tìm KTV", TP.HCM, Hà Nội và "cách duyệt hồ sơ"
+  chuyển xuống footer — footer nằm trong HTML của **mọi** trang công khai nên giá trị liên kết nội
+  bộ giữ nguyên. Xoá hẳn chúng mới là cắt đường Google đang đi. `/tim-kiem` bắt buộc phải còn **một**
+  đường không phụ thuộc GPS ở footer: mục vị trí dẫn vào đó nhưng chỉ chạy khi khách cho quyền định
+  vị, còn Googlebot thì không bao giờ cho.
+- **"Dành cho KTV" trỏ `/dang-nhap`, không phải `/dang-ky-ktv`.** Phần lớn người bấm nó là KTV **đã
+  có** hồ sơ, đang muốn vào làm việc; người chưa có đi tiếp một bước qua link dưới form. Ngược lại
+  thì số đông quay lại mỗi ngày phải đi vòng.
+- **`registerHref` trong `PasswordAuthForm` rẽ theo `redirectTo`.** `/dang-nhap` có hai lối vào rất
+  khác nhau: KTV từ header (không `?next=`) và khách từ `ReviewForm` (luôn có `?next=`). Vai trò
+  **chốt lúc tạo tài khoản** và không tự đổi được, nên gửi nhầm cửa là hỏng im lặng — KTV tạo phải
+  tài khoản CUSTOMER sẽ vào `/dashboard` chỉ thấy màn hình giải thích, trong khi cả hai bước đều báo
+  thành công. Có `?next=` → `/dang-ky` (giữ nguyên `next`); không có → `/dang-ky-ktv`. Chiều ngược
+  lại ("Đã có tài khoản?") cũng phải giữ `?next=`.
+- **Không còn dòng "sang cửa của đối tượng kia" trên màn đăng nhập.** Header đã trỏ KTV thẳng vào
+  đây, nên một dòng hỏi ngược "bạn là khách à?" là mời người ta rời đúng màn hình họ vừa được dẫn
+  tới. Bốn key `login.crossLink*` **giữ lại** vì `LoginForm` (bản OTP) còn dùng — xoá là làm bản đó
+  đỏ khi khôi phục.
+- **Nút vị trí KHÔNG tự dò khi tải trang**, đúng chính sách đã ghi ở `HeroSearch`: xin quyền GPS lúc
+  khách vừa vào là cách nhanh nhất để bị từ chối vĩnh viễn ở cấp trình duyệt — và header nằm trên
+  mọi trang, nên đây là chỗ sai lầm đó tốn kém nhất. Bị chặn một lần thì nút "Tìm quanh tôi" ở
+  trang chủ chết theo.
+- **Điều hướng ngay bằng toạ độ thật, không chờ dò tên quận.** Kết quả lọc theo toạ độ chứ không
+  theo cái nhãn; chờ thêm một vòng gọi mạng chỉ để biết chữ hiển thị là đổi thời gian chờ lấy
+  không gì cả. `resolveArea` chạy song song và chỉ để nhớ nhãn cho lần sau.
+- **`lib/saved-area.ts` lưu tên + slug, KHÔNG lưu toạ độ.** Toạ độ là vị trí nhà khách: nó nằm mãi
+  trên máy (kể cả máy dùng chung) để đổi lại đúng một lần bấm, trong khi lần bấm sau GPS cho toạ độ
+  thật chính xác hơn bản sao cũ. Đây là chỗ **duy nhất** trong codebase dùng localStorage — mọi
+  trạng thái khác đi qua URL hoặc cookie httpOnly. Mất nó thì header về "Chọn vị trí", không hỏng gì.
+- **Đọc localStorage trong `useEffect`, không phải lúc khởi tạo state.** Server không có
+  localStorage nên đọc ở lần render đầu cho hai kết quả khác nhau giữa server và client → hydration
+  mismatch. Cũng phải kiểm từng trường sau `JSON.parse`: nội dung này sửa được bằng devtools, và một
+  `areaSlug` là số sẽ đi thẳng vào URL tìm kiếm.
+- **Đổi ngôn ngữ xuống footer nhưng phải hiện ở MỌI kích thước màn hình.** `LanguageSwitcher` từng
+  ghi cứng `hidden … sm:block` cho header; lớp đó đi theo xuống footer sẽ giấu mất lối đổi ngôn ngữ
+  **duy nhất** trên toàn bộ màn hình điện thoại (middleware cố ý không đoán theo `Accept-Language`).
+  Nay nhận `className` qua prop, và hiện "English"/"Tiếng Việt" thay vì "EN"/"VI" — giữa những link
+  chữ ở footer, "EN" một mình đọc như từ viết tắt chứ không như một lựa chọn.
+
+`AccountNavLink` **còn file nhưng không route nào render**: bản này chỉ để KTV thấy lối đăng nhập
+trên thanh điều hướng. Tài khoản khách vẫn sống nguyên — `/dang-nhap`, `/dang-ky`, `/tai-khoan` và
+form đánh giá chạy như cũ, và khách cần đăng nhập thì gần như luôn đang đứng ở một hồ sơ, nơi
+`ReviewForm` mời họ đúng lúc kèm `?next=` quay lại đúng trang đó. Mở lại chỉ là đặt lại một thẻ vào
+`PublicShell`.
 
 **Khách đăng ký được, không chỉ KTV** (2026-09-04). Đây là bug thật đã sửa: route
 `/api/auth/session` ghi cứng `role: 'KTV'`, nên **mọi** người đăng nhập qua giao diện đều thành kỹ
@@ -581,10 +682,53 @@ trong đó là thứ duy nhất còn dùng được, xoá đi là tự khoá mì
 tức URL, header `secret_key`, dạng form body và cách đọc lỗi đều đúng — chỉ credential là giả.
 `ZaloZnsSenderTests` chạy trên HTTP giả nên không cần Postgres lẫn Zalo.
 
+**Đăng nhập bằng số điện thoại + mật khẩu** (2026-09-07, `POST /auth/register`, `POST /auth/login`,
+`PATCH /auth/password`). Đây là lối vào **đang dùng**: Zalo ZNS đòi giấy phép kinh doanh mà dự án
+chưa có, nên đường OTP tuy còn nguyên ở backend nhưng không dùng được với người thật. Chín điều
+đừng vô tình đảo ngược:
+
+- **Backend OTP giữ nguyên, chỉ gỡ khỏi UI.** `ApiFactory.LoginAsync` đăng nhập qua OTP cho **toàn
+  bộ** integration suite, và bật lại khi có giấy phép chỉ là trả UI về. `LoginForm.tsx` (bản OTP,
+  còn đủ `CodeInput`/`ResendTimer`) vẫn nằm cạnh `PasswordAuthForm.tsx`, tạm thời không route nào
+  render — xoá là mất hết những quyết định đã ghi trong comment ở đó.
+- **Không thêm cột `password_hash`**: nó có sẵn từ migration init và chưa từng được dùng. Migration
+  `AddUserLoginLockout` chỉ thêm `failed_login_attempts` + `locked_until`.
+- **Khoá tài khoản là bắt buộc, không phải tuỳ chọn.** OTP tự có trần thử cho từng mã
+  (`OtpCode.Attempts`); mật khẩu không có gì tương đương, nên thiếu hai cột đó thì `/auth/login` là
+  endpoint dò mật khẩu không giới hạn. 5 lần sai → khoá 15 phút, đăng nhập thành công reset về 0.
+- **Rate limit `auth` và khoá tài khoản chặn hai thứ khác nhau**: khoá chặn dò **một** tài khoản,
+  rate limit chặn quét **nhiều** tài khoản từ một nguồn. Vì `/auth/login` luôn ẩn danh nên nó chỉ
+  phân vùng theo IP — `ForwardedHeaders` sau reverse proxy nay là **điều kiện để policy có tác
+  dụng**, không còn là ghi chú vận hành.
+- **Sai mật khẩu và số chưa đăng ký phải trả về response giống hệt nhau** — cùng 401, cùng câu chữ.
+  Và tài khoản không tồn tại **vẫn phải chạy một lượt BCrypt.Verify với hash giả**
+  (`PasswordHasher.DummyHash`): BCrypt cố ý chậm, nên thoát sớm khiến số chưa đăng ký trả lời nhanh
+  hơn hẳn, tức dò được số nào có tài khoản chỉ bằng đồng hồ bấm giờ. Đã đo: 0,53s và 0,61s.
+- **Đăng ký khi số đã có tài khoản → 409, kể cả tài khoản đó chưa đặt mật khẩu.** Cho ghi đè là
+  biến trang đăng ký thành đường chiếm tài khoản OTP của người khác chỉ bằng việc biết số của họ.
+  Người ở tình huống đó đặt mật khẩu qua `PATCH /auth/password` sau khi đăng nhập.
+- **Đăng nhập và đăng ký là hai trang tách biệt**, khác hẳn OTP. Với OTP hai thao tác là một; với
+  mật khẩu thì hệ thống không biết người gõ sai là ai, nên gộp lại sẽ hoặc phải lộ "số này đã có
+  tài khoản", hoặc trả một câu lỗi không nói được gì. Ba cửa: `/dang-nhap` (chung), `/dang-ky`
+  (khách), `/dang-ky-ktv` (KTV, kèm cột bán hàng).
+- **`safeNext` nằm ở `lib/session.ts`**, không phải hàm local trong từng page — nay có ba trang cần
+  nó, và một bản chép tay là đúng cách một trong các bản lệch đi rồi mở lại open redirect ở nửa
+  không ai kiểm.
+- **`GET /auth/me` trả `hasPassword`, không trả hash.** Trang `/tai-khoan` dùng cờ đó để quyết định
+  hỏi hay không hỏi mật khẩu hiện tại: tài khoản tạo bằng OTP chưa có cái nào, bắt nó điền là khoá
+  luôn lối duy nhất để nó đặt được mật khẩu.
+
+**Chưa làm, và cố ý: quên mật khẩu.** Kênh reset khả thi duy nhất là OTP hoặc email, cả hai chưa
+chạy. Admin reset bằng SQL — `UPDATE users SET password_hash = NULL, locked_until = NULL WHERE
+phone = '0...'` rồi người dùng tự đặt lại ở `/tai-khoan`. Cũng cố ý: **không xác thực số điện thoại
+lúc đăng ký** (`phone_verified_at` để NULL) vì chưa có cách nào làm được; chốt chặn thật với KTV vẫn
+nguyên ở đường duyệt hồ sơ + CCCD.
+
 Lưu ý vận hành hiện tại:
 
 - **OTP mặc định vẫn ở chế độ stub** (`Otp:StubEnabled=true`): mã trả thẳng trong response và ghi
-  log. Adapter gửi thật là **Zalo ZNS** — xem mục riêng bên dưới.
+  log. Adapter gửi thật là **Zalo ZNS** — xem mục riêng bên dưới. Đường OTP hiện **không có lối vào
+  trên giao diện**; xem mục đăng nhập bằng mật khẩu bên trên.
 - **Tài khoản ADMIN đầu tiên tạo thủ công** bằng SQL (`UPDATE users SET role='ADMIN' ...`). Không
   mở endpoint tự phong quyền admin.
 - **`Jwt:Secret` phải ≥32 ký tự**, app từ chối khởi động nếu thiếu — cố ý fail fast vì secret rỗng

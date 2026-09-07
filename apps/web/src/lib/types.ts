@@ -69,8 +69,6 @@ export interface SearchItem {
   score: number;
   lat: number;
   lon: number;
-  /** Giới thiệu ngắn; thẻ tự cắt bớt khi dài. */
-  bio: string | null;
   /** URL ảnh đại diện, null khi KTV chưa đặt. Thẻ hiện chữ cái đầu tên thay thế. */
   avatarUrl: string | null;
   /** Chỉ đếm chứng chỉ đã duyệt — hồ sơ chờ xét không được tính. */
@@ -144,7 +142,6 @@ export interface PublicKtvProfile {
   id: string;
   fullName: string;
   slug: string;
-  bio: string | null;
   yearsExperience: number;
   lat: number;
   lon: number;
@@ -323,7 +320,6 @@ export interface MyKtvProfile {
   id: string;
   fullName: string;
   slug: string;
-  bio: string | null;
   yearsExperience: number;
   basePoint: { type: 'Point'; coordinates: [number, number] };
   baseAddress: string | null;
@@ -426,7 +422,6 @@ export interface AdminKtvProfile {
   id: string;
   fullName: string;
   slug: string;
-  bio: string | null;
   baseAddress: string | null;
   serviceRadiusKm: number;
   verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';

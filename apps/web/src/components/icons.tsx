@@ -205,6 +205,16 @@ export function BookmarkIcon(props: IconProps) {
   );
 }
 
+// Khoá — mục điều hướng chưa mở, chưa đủ điều kiện vào
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </Icon>
+  );
+}
+
 // Hoàn tất
 export function CheckIcon(props: IconProps) {
   return (

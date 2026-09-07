@@ -88,4 +88,15 @@ public static class PaymentIntentStatuses
     public const string Pending = "PENDING";
     public const string Succeeded = "SUCCEEDED";
     public const string Failed = "FAILED";
+
+    /// <summary>
+    /// Mở phiên rồi không bao giờ trả tiền, và cổng chưa từng gọi về.
+    ///
+    /// Tách khỏi <see cref="Failed"/> có chủ ý: FAILED nghĩa là cổng đã nói "giao dịch
+    /// này hỏng" — có một lượt thanh toán thật để đối chiếu với sao kê. ABANDONED
+    /// nghĩa là chưa từng có lượt nào. Gộp hai thứ lại thì lúc đối soát không còn phân
+    /// biệt được "khách bỏ giữa chừng" với "ngân hàng từ chối", mà tỉ lệ của hai loại
+    /// này nói hai chuyện hoàn toàn khác nhau về sức khoẻ của luồng nạp tiền.
+    /// </summary>
+    public const string Abandoned = "ABANDONED";
 }

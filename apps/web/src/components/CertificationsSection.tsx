@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useFormValidation } from '@/lib/use-form-validation';
+import { viMessages } from '@/lib/validation-messages';
 import { formatDate } from '@/lib/site';
 import type { MyCertification } from '@/lib/types';
 
@@ -14,6 +16,8 @@ export function CertificationsSection({
   certifications: MyCertification[];
 }) {
   const router = useRouter();
+  // Thông báo validate tiếng Việt — dashboard/admin cố ý chỉ có một ngôn ngữ.
+  const formRef = useFormValidation(viMessages());
   const [name, setName] = useState('');
   const [issuingOrg, setIssuingOrg] = useState('');
   const [issuedAt, setIssuedAt] = useState('');
@@ -107,7 +111,7 @@ export function CertificationsSection({
         </ul>
       )}
 
-      <form onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-5 shadow-card">
+      <form ref={formRef} onSubmit={submit} className="rounded-lg border border-ink-200 bg-white p-5 shadow-card">
         <h3 className="font-medium">Thêm chứng chỉ</h3>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">

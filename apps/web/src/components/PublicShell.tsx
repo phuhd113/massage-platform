@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { AccountNavLink } from '@/components/AccountNavLink';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { LocationNavButton } from '@/components/LocationNavButton';
 import { LogoMark } from '@/components/icons';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
@@ -44,61 +44,39 @@ export function PublicShell({
             {siteName}
           </Link>
 
-          <nav className="flex items-center gap-1 text-body-s">
-            {/* Ẩn ở màn hẹp: 390px không đủ chỗ cho logo lẫn nav, và mọi trang
-                công khai đều đã có đường vào tìm kiếm ngay trong nội dung. */}
-            <Link
-              href={localePath(locale, '/tim-kiem')}
-              className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
-            >
-              {t('shell.navFindKtv')}
-            </Link>
-            <Link
-              href={areaPath(locale, 'tp-ho-chi-minh')}
-              className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
-            >
-              {t('shell.navHcm')}
-            </Link>
-            <Link
-              href={areaPath(locale, 'ha-noi')}
-              className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
-            >
-              {t('shell.navHanoi')}
-            </Link>
-            {/* Trỏ vào khối ba bước ở trang chủ chứ không mở trang riêng: nội dung
-                đó chỉ dài ba đoạn, tách ra thành một trang là tự tạo thin content. */}
-            <Link
-              href={localePath(locale, '/#cach-duyet-ho-so')}
-              className="hidden rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 lg:block"
-            >
-              {t('shell.navHowWeVerify')}
-            </Link>
-            {/* Chữ trần, không viền như "Dành cho KTV": hai đường vào khác nhau về
-                đối tượng chứ không về mức quan trọng, nhưng khách vãng lai không cần
-                tài khoản để tìm và gọi — nên lời mời đăng nhập không được trông như
-                hành động chính của trang.
+          {/* Ba mục, cố ý.
 
-                Client component vì nó đổi theo phiên: đọc cookie ở đây sẽ ép mọi
-                trang trong (public) thành dynamic. Xem ghi chú trong component. */}
-            <AccountNavLink
+              Trước đây có bảy: thêm TP.HCM, Hà Nội, "Cách duyệt hồ sơ" và lời mời
+              đăng nhập của khách. Cả bốn đều vào được từ chỗ khác — hai thành phố
+              nằm trong khối khu vực ở trang chủ và trong breadcrumb của mọi trang
+              quận, khối ba bước có link ngay trên trang chủ, còn khách cần đăng nhập
+              thì gần như luôn đang đứng ở một hồ sơ để viết đánh giá, nơi `ReviewForm`
+              đã mời họ đúng lúc. Không đường nào của Google mất đi. */}
+          <nav className="flex items-center gap-1 text-body-s">
+            {/* Mục đầu tiên là vị trí: câu hỏi đầu tiên của khách luôn là "ai đang ở
+                gần tôi", và đây là màn hình mà mọi trang công khai đều có. */}
+            <LocationNavButton
               locale={locale}
-              labels={{ login: t('account.login'), myAccount: t('account.myAccount') }}
-              className="hidden shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block" />
-            {/* Trỏ thẳng vào cửa đăng ký KTV chứ không vào /dashboard: người bấm từ
-                trang công khai gần như luôn chưa đăng nhập, nên /dashboard chỉ là một
-                lần chuyển hướng thừa tới đúng chỗ này. KTV đã đăng nhập vào dashboard
-                từ đây cũng không sai đường — LoginForm đưa họ về dashboard theo vai
-                trò thật trong token. */}
-            {/* Suspense bắt buộc: LanguageSwitcher đọc `useSearchParams` để giữ
-                nguyên bộ lọc khi đổi ngôn ngữ, và Next từ chối prerender bất kỳ
-                trang nào có hook đó nằm ngoài ranh giới Suspense. Shell này bọc
-                **mọi** trang công khai, nên thiếu nó là hỏng cả những trang không
-                liên quan gì tới bộ lọc. */}
-            <Suspense fallback={<span className="hidden w-9 sm:block" />}>
-              <LanguageSwitcher locale={locale} label={t('shell.languageLabel')} />
-            </Suspense>
+              labels={{
+                choose: t('shell.navLocation'),
+                locating: t('filters.locating'),
+                failed: t('filters.geoFailed'),
+                unsupported: t('filters.geoUnsupported'),
+              }}
+              className="flex max-w-[9rem] shrink items-center gap-1.5 rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-60 sm:max-w-[12rem]"
+            />
+            {/* Trỏ vào `/dang-nhap` chứ không `/dang-ky-ktv`: phần lớn KTV bấm nút
+                này là người **đã có** hồ sơ và đang muốn vào làm việc, nên đưa họ
+                thẳng tới ô đăng nhập. Người chưa có tài khoản đi tiếp một bước qua
+                link "Tạo tài khoản" ngay dưới form — ngược lại thì người quay lại
+                mỗi ngày phải đi vòng, mà họ mới là số đông.
+
+                Không trỏ vào `/dashboard`: người bấm từ trang công khai thường chưa
+                đăng nhập, nên đó chỉ là một lần chuyển hướng thừa tới đúng chỗ này.
+                KTV đã có phiên vẫn về đúng dashboard vì form điều hướng theo vai trò
+                **thật** trả về từ server. */}
             <Link
-              href={localePath(locale, '/dang-ky-ktv')}
+              href={localePath(locale, '/dang-nhap')}
               className="ml-1 shrink-0 whitespace-nowrap rounded-md border border-brand-200 px-3 py-1.5 font-medium text-brand-700 transition hover:bg-brand-50"
             >
               {t('shell.navForKtv')}
@@ -111,9 +89,55 @@ export function PublicShell({
 
       <footer className="mt-auto border-t border-ink-200 bg-white">
         <div className="mx-auto max-w-shell px-4 py-8 text-body-s text-ink-500">
-          <p className="max-w-prose">
-            {t('shell.footerBlurb', { siteName })}
-          </p>
+          {/* Những link đã rời header xuống đây, không biến mất: hai thành phố lớn
+              và khối "cách duyệt hồ sơ" vẫn là đường đi hợp lệ cho cả khách lẫn
+              Googlebot — chúng chỉ không còn chiếm chỗ trên thanh khách nhìn suốt
+              phiên. Footer nằm trong HTML của mọi trang công khai nên giá trị liên
+              kết nội bộ giữ nguyên. */}
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            {/* Đường cố định tới trang tìm kiếm sau khi "Tìm KTV" rời header. Trên
+                header nó thừa — mục vị trí đã dẫn thẳng vào đây, và khách đáp từ
+                Google xuống một hồ sơ vẫn đi tiếp được bằng breadcrumb về trang
+                quận. Nhưng vẫn phải có **một** đường không phụ thuộc vào GPS, cho cả
+                khách từ chối quyền định vị lẫn Googlebot. */}
+            <Link
+              href={localePath(locale, '/tim-kiem')}
+              className="transition hover:text-brand-700"
+            >
+              {t('shell.navFindKtv')}
+            </Link>
+            <Link
+              href={areaPath(locale, 'tp-ho-chi-minh')}
+              className="transition hover:text-brand-700"
+            >
+              {t('shell.navHcm')}
+            </Link>
+            <Link href={areaPath(locale, 'ha-noi')} className="transition hover:text-brand-700">
+              {t('shell.navHanoi')}
+            </Link>
+            <Link
+              href={localePath(locale, '/#cach-duyet-ho-so')}
+              className="transition hover:text-brand-700"
+            >
+              {t('shell.navHowWeVerify')}
+            </Link>
+
+            {/* Đổi ngôn ngữ nằm ở đây thay vì header: khách chọn nó một lần rồi
+                thôi, nên nó không đáng chiếm một ô trên thanh điều hướng — nhưng
+                vẫn phải có mặt trên mọi trang, vì đây là **lối duy nhất** đổi ngôn
+                ngữ (middleware cố ý không đoán theo Accept-Language).
+
+                Suspense bắt buộc: LanguageSwitcher đọc `useSearchParams` để giữ
+                nguyên bộ lọc khi đổi ngôn ngữ, và Next từ chối prerender bất kỳ
+                trang nào có hook đó nằm ngoài ranh giới Suspense. Shell này bọc
+                **mọi** trang công khai, nên thiếu nó là hỏng cả những trang không
+                liên quan gì tới bộ lọc. */}
+            <Suspense fallback={<span className="w-16" />}>
+              <LanguageSwitcher locale={locale} label={t('shell.languageLabel')} />
+            </Suspense>
+          </nav>
+
+          <p className="mt-4 max-w-prose">{t('shell.footerBlurb', { siteName })}</p>
         </div>
       </footer>
     </div>
