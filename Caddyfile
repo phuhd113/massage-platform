@@ -1,0 +1,108 @@
+# Reverse proxy + TLS tự động cho masgo.vn.
+#
+# Caddy tự xin và gia hạn chứng chỉ Let's Encrypt qua thử thách HTTP-01 trên cổng 80.
+# Điều kiện: DNS đã trỏ về IP này **và** cổng 80 mở ra internet.
+#
+# Nếu DNS ở Cloudflare đang bật chế độ Proxy (đám mây cam), thử thách HTTP-01 vẫn đi
+# qua được, nhưng lúc đó Cloudflare mới là bên trình chứng chỉ cho khách và SSL/TLS mode
+# **bắt buộc** phải là "Full (strict)" — xem docs/deploy-vps.md mục DNS.
+
+{
+	email {$ACME_EMAIL}
+
+	# Bỏ comment dòng dưới trong lúc thử nghiệm. Let's Encrypt chỉ cho **5 chứng chỉ
+	# trùng tên miền mỗi 7 ngày**, và một cấu hình DNS sai lặp lại vài lần là hết hạn
+	# mức — kẹt không có HTTPS nhiều ngày, thường đúng lúc đang cần sửa gấp.
+	#
+	# Chứng chỉ staging bị trình duyệt báo không tin cậy; đó là điều bình thường và là
+	# cách nhận ra mình đang chạy staging. Nhớ bỏ nó đi (và `docker compose restart caddy`)
+	# trước khi mở cho khách thật.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Đoạn dùng chung cho cả ba host.
+(common) {
+	# Nén: trang khu vực có nhiều HTML lặp lại nên tỉ lệ nén rất cao.
+	encode zstd gzip
+
+	header {
+		# HSTS. **Cân nhắc kỹ trước khi thêm `preload`**: nó không rút lại được nhanh, và
+		# một lần cấu hình TLS sai sau đó nghĩa là trình duyệt từ chối vào site. Trong
+		# tuần đầu có thể hạ max-age xuống 3600 để còn lùi được nếu có gì sai.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# Không để trình duyệt tự đoán kiểu file: một file khách upload bị đoán thành
+		# HTML là đường XSS lưu trữ.
+		X-Content-Type-Options nosniff
+
+		# Chặn nhúng site vào iframe của bên khác (clickjacking).
+		X-Frame-Options SAMEORIGIN
+
+		Referrer-Policy strict-origin-when-cross-origin
+
+		# Không quảng cáo phiên bản server.
+		-Server
+	}
+}
+
+# ---------------------------------------------------------------------------
+# Trang web (Next.js)
+{$DOMAIN} {
+	import common
+
+	# `web` là tên service trong mạng compose; Docker DNS phân giải nó.
+	#
+	# Caddy tự thêm X-Forwarded-For, X-Forwarded-Proto và X-Forwarded-Host — không cần
+	# khai tay, và khai tay bằng `header_up X-Forwarded-For {remote_host}` sẽ **ghi đè**
+	# thay vì nối thêm, tức là tự tay xoá mất chuỗi IP mà middleware phía sau cần đọc.
+	reverse_proxy web:3000
+}
+
+# www -> apex, vĩnh viễn. Phục vụ cùng nội dung ở hai host là tự tạo nội dung trùng lặp,
+# và canonical trong HTML luôn trỏ về NEXT_PUBLIC_SITE_URL (apex) nên bản www sẽ mâu
+# thuẫn với chính nó. `permanent` để gộp link equity về một host duy nhất.
+www.{$DOMAIN} {
+	import common
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+# ---------------------------------------------------------------------------
+# API
+#
+# Subdomain riêng, **không** phải đường dẫn /api trên masgo.vn. Đây là điều kiện để
+# trình duyệt gọi thẳng vào API: nếu ghép chung host thì mọi request lead/view/report
+# đi qua Next và backend chỉ thấy IP của Next — sập hết cơ chế gộp trùng, tức số liệu
+# đem tính tiền sai.
+#
+# Đổi lại, đây là cross-origin thật, nên Cors__Origins trong docker-compose.prod.yml
+# phải đúng.
+{$API_DOMAIN} {
+	import common
+
+	# `/` ở đây trả 404 và đó là **đúng**: redirect `/` -> `/swagger` chỉ tồn tại ở môi
+	# trường Development (Program.cs), và Swagger cố ý tắt ở Production — nó liệt kê
+	# từng endpoint kèm schema, tức là bản đồ tấn công miễn phí.
+	#
+	# Đừng "sửa" cái 404 này bằng cách bật Swagger.
+	reverse_proxy api:8080
+
+	# Mặc định của Caddy là không giới hạn upload. Ứng dụng đã tự giới hạn 5MB cho chứng
+	# chỉ và 3MB cho ảnh (UploadOptions), nhưng chặn sớm ở proxy nghĩa là một file 2GB
+	# không kịp đi qua mạng nội bộ trước khi bị từ chối.
+	#
+	# Đây là directive của site block, KHÔNG phải subdirective của reverse_proxy —
+	# đặt nhầm vào trong thì Caddy từ chối khởi động với "unrecognized subdirective".
+	request_body {
+		max_size 12MB
+	}
+
+	# Tuỳ chọn siết thêm: chặn hẳn dashboard Hangfire ở tầng proxy và chỉ vào qua SSH
+	# tunnel. Dashboard kích chạy và **xoá** được job, kể cả job đối soát ví.
+	#
+	# Để dạng comment vì bật lên thì admin thật cũng không vào được — nó đã được bảo vệ
+	# bằng vai ADMIN (Jobs:DashboardAnonymous mặc định false ở Production), nên đây là
+	# lớp thứ hai tuỳ chọn chứ không phải lớp duy nhất.
+	#
+	# @hangfire path /hangfire*
+	# respond @hangfire 404
+}

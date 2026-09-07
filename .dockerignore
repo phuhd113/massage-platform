@@ -5,3 +5,18 @@
 **/uploads/
 **/*.user
 .claude/
+
+# Build context của API là **gốc repo** (`COPY . .` trong src/Massage.Api/Dockerfile),
+# nên mọi file .env ở đây sẽ nằm trong layer của image production — JWT secret, mật
+# khẩu Postgres, R2 secret key, VNPay hash secret, tất cả đọc được bằng `docker history`
+# hoặc `docker save`. .gitignore không cứu được: nó chặn commit, không chặn build.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Tài liệu và công cụ dev không cần cho bản build, và loại chúng ra làm context nhẹ hơn.
+docs/
+design/
+tools/
+*.md

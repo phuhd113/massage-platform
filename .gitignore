@@ -14,7 +14,13 @@ coverage/
 .env
 .env.local
 .env.*.local
+
+# Ngoài `.env` ở trên: `.env.production` chứa mật khẩu DB, JWT secret và secret của
+# cổng thanh toán. Pattern `.env` chỉ khớp đúng tên file đó, không khớp `.env.production`.
+.env.production
+
 !.env.example
+!.env.production.example
 appsettings.Local.json
 appsettings.*.Local.json
 
@@ -38,3 +44,6 @@ Thumbs.db
 tools/area-dataset/vn-raw.json
 tools/area-dataset/gadm41_VNM_2.json
 tools/area-dataset/*.zip
+
+# Hook script cá nhân (chỉ chạy trên Windows, gọi từ settings.local.json)
+.claude/hooks/

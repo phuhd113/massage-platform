@@ -20,6 +20,12 @@ WORKDIR /app
 
 # Chạy bằng user không phải root: nếu ứng dụng bị chiếm quyền, kẻ tấn công không
 # có sẵn quyền root trong container.
+# curl cho healthcheck của compose: nó phải gọi được /api/v1/health, và endpoint đó
+# chạy `SELECT postgis_version()` nên kiểm cả kết nối DB lẫn extension — không chỉ
+# "tiến trình còn sống". Một healthcheck kiểu ping cổng vẫn báo xanh khi PostGIS thiếu,
+# trong khi mọi truy vấn geo hỏng lúc chạy.
+RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+
 RUN adduser --system --group --uid 1001 appuser
 COPY --from=build /app ./
 RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads

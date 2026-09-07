@@ -1,0 +1,270 @@
+# Stack production. Chạy bằng:
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# **File độc lập, không phải override của docker-compose.yml.** Đã cân nhắc dùng
+# `-f docker-compose.yml -f docker-compose.prod.yml` và bỏ: override **không xoá được**
+# khoá `ports` đã khai ở file gốc — nó chỉ thay thế cả mảng, và quên một service nghĩa
+# là Postgres nghe trên IP công khai của VPS với mật khẩu nằm trong file .env cạnh đó.
+# Trùng lặp một ít YAML rẻ hơn nhiều so với rủi ro đó.
+#
+# Hướng dẫn deploy đầy đủ: docs/deploy-vps.md
+
+name: masgo
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: masgo_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # **KHÔNG có `ports:`.** Cố ý, và đây là khác biệt quan trọng nhất so với file dev.
+    #
+    # `ports` trên Docker Linux ghi thẳng luật DNAT vào iptables ở chain PREROUTING —
+    # **trước** chain mà ufw kiểm soát. Nghĩa là `ufw deny 5432` hoàn toàn không chặn
+    # được một cổng đã publish: ufw báo "đã chặn", cổng vẫn mở ra internet. Cách duy
+    # nhất đúng là không publish. API nói chuyện với Postgres qua tên service trong
+    # mạng nội bộ, không cần cổng nào ra host.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Nơi tools/backup-db.sh ghi file dump. Bind mount ra host để bản sao lưu sống
+      # sót khi container bị xoá — một backup nằm trong volume của chính container cần
+      # backup thì không phải backup.
+      - ./backups:/backups
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Postgres mặc định chỉ dùng 128MB shared_buffers. Trên VPS 4GB dành riêng cho stack
+    # này, nới lên giúp truy vấn geo (GiST index trên geography) đỡ phải đọc đĩa.
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+
+  redis:
+    image: redis:7-alpine
+    container_name: masgo_redis
+    restart: unless-stopped
+    # Không publish cổng, cùng lý do với Postgres — và Redis còn nguy hiểm hơn: mặc
+    # định không có mật khẩu, ai chạm tới cổng 6379 đều đọc/ghi được toàn bộ.
+    volumes:
+      - redisdata:/data
+    networks:
+      - internal
+    # `maxmemory-policy allkeys-lru` chứ không phải `noeviction` mặc định: Redis ở đây
+    # chỉ là fast-path cho khoá slot và chỉ mục GEO — Postgres mới là source of truth.
+    # Đầy bộ nhớ mà từ chối ghi sẽ làm hỏng đường mua gói; loại bỏ khoá cũ chỉ làm nó
+    # chậm lại.
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Massage.Api/Dockerfile
+    container_name: masgo_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Production, không phải Development. Kéo theo ba thay đổi: Swagger tắt, redirect
+      # `/` -> `/swagger` biến mất (nên `/` trên api.masgo.vn trả 404 — đúng, xem
+      # Caddyfile), và appsettings.Development.json **không được nạp**, nên
+      # `Jobs:DashboardAnonymous=true` trong file đó không có tác dụng. Dashboard
+      # Hangfire quay về mặc định false, tức chỉ ADMIN đã đăng nhập mới vào được.
+      ASPNETCORE_ENVIRONMENT: Production
+
+      ConnectionStrings__Default: 'Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}'
+
+      # App từ chối khởi động nếu rỗng hoặc dưới 32 ký tự (Program.cs).
+      Jwt__Secret: ${JWT_SECRET}
+
+      Redis__Host: redis
+      Redis__Port: '6379'
+
+      # CORS cho ba endpoint trình duyệt gọi **thẳng** vào api.masgo.vn, không qua Next:
+      # POST /leads, POST /ktv/{id}/views, POST /reports. Không đặt thì CorsSetup
+      # fallback về http://localhost:3000 và trình duyệt chặn sạch — nút "Gọi ngay" hỏng
+      # mà server log không có lỗi nào, vì CORS là quyết định phía trình duyệt.
+      #
+      # Mảng trong cấu hình .NET khai bằng chỉ số, không phải chuỗi phân tách dấu phẩy.
+      Cors__Origins__0: ${SITE_URL}
+      Cors__Origins__1: ${SITE_URL_WWW}
+
+      # Phải khớp `ipam.config.subnet` của mạng `internal` bên dưới. Đây là danh sách
+      # proxy được tin để đọc X-Forwarded-For. Sai giá trị = mất IP thật; để rỗng cũng
+      # mất IP thật nhưng an toàn; mở rộng bừa = client tự đặt IP giả.
+      ForwardedHeaders__KnownNetworks: ${DOCKER_SUBNET}
+
+      # **BẮT BUỘC false**, và ghi cứng ở đây chứ không qua biến môi trường để không ai
+      # đổi được bằng một dòng .env. App sẽ **từ chối khởi động** nếu true ở Production
+      # (Program.cs) — stub trả mã OTP thẳng trong response `debugCode`, nên bật nó
+      # nghĩa là ai biết số điện thoại đều chiếm được tài khoản đó. Số điện thoại KTV
+      # thì hiển thị công khai trên chính trang hồ sơ.
+      Otp__StubEnabled: 'false'
+
+      Zalo__Zns__AppId: ${ZALO_ZNS_APP_ID:-}
+      Zalo__Zns__SecretKey: ${ZALO_ZNS_SECRET_KEY:-}
+      Zalo__Zns__RefreshToken: ${ZALO_ZNS_REFRESH_TOKEN:-}
+      Zalo__Zns__TemplateId: ${ZALO_ZNS_TEMPLATE_ID:-}
+      Zalo__Zns__CodeParamName: ${ZALO_ZNS_CODE_PARAM:-otp}
+      Zalo__Zns__ExpiryParamName: ${ZALO_ZNS_EXPIRY_PARAM:-}
+      Zalo__Zns__DevMode: ${ZALO_ZNS_DEV_MODE:-false}
+
+      R2__AccountId: ${R2_ACCOUNT_ID}
+      R2__AccessKeyId: ${R2_ACCESS_KEY_ID}
+      R2__SecretAccessKey: ${R2_SECRET_ACCESS_KEY}
+      R2__Bucket: ${R2_BUCKET}
+      R2__PublicBaseUrl: ${R2_PUBLIC_BASE_URL}
+
+      VnPay__TmnCode: ${VNPAY_TMN_CODE:-}
+      VnPay__HashSecret: ${VNPAY_HASH_SECRET:-}
+      VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      # Dựng từ SITE_URL để hai giá trị không lệch nhau. Tiếng Việt KHÔNG có prefix
+      # locale nên không phải /vi/nap-tien/ket-qua — bản có prefix trả 404 ngay sau khi
+      # khách vừa trả tiền.
+      VnPay__ReturnUrl: ${SITE_URL}/nap-tien/ket-qua
+
+    # Không publish cổng ra host: Caddy tới được qua mạng nội bộ. Mở 5080 ra ngoài nghĩa
+    # là có một đường HTTP thuần vào API, bỏ qua toàn bộ TLS lẫn Caddy — và cùng lúc bỏ
+    # qua X-Forwarded-For, nên mọi request qua đường đó tự chọn được phân vùng rate limit.
+    volumes:
+      # Vẫn giữ dù đang chạy R2: `Upload:Dir` mặc định là `uploads`, và Program.cs tạo
+      # thư mục `uploads/avatars`, `uploads/photos` lúc khởi động không điều kiện. Không
+      # có volume thì chúng nằm trong lớp ghi của container và mất khi rebuild — vô hại
+      # khi R2 bật, nhưng nếu R2 lỡ bị cấu hình sai và app rơi về đĩa local thì ảnh KTV
+      # biến mất sau mỗi lần deploy.
+      - uploads:/app/uploads
+    networks:
+      - internal
+    healthcheck:
+      # Endpoint này chạy `SELECT postgis_version()`, nên nó kiểm cả kết nối DB lẫn
+      # extension — không chỉ "tiến trình còn sống". Thiếu PostGIS thì mọi truy vấn geo
+      # hỏng lúc chạy trong khi một healthcheck kiểu ping cổng vẫn báo xanh.
+      #
+      # curl được cài trong stage runtime của src/Massage.Api/Dockerfile riêng cho việc này.
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/api/v1/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # .NET khởi động + Hangfire dựng schema `hangfire` lần đầu mất tới vài chục giây.
+      # Ngắn hơn thì container bị đánh dấu unhealthy rồi restart vòng lặp đúng lúc nó
+      # đang tạo schema.
+      start_period: 60s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        # Ba biến này **bắt buộc** là build arg. Next inline mọi `NEXT_PUBLIC_*` vào
+        # bundle trình duyệt lúc build, và hai biến dưới còn được đọc lúc build bởi
+        # next.config.mjs (remotePatterns) và app/robots.ts (route tĩnh). Đặt ở
+        # `environment:` là quá muộn cho cả ba.
+        NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL_PUBLIC}
+        NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL}
+    container_name: masgo_web
+    restart: unless-stopped
+    depends_on:
+      api:
+        # `service_healthy`, không phải `service_started`. Các trang khu vực và hồ sơ
+        # KTV là ISR: lượt render đầu tiên fetch từ API rồi **cache kết quả**. Web lên
+        # trước API nghĩa là lượt đó fail, và Next cache luôn trang lỗi — Googlebot có
+        # thể gặp đúng bản đó.
+        condition: service_healthy
+    environment:
+      # Server component gọi API trong mạng nội bộ: không đi ra internet, không tốn một
+      # vòng TLS, và không phụ thuộc DNS công khai đã trỏ đúng chưa.
+      API_BASE_URL: 'http://api:8080/api/v1'
+      # Trình duyệt gọi thẳng API để backend thấy IP thật của khách. Khai lại ở đây vì
+      # lib/media.ts cũng chạy trong server component.
+      NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL_PUBLIC}
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL}
+      NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL}
+      # Dockerfile runner đã đặt sẵn, khai lại cho rõ: cookie phiên bật `secure` khi giá
+      # trị này là "production" (app/api/auth/session/route.ts), nên đăng nhập **chỉ
+      # hoạt động qua HTTPS**. Chạy thử bằng http:// sẽ thấy đăng nhập im lặng không giữ
+      # phiên.
+      NODE_ENV: production
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: masgo_caddy
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+    # Hai cổng duy nhất mở ra internet trong toàn bộ stack.
+    #
+    # 80 không chỉ để redirect: Let's Encrypt dùng nó cho thử thách HTTP-01. Đóng nó
+    # nghĩa là chứng chỉ không gia hạn được, và hỏng sau 60 ngày chứ không phải ngay —
+    # tức lỗi xuất hiện rất lâu sau thay đổi gây ra nó.
+    ports:
+      - '80:80'
+      - '443:443'
+      # QUIC/HTTP3. Bỏ được nếu muốn tối giản; Caddy tự lùi về HTTP/2.
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Chứng chỉ và khoá tài khoản ACME. **Bắt buộc phải là volume có tên**: mất nó là
+      # mỗi lần `docker compose up` lại xin chứng chỉ mới, mà Let's Encrypt giới hạn 5
+      # chứng chỉ trùng tên miền mỗi 7 ngày. Chạm giới hạn giữa lúc đang sửa một sự cố
+      # nghĩa là site không có HTTPS trong nhiều ngày.
+      - caddydata:/data
+      - caddyconfig:/config
+    networks:
+      - internal
+    environment:
+      # Caddy đọc trong Caddyfile để biết cấp chứng chỉ cho tên miền nào.
+      DOMAIN: ${DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+
+networks:
+  internal:
+    driver: bridge
+    # Subnet **ghim cứng**. Đây không phải tinh chỉnh mà là điều kiện để ForwardedHeaders
+    # hoạt động: Program.cs chỉ tin X-Forwarded-For từ những địa chỉ trong
+    # `ForwardedHeaders__KnownNetworks`, và giá trị đó phải khớp đúng dải này.
+    #
+    # Docker mặc định cấp một subnet 172.x ngẫu nhiên và **đổi nó** khi mạng được tạo
+    # lại (`docker compose down` rồi `up`) — nghĩa là cấu hình đang đúng sẽ tự hỏng sau
+    # một lần restart, và hỏng lặng lẽ: API vẫn chạy, chỉ là mọi khách rơi chung một
+    # phân vùng rate limit trở lại.
+    #
+    # Nếu 172.28.0.0/16 trùng với mạng sẵn có trên VPS, đổi ở đây **và** ở DOCKER_SUBNET
+    # trong .env.production cùng lúc.
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  caddydata:
+  caddyconfig:

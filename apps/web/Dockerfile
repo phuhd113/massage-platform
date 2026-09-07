@@ -26,9 +26,22 @@ ARG NEXT_PUBLIC_MEDIA_BASE_URL=""
 #
 # Triệu chứng khó thấy: cả hai file đều trả 200 và trông hợp lệ khi mở riêng lẻ.
 ARG NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+#
+# NEXT_PUBLIC_API_BASE_URL cũng phải có **lúc build**, và lý do khác hai biến trên:
+# Next inline mọi biến `NEXT_PUBLIC_*` thẳng vào **bundle JavaScript của trình duyệt**
+# lúc build. Đặt ở `environment:` của compose là quá muộn — biến đó chỉ tới được tiến
+# trình Node ở server, còn mã đã tải về máy khách vẫn giữ nguyên giá trị lúc build.
+#
+# Bốn client component đọc nó: ContactButtons (nút "Gọi ngay" -> POST /leads),
+# ProfileViewBeacon, ReportProfileButton, và lib/media.ts. Cả bốn fallback về
+# `http://localhost:5080/api/v1`, nghĩa là **máy của khách** sẽ gọi localhost của chính
+# khách. Nút "Gọi ngay" — đường doanh thu chính — chết hoàn toàn, và chết lặng lẽ:
+# trang render 200, nút hiện ra, bấm vào không có gì xảy ra.
+ARG NEXT_PUBLIC_API_BASE_URL="http://localhost:5080/api/v1"
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_MEDIA_BASE_URL=$NEXT_PUBLIC_MEDIA_BASE_URL \
-    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN npm run build
 
 FROM node:20-alpine AS runner

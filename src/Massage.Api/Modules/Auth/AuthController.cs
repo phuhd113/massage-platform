@@ -18,6 +18,7 @@ public class AuthController(AuthService auth) : ControllerBase
     /// ngay trong trường <c>debugCode</c> để test mà không cần SMS thật.
     /// </remarks>
     [HttpPost("otp/request")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> RequestOtp(RequestOtpDto dto, CancellationToken ct)
     {
         var (phone, expiresAt, debugCode) = await auth.RequestOtpAsync(
@@ -28,6 +29,7 @@ public class AuthController(AuthService auth) : ControllerBase
 
     /// <summary>Xác thực OTP và cấp JWT.</summary>
     [HttpPost("otp/verify")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> VerifyOtp(VerifyOtpDto dto, CancellationToken ct)
     {
         var tokens = await auth.VerifyOtpAndIssueTokenAsync(

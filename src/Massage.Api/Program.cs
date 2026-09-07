@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -28,6 +29,7 @@ using Massage.Api.Modules.Wallets.UseCases;
 using Massage.Promotion.Domain.Ports;
 using Massage.Wallet.Domain.Ports;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
@@ -41,6 +43,74 @@ builder.Services.Configure<OtpOptions>(builder.Configuration.GetSection(OtpOptio
 builder.Services.Configure<UploadOptions>(builder.Configuration.GetSection(UploadOptions.Section));
 builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection(VnPayOptions.Section));
 
+// Sau reverse proxy, `RemoteIpAddress` là IP của proxy chứ không phải của khách. Sáu
+// chỗ trong code phụ thuộc vào nó và **cả sáu đều sai lặng lẽ**:
+//
+//   - `RateLimitSetup.ClientKey` — policy `auth` (10 lượt/5 phút) áp cho cả sàn chung
+//     một phân vùng: vừa không chặn được kẻ dò, vừa khoá hết người dùng thật.
+//   - Lead / lượt xem / báo cáo — ba cơ chế gộp trùng sập thành một nhóm duy nhất,
+//     tức số liệu đem tính tiền sai.
+//   - `WalletController` — `vnp_IpAddr` gửi cho VNPay là IP container cho **mọi** giao
+//     dịch, mất sạch dấu vết khi có tranh chấp.
+//
+// **Cái bẫy đã đo được ngày 2026-09-07**: `KnownNetworks` và `KnownProxies` cùng rỗng
+// KHÔNG có nghĩa là "không tin ai" — ASP.NET Core hiểu đó là "không giới hạn" và tin
+// `X-Forwarded-For` của **mọi** nguồn. Đã kiểm chứng: gửi `X-Forwarded-For: 8.8.8.8`
+// từ curl thì `leads.ip` ghi đúng 8.8.8.8, tức bất kỳ ai cũng tự chọn được phân vùng
+// rate limit và tự bơm lead trùng. Đúng thứ mà comment ở `RateLimitSetup` gọi là "tệ
+// hơn hẳn không bật".
+//
+// Vì vậy danh sách trống thì **không gọi middleware**: mặc định phải là an toàn, và một
+// môi trường quên khai cấu hình chỉ mất IP thật chứ không mở cửa cho ai tự khai IP.
+var trustedProxies = ParseKnownNetworks(
+    builder.Configuration["ForwardedHeaders:KnownNetworks"]);
+
+if (trustedProxies.Count > 0)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(opt =>
+    {
+        opt.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+        // Mặc định của ASP.NET Core là tin loopback; xoá để chỉ tin đúng những gì được khai.
+        opt.KnownNetworks.Clear();
+        opt.KnownProxies.Clear();
+
+        // Đúng một proxy (Caddy) giữa khách và API. Giữ ở 1 để một `X-Forwarded-For` do
+        // client tự bịa không leo được qua vòng của Caddy.
+        opt.ForwardLimit = 1;
+
+        foreach (var network in trustedProxies) opt.KnownNetworks.Add(network);
+    });
+}
+
+static List<Microsoft.AspNetCore.HttpOverrides.IPNetwork> ParseKnownNetworks(string? config)
+{
+    var result = new List<Microsoft.AspNetCore.HttpOverrides.IPNetwork>();
+    if (string.IsNullOrWhiteSpace(config)) return result;
+
+    foreach (var cidr in config.Split(',', StringSplitOptions.RemoveEmptyEntries
+                                          | StringSplitOptions.TrimEntries))
+    {
+        // Sai định dạng thì ném ngay lúc khởi động thay vì lặng lẽ bỏ qua: một dòng cấu
+        // hình gõ nhầm mà bị nuốt nghĩa là mất IP thật của khách, trong khi mọi thứ khác
+        // trông vẫn bình thường.
+        var parts = cidr.Split('/');
+        if (parts.Length != 2
+            || !IPAddress.TryParse(parts[0], out var prefix)
+            || !int.TryParse(parts[1], out var length))
+        {
+            throw new InvalidOperationException(
+                $"ForwardedHeaders:KnownNetworks chứa giá trị không phải CIDR: {cidr}.");
+        }
+
+        // Khai đủ tên: .NET 8 thêm `System.Net.IPNetwork`, còn `KnownNetworks` cần bản
+        // của HttpOverrides — hai type khác nhau, cùng tên, cùng nằm trong using.
+        result.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, length));
+    }
+
+    return result;
+}
+
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
 {
@@ -48,6 +118,24 @@ if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
     // ký ra đều giả mạo được, và lỗi đó sẽ không lộ ra cho tới khi bị khai thác.
     throw new InvalidOperationException(
         "Jwt:Secret phải được cấu hình và dài tối thiểu 32 ký tự.");
+}
+
+// Stub OTP trả mã thẳng trong response (`debugCode`), nên bật nó ở production nghĩa là
+// bất kỳ ai biết một số điện thoại đều chiếm được tài khoản đó bằng đúng hai request —
+// kể cả ADMIN. Mà số điện thoại KTV thì hiển thị công khai trên chính trang hồ sơ.
+//
+// Fail fast cùng lý do với `Jwt:Secret`: đây là thứ hỏng **im lặng** — app chạy đúng,
+// log sạch, chỉ là cửa mở. Một biến môi trường bị quên ở lần deploy thứ ba sẽ không có
+// gì báo. Chặn ở khởi động biến nó thành lỗi không thể bỏ qua.
+//
+// Chỉ chặn ở Production: `Development` và `Testing` vẫn dùng stub bình thường —
+// `ApiFactory` đăng nhập qua OTP cho toàn bộ integration suite.
+if (builder.Environment.IsProduction()
+    && builder.Configuration.GetValue("Otp:StubEnabled", true))
+{
+    throw new InvalidOperationException(
+        "Otp:StubEnabled=true bị cấm ở Production — stub trả mã OTP ngay trong response. "
+        + "Đặt Otp__StubEnabled=false (đường đăng nhập bằng mật khẩu không bị ảnh hưởng).");
 }
 
 // Data source dựng tường minh, **một lần**, có plugin NetTopologySuite.
@@ -220,8 +308,10 @@ if (args.Length > 0 && args[0] is "migrate" or "seed-areas" or "seed-services" o
             var report = await scope.ServiceProvider
                 .GetRequiredService<WalletMaintenance>().RunAsync();
             logger.LogInformation(
-                "Bảo trì xong: nhả {Holds} hold, đóng {Campaigns} campaign, {Drift} ví lệch sổ",
-                report.HoldsReleased, report.CampaignsExpired, report.WalletsDrifting);
+                "Bảo trì xong: nhả {Holds} hold, đóng {Campaigns} campaign, "
+                + "bỏ dở {Intents} phiên nạp tiền, {Drift} ví lệch sổ",
+                report.HoldsReleased, report.CampaignsExpired,
+                report.IntentsAbandoned, report.WalletsDrifting);
             // Thoát khác 0 khi có ví lệch, để cron/CI biết cần người xem lại thay vì
             // chỉ có một dòng log trôi qua.
             if (report.WalletsDrifting > 0) Environment.ExitCode = 1;
@@ -234,6 +324,14 @@ if (args.Length > 0 && args[0] is "migrate" or "seed-areas" or "seed-services" o
 }
 
 app.UseExceptionHandler();
+
+// Phải là middleware **đầu tiên** sau exception handler: mọi thứ phía dưới — rate
+// limiter, controller ghi lead/lượt xem/báo cáo, cổng thanh toán — đọc
+// `RemoteIpAddress`, và middleware này chính là thứ ghi lại giá trị đó. Đặt sau bất kỳ
+// cái nào trong số chúng thì cái đó đọc phải IP của proxy.
+//
+// Chỉ chạy khi có dải proxy được khai — xem giải thích ở chỗ cấu hình bên trên.
+if (trustedProxies.Count > 0) app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
