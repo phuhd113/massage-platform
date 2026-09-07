@@ -1,43 +1,59 @@
+import Image from 'next/image';
+
+import heroImage from '../../public/hero-massage-tan-noi.jpg';
+
+import { INTL_LOCALE, type Locale } from '@/i18n/config';
+import { formatVnd } from '@/lib/site';
+
+import type { Translator } from '@/i18n/t';
 import type { SiteStats } from '@/lib/types';
 
 /**
  * Cột phải của hero: ô ảnh lớn + ba con số.
  *
- * Ô ảnh là **placeholder**, không phải `<img>` rỗng: backend chưa có cột ảnh nào
- * cho trang chủ, và một thẻ ảnh trỏ vào đâu đó chưa tồn tại sẽ vừa hiện icon vỡ
- * vừa tính là một request 404 mỗi lượt tải trang.
+ * Ảnh là **file tĩnh trong `public/`**, không phải ảnh từ R2 như avatar/gallery KTV:
+ * đây là ảnh biên tập của sàn, không do ai tải lên và không đổi theo dữ liệu, nên cho
+ * nó đi qua `MediaUrls` + `remotePatterns` là bắt trang chủ phụ thuộc vào việc storage
+ * có cấu hình đúng hay không. Import tĩnh cũng cho Next biết sẵn kích thước thật, tức
+ * không cần khai `width`/`height` bằng tay và không có ca nào lệch tỉ lệ.
  *
- * Khối này giữ đúng chiều cao cố định (300px) kể cả khi chưa có ảnh — đó là lý do
- * nó tồn tại thay vì render rỗng: hero là phần trên màn hình đầu tiên, một khối
- * đổi chiều cao sau khi tải là điểm trừ CLS ở chính trang có nhiều traffic nhất.
+ * `priority` vì đây là **LCP element** của trang chủ — khối lớn nhất trên màn hình đầu
+ * tiên của trang có nhiều traffic nhất. Không có nó, Next lazy-load và ảnh chỉ bắt đầu
+ * tải sau khi hydrate xong, đẩy LCP thêm cả trăm ms ở chính chỉ số xếp hạng.
+ *
+ * Khối giữ chiều cao cố định 300px và ảnh `object-cover`: hero đổi chiều cao sau khi
+ * ảnh tải là điểm trừ CLS, cũng ở đúng trang đó.
+ *
+ * Nhận `locale` + `t` chứ không nhận từng chuỗi qua prop: khối này có bốn chỗ hiển thị
+ * chữ (alt + ba nhãn) và ba chỗ định dạng số. Truyền lẻ từng cái là bốn cơ hội để một
+ * cái bị quên — và chuỗi tiếng Việt lọt sang trang EN là loại lỗi không lộ ra khi nhìn
+ * bằng mắt, vì trang vẫn render bình thường.
  */
-export function HomeHeroMedia({ stats }: { stats: SiteStats }) {
-  const cards = buildHomeStats(stats);
+export function HomeHeroMedia({
+  stats,
+  locale,
+  t,
+}: {
+  stats: SiteStats;
+  locale: Locale;
+  t: Translator;
+}) {
+  const cards = buildHomeStats(stats, locale, t);
 
   return (
     <div className="grid gap-3">
-      <div
-        className="relative flex h-[300px] items-center justify-center overflow-hidden rounded-2xl border border-ink-200 bg-gradient-to-br from-brand-50 to-brand-100"
-        aria-hidden
-      >
-        <span className="flex flex-col items-center gap-2 px-6 text-center text-body-s text-brand-600">
-          <svg
-            width="34"
-            height="34"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="opacity-70"
-          >
-            <rect x="3" y="4" width="18" height="16" rx="2.5" />
-            <circle cx="8.5" cy="9.5" r="1.75" />
-            <path d="m3.5 17 4.5-4.5 3.5 3.5 3-3 6 6" />
-          </svg>
-          Ảnh KTV đang trị liệu tận nơi tại nhà khách hàng
-        </span>
+      <div className="relative h-[300px] overflow-hidden rounded-2xl border border-ink-200 bg-brand-50">
+        <Image
+          src={heroImage}
+          alt={t('home.heroImageAlt')}
+          fill
+          // Cột phải của hero: nửa màn hình ở desktop, tràn chiều ngang ở mobile.
+          // Thiếu `sizes` thì `fill` mặc định `100vw` và máy để bàn tải bản rộng
+          // gấp đôi mức cần cho một khối chưa tới 600px.
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          priority
+          className="object-cover"
+        />
       </div>
 
       {cards.length > 0 && (
@@ -66,26 +82,41 @@ export function HomeHeroMedia({ stats }: { stats: SiteStats }) {
  *
  * Ô "0 ₫ phí đặt lịch" thì luôn hiện: nó là chính sách, không phải số đo, nên
  * không phụ thuộc vào việc sàn đã có bao nhiêu hồ sơ.
+ *
+ * **Cả nhãn lẫn con số đều theo locale**, và vế con số là chỗ dễ bỏ sót hơn: bản cũ
+ * ghim `toLocaleString('vi-VN')` và `.replace('.', ',')` cho điểm trung bình, nên
+ * trang EN hiện "4,6" — đọc thành bốn nghìn sáu chứ không phải bốn phẩy sáu. Đúng
+ * cùng bài học với `{min}`/`{max}` của `use-form-validation`: một con số sai quy ước
+ * dấu phân cách vẫn trông như một con số hợp lệ, nên không ai báo lỗi.
  */
-function buildHomeStats(stats: SiteStats): { label: string; value: string }[] {
+function buildHomeStats(
+  stats: SiteStats,
+  locale: Locale,
+  t: Translator,
+): { label: string; value: string }[] {
   const cards: { label: string; value: string }[] = [];
+  const intl = INTL_LOCALE[locale];
 
   if (stats.verifiedKtvCount > 0) {
     cards.push({
-      label: 'KTV có chứng chỉ đã duyệt',
-      value: stats.verifiedKtvCount.toLocaleString('vi-VN'),
+      label: t('home.heroStatVerified'),
+      value: stats.verifiedKtvCount.toLocaleString(intl),
     });
   }
 
   if (stats.ratingAvg !== null) {
     cards.push({
-      label: 'Điểm trung bình từ khách',
-      // Dấu phẩy thập phân theo cách viết số tiếng Việt.
-      value: stats.ratingAvg.toFixed(1).replace('.', ','),
+      label: t('home.heroStatRating'),
+      // `minimumFractionDigits` để 4.0 vẫn ra "4,0" chứ không rút thành "4": cột này
+      // đứng cạnh hai con số khác, một ô lệch số chữ số thập phân đọc như lỗi hiển thị.
+      value: stats.ratingAvg.toLocaleString(intl, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }),
     });
   }
 
-  cards.push({ label: 'Phí đặt lịch, trả sau buổi làm', value: '0 ₫' });
+  cards.push({ label: t('home.heroStatFee'), value: formatVnd(0, locale) });
 
   return cards;
 }

@@ -51,6 +51,19 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# `sharp` phải được copy tường minh: nó là dependency Next nạp **động** lúc chạy, nên
+# file trace của build standalone không thấy nó và không gói vào.
+#
+# Thiếu nó thì trình tối ưu ảnh **không báo lỗi** — nó trả nguyên file gốc ở mọi
+# `w=`, đúng định dạng gốc, kèm HTTP 200. Đã đo: `w=640` trả về đúng 141663 byte
+# của bản 1600px, và `Accept: image/webp` vẫn nhận `image/jpeg`. Tức mọi điện thoại
+# tải ảnh rộng gấp đôi mức cần, ở định dạng nặng hơn ~30%, tại chính chỉ số LCP mà
+# Google dùng để xếp hạng — và triệu chứng duy nhất là trang hơi chậm.
+#
+# Áp dụng cho **mọi** ảnh, không riêng ảnh hero: avatar và gallery KTV từ R2 cũng
+# đi qua đúng trình tối ưu này.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

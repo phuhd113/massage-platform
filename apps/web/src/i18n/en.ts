@@ -59,6 +59,11 @@ export const en: Dictionary = {
     heroTitle: 'Therapeutic massage at home, from certified professionals',
     heroSubtitle:
       'See each therapist’s photos, practising certificate and distance before you call. No booking fee — you pay after the session.',
+    heroImageAlt:
+      'A uniformed therapist giving a back massage to a client on a massage table at home',
+    heroStatVerified: 'Therapists with verified certificates',
+    heroStatRating: 'Average rating from clients',
+    heroStatFee: 'Booking fee — you pay after the session',
 
     verifyTitle: 'How certificates are verified',
     verifySubtitle: 'Three steps before a profile is allowed to appear in search results.',
@@ -71,6 +76,8 @@ export const en: Dictionary = {
     step3Title: 'The profile opens to clients',
     step3Body:
       'You can see exactly which certificates were verified, who issued them, and what previous clients said.',
+    verifyImageAlt:
+      'A therapist with a verified certificate massaging a client’s arm at home',
 
     areasTitle: 'Browse by area',
     areasSubtitle: 'Pick a district to see the therapists who travel there.',

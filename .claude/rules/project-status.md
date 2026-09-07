@@ -190,6 +190,38 @@ Việt. Cả 12 form đã gắn hook. Sáu điều đừng vô tình đảo ngư
 Chuỗi hardcode `"Chỉ hỏi vị trí khi bạn bấm…"` trong `HeroSearch` cũng đã chuyển sang
 `home.heroGeoPromise` trong cùng đợt — nó vốn hiện nguyên tiếng Việt trên trang EN.
 
+**Ảnh thật thay placeholder ở hero và section duyệt hồ sơ** (2026-09-08, hai file trong
+`apps/web/public/`). Kèm theo là một lỗ hổng hiệu năng có sẵn được phát hiện và sửa. Bốn điều
+đừng vô tình đảo ngược:
+
+- **`sharp` phải nằm trong `dependencies` VÀ được `COPY` tường minh vào standalone.** Đây là lỗi
+  im lặng nhất trong nhóm này: thiếu nó, trình tối ưu ảnh của Next **không báo lỗi** mà trả
+  nguyên file gốc ở mọi `w=`, đúng định dạng gốc, kèm HTTP 200. Đã đo trước khi sửa: `w=640` trả
+  đúng 141.663 byte của bản 1600px, và `Accept: image/webp` vẫn nhận `image/jpeg`. Sau khi sửa
+  cùng URL đó là **20.311 byte AVIF** — giảm 86%. Next nạp `sharp` **động** nên file trace của
+  build standalone không thấy và không gói vào; `dependencies` một mình là chưa đủ. Áp dụng cho
+  **mọi** ảnh chứ không riêng ảnh biên tập: avatar và gallery KTV từ R2 đi qua đúng trình đó.
+- **Ảnh biên tập của sàn là file tĩnh trong `public/`, không đi qua R2.** Chúng không do ai tải
+  lên và không đổi theo dữ liệu, nên cho chúng qua `MediaUrls` + `remotePatterns` là bắt trang chủ
+  phụ thuộc vào việc storage có cấu hình đúng hay không. Import tĩnh cũng cho Next biết sẵn kích
+  thước thật, nên không có ca nào lệch tỉ lệ.
+- **Chỉ ảnh hero mang `priority`.** Nó là LCP element của trang chủ. Ảnh ở section duyệt hồ sơ
+  nằm dưới màn hình đầu tiên và cố ý **không** có — thêm vào là tranh băng thông với chính ảnh
+  đang giữ LCP.
+- **`HomeHeroMedia` nhận `locale` + `t`, không nhận từng chuỗi qua prop.** Khối này có bốn chỗ
+  hiển thị chữ (alt + ba nhãn) và ba chỗ định dạng số; truyền lẻ là bốn cơ hội để một cái bị quên.
+  Cùng đợt đã sửa nốt ba ô số liệu vốn hardcode tiếng Việt — cùng hình dạng với lỗi
+  `heroGeoPromise` ngay trên.
+- **Vế con số dễ bỏ sót hơn vế chữ, và sai nguy hiểm hơn.** `buildHomeStats` từng ghim
+  `toLocaleString('vi-VN')` cùng `.replace('.', ',')` cho điểm trung bình, nên trang EN hiện
+  **"4,6" — đọc thành bốn nghìn sáu**. Một câu tiếng Việt lọt sang trang EN thì nhìn là thấy;
+  một con số sai quy ước dấu phân cách vẫn trông như con số hợp lệ. Nay cả ba ô đi qua
+  `INTL_LOCALE[locale]` và `formatVnd`, nên vi cho `4,6` / `0 ₫` còn en cho `4.6` / `₫0` — ký
+  hiệu tiền đổi cả vị trí, việc mà một `${x} ₫` viết tay không bao giờ làm được.
+
+Ảnh nguồn là PNG 7,4 MB mỗi file; đã chuyển sang JPEG 1600px (~140 KB) trước khi commit. Ảnh chụp
+thực tế phải là JPEG/WebP — PNG chỉ đúng cho ảnh có vùng màu phẳng và cần trong suốt.
+
 **KTV chưa tạo hồ sơ bị giữ ở `/dashboard/ho-so`** (2026-09-07, `lib/require-profile.ts`).
 Tài khoản KTV mới đăng ký **không** tự có hồ sơ — phải gọi `POST /ktv/profile` riêng, và trước đó
 mọi trang dashboard đều mở nhưng rỗng. Năm điều đừng vô tình đảo ngược:

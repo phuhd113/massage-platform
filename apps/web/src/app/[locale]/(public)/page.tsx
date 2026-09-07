@@ -1,4 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
+
+import verifyImage from '../../../../public/hero-massage-tan-noi-2.jpg';
+
 import { HeroSearch } from '@/components/HeroSearch';
 import { HomeHeroMedia } from '@/components/HomeHeroMedia';
 import { JsonLd } from '@/components/JsonLd';
@@ -95,7 +99,7 @@ export default async function HomePage({ params }: { params: { locale: string } 
             </div>
           </div>
 
-          <HomeHeroMedia stats={stats} />
+          <HomeHeroMedia stats={stats} locale={locale} t={t} />
         </div>
       </section>
 
@@ -107,27 +111,45 @@ export default async function HomePage({ params }: { params: { locale: string } 
           {t('home.verifySubtitle')}
         </p>
 
-        {/*
-          <ol> chứ không phải <ul>: đây là quy trình có thứ tự, và số bước là nội
-          dung thật chứ không phải trang trí — nên nó nằm trong markup, không phải
-          trong ::before của CSS.
-        */}
-        <ol className="mt-6 grid gap-4 sm:grid-cols-3">
-          {VERIFICATION_STEP_KEYS.map((key, i) => (
-            <li key={key} className="rounded-xl border border-ink-200 bg-white p-5">
-              <span
-                aria-hidden
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-100 font-mono text-caption font-medium text-brand-600"
-              >
-                {i + 1}
-              </span>
-              <h3 className="mt-3.5 font-display text-h4 text-ink-900">
-                {t(`home.${key}Title`)}
-              </h3>
-              <p className="mt-1.5 text-body leading-6 text-ink-600">{t(`home.${key}Body`)}</p>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-8">
+          {/*
+            Ảnh minh hoạ chính cái đang được nói tới ở đây: một KTV đã qua đối chiếu
+            đang làm việc. Không `priority` — khối này nằm dưới màn hình đầu tiên, nên
+            để Next lazy-load; thêm `priority` ở đây là tranh băng thông với ảnh hero,
+            tức làm chậm đúng chỉ số LCP mà hero đang giữ.
+          */}
+          <div className="relative hidden h-full min-h-[280px] overflow-hidden rounded-xl border border-ink-200 bg-brand-50 lg:block">
+            <Image
+              src={verifyImage}
+              alt={t('home.verifyImageAlt')}
+              fill
+              sizes="(max-width: 1024px) 0px, 45vw"
+              className="object-cover"
+            />
+          </div>
+
+          {/*
+            <ol> chứ không phải <ul>: đây là quy trình có thứ tự, và số bước là nội
+            dung thật chứ không phải trang trí — nên nó nằm trong markup, không phải
+            trong ::before của CSS.
+          */}
+          <ol className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            {VERIFICATION_STEP_KEYS.map((key, i) => (
+              <li key={key} className="rounded-xl border border-ink-200 bg-white p-5">
+                <span
+                  aria-hidden
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-100 font-mono text-caption font-medium text-brand-600"
+                >
+                  {i + 1}
+                </span>
+                <h3 className="mt-3.5 font-display text-h4 text-ink-900">
+                  {t(`home.${key}Title`)}
+                </h3>
+                <p className="mt-1.5 text-body leading-6 text-ink-600">{t(`home.${key}Body`)}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
       </section>
 
       {provinces.length > 0 && (

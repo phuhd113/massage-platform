@@ -66,6 +66,11 @@ export const vi = {
     heroTitle: 'Massage trị liệu tận nơi, người thật có chứng chỉ thật',
     heroSubtitle:
       'Xem ảnh, chứng chỉ hành nghề và khoảng cách của từng kỹ thuật viên trước khi gọi. Không mất phí đặt lịch, thanh toán sau buổi trị liệu.',
+    heroImageAlt:
+      'Kỹ thuật viên mặc đồng phục đang massage trị liệu vùng lưng cho khách trên giường massage tại nhà',
+    heroStatVerified: 'KTV có chứng chỉ đã duyệt',
+    heroStatRating: 'Điểm trung bình từ khách',
+    heroStatFee: 'Phí đặt lịch, trả sau buổi làm',
 
     verifyTitle: 'Chứng chỉ được duyệt thế nào',
     verifySubtitle: 'Ba bước trước khi một hồ sơ được phép xuất hiện trong kết quả tìm kiếm.',
@@ -77,6 +82,8 @@ export const vi = {
       'Chúng tôi kiểm tra tên, số chứng chỉ và đơn vị cấp trước khi đánh dấu đã duyệt.',
     step3Title: 'Hồ sơ mở cho khách xem',
     step3Body: 'Bạn thấy đúng chứng chỉ nào đã duyệt, do ai cấp, và đánh giá của khách trước.',
+    verifyImageAlt:
+      'Kỹ thuật viên đã qua đối chiếu chứng chỉ đang massage tay cho khách tại nhà',
 
     areasTitle: 'Tìm theo khu vực',
     areasSubtitle: 'Chọn quận/huyện để xem kỹ thuật viên nhận khách ở đó.',
