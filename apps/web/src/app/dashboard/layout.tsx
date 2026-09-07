@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { DashboardNav } from '@/components/DashboardNav';
+import { KtvAnnouncement } from '@/components/KtvAnnouncement';
 import { LogoMark } from '@/components/icons';
 import { LogoutButton } from '@/components/LogoutButton';
 import { fontVariables } from '@/lib/fonts';
@@ -106,6 +107,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="mx-auto max-w-[1000px]">{children}</div>
       </main>
     </div>
+
+    {/* Đặt ở layout chứ không ở từng page: KTV vào dashboard qua nhiều đường (trang
+        tổng quan, link sâu tới /dashboard/goi, quay lại từ trang công khai), gắn ở
+        một page là bỏ sót đúng những lối vào khác.
+
+        Nằm **sau** nhánh CUSTOMER phía trên nên tài khoản khách không bao giờ thấy —
+        thông báo này nói về phí duy trì hồ sơ KTV, hiện cho khách là vô nghĩa.
+
+        Tự nó quyết định có hiện hay không (đọc localStorage trong effect), nên ở đây
+        không có điều kiện nào — thêm một điều kiện phía server là dựng nguồn sự thật
+        thứ hai cho cùng một câu hỏi. */}
+    <KtvAnnouncement />
     </Shell>
   );
 }

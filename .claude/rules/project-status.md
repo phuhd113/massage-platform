@@ -222,6 +222,34 @@ Chuỗi hardcode `"Chỉ hỏi vị trí khi bạn bấm…"` trong `HeroSearch`
 Ảnh nguồn là PNG 7,4 MB mỗi file; đã chuyển sang JPEG 1600px (~140 KB) trước khi commit. Ảnh chụp
 thực tế phải là JPEG/WebP — PNG chỉ đúng cho ảnh có vùng màu phẳng và cần trong suốt.
 
+**Thông báo chương trình Beta hiện một lần khi KTV vào dashboard** (2026-09-08,
+`KtvAnnouncement` + `lib/ktv-announcement.ts`). Nội dung: miễn phí trong giai đoạn thử nghiệm, lộ
+trình sẽ thu phí duy trì hồ sơ theo ngày, quyền lợi KTV Tiên phong, và số liên hệ Ban quản trị.
+Năm điều đừng vô tình đảo ngược:
+
+- **Nhớ "đã đọc" bằng localStorage kèm số phiên bản, KHÔNG bằng cột trong DB.** Đây là thông báo
+  marketing chứ không phải bằng chứng pháp lý — thứ cần chứng minh "đã đồng ý với đúng những dòng
+  này" là bản cam kết KTV (`commitment_version`, nội dung ở backend `KtvCommitments`). Thêm một cột
+  chỉ để đếm lần đóng popup là trả giá một migration cho một tiện ích hiển thị, kèm nghĩa vụ
+  backfill mỗi lần sửa câu chữ. Đánh đổi đã cân nhắc: nhớ theo **trình duyệt**, nên đổi máy sẽ thấy
+  lại một lần.
+- **Sửa câu chữ phải tăng `ANNOUNCEMENT_VERSION`.** Không tăng thì KTV đã đóng bản cũ không bao giờ
+  thấy bản mới — mà lý do duy nhất để sửa một thông báo là muốn người ta đọc phần đã đổi. Cùng hình
+  dạng với `KtvCommitments.CurrentVersion`, khác ở chỗ bản này không cần bằng chứng phía server.
+- **Ghi nhận đã đọc ngay lúc mở, không đợi lúc đóng.** KTV đóng tab giữa chừng vẫn là đã thấy; hiện
+  lại ở lần đăng nhập sau đọc như lỗi lặp.
+- **Đặt ở `dashboard/layout.tsx` và nằm SAU nhánh CUSTOMER.** KTV vào dashboard qua nhiều đường
+  (trang tổng quan, link sâu tới `/dashboard/goi`, và `/dashboard/ho-so` khi chưa có hồ sơ), gắn ở
+  một page là bỏ sót đúng những lối vào khác. Nằm sau nhánh CUSTOMER nên tài khoản khách không bao
+  giờ thấy — và cũng **không** bị ghi cờ, nên tài khoản sau này thành KTV vẫn được xem.
+- **Khối "sẽ thu phí" tách riêng, không trộn vào danh sách quyền lợi miễn phí.** Đây là thông tin
+  bất lợi cho người đọc; gói nó lẫn giữa các gạch đầu dòng "miễn phí 100%" là cách chắc chắn để sau
+  này bị nói là đã giấu.
+
+Đã kiểm chứng trong trình duyệt thật (2026-09-08): hiện đúng một lần cho KTV, không hiện lại sau
+reload, **không** hiện cho tài khoản CUSTOMER, không có lỗi hydration, và khoá cuộn nền được trả
+lại sau khi đóng.
+
 **KTV chưa tạo hồ sơ bị giữ ở `/dashboard/ho-so`** (2026-09-07, `lib/require-profile.ts`).
 Tài khoản KTV mới đăng ký **không** tự có hồ sơ — phải gọi `POST /ktv/profile` riêng, và trước đó
 mọi trang dashboard đều mở nhưng rỗng. Năm điều đừng vô tình đảo ngược:
@@ -280,8 +308,9 @@ Trước đó có bảy mục. Nay: **vị trí · Dành cho KTV**. Bảy điề
   không gì cả. `resolveArea` chạy song song và chỉ để nhớ nhãn cho lần sau.
 - **`lib/saved-area.ts` lưu tên + slug, KHÔNG lưu toạ độ.** Toạ độ là vị trí nhà khách: nó nằm mãi
   trên máy (kể cả máy dùng chung) để đổi lại đúng một lần bấm, trong khi lần bấm sau GPS cho toạ độ
-  thật chính xác hơn bản sao cũ. Đây là chỗ **duy nhất** trong codebase dùng localStorage — mọi
-  trạng thái khác đi qua URL hoặc cookie httpOnly. Mất nó thì header về "Chọn vị trí", không hỏng gì.
+  thật chính xác hơn bản sao cũ. Đây là **một trong hai** chỗ trong codebase dùng localStorage (chỗ
+  kia là `lib/ktv-announcement.ts`) — mọi trạng thái khác đi qua URL hoặc cookie httpOnly. Mất nó
+  thì header về "Chọn vị trí", không hỏng gì.
 - **Đọc localStorage trong `useEffect`, không phải lúc khởi tạo state.** Server không có
   localStorage nên đọc ở lần render đầu cho hai kết quả khác nhau giữa server và client → hydration
   mismatch. Cũng phải kiểm từng trường sau `JSON.parse`: nội dung này sửa được bằng devtools, và một
