@@ -3,6 +3,7 @@ import { PasswordAuthForm } from '@/components/PasswordAuthForm';
 import { normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
+import { redirectIfAuthenticated } from '@/lib/session';
 
 export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
   const locale = normalizeLocale(params.locale);
@@ -23,5 +24,10 @@ export function generateMetadata({ params }: { params: { locale: string } }): Me
  * Không nhận `?next=`: KTV luôn về `/dashboard`, nơi có màn làm việc đầy đủ của họ.
  */
 export default function KtvSignUpPage({ params }: { params: { locale: string } }) {
+  // KTV đã có phiên mà thấy form "tạo tài khoản KTV" còn khó hiểu hơn màn đăng nhập:
+  // nó gợi ý rằng tài khoản họ đang dùng chưa phải tài khoản KTV. Không truyền `next`
+  // vì trang này cố ý không nhận nó — KTV luôn về `/dashboard`.
+  redirectIfAuthenticated();
+
   return <PasswordAuthForm mode="register" role="KTV" locale={normalizeLocale(params.locale)} />;
 }

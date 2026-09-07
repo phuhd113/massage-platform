@@ -15,6 +15,8 @@ export function AdminNav() {
   const items = [
     { href: '/admin/duyet-ktv', label: 'Duyệt hồ sơ KTV' },
     { href: '/admin/duyet-anh', label: 'Duyệt ảnh hồ sơ' },
+    { href: '/admin/duyet-cccd', label: 'Duyệt CCCD' },
+    { href: '/admin/duyet-chung-chi', label: 'Duyệt chứng chỉ' },
     { href: '/admin/cong-tac-vien', label: 'Cộng tác viên' },
   ];
 

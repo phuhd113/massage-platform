@@ -3,7 +3,7 @@ import { PasswordAuthForm } from '@/components/PasswordAuthForm';
 import { normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
-import { safeNext } from '@/lib/session';
+import { redirectIfAuthenticated, safeNext } from '@/lib/session';
 
 export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
   const locale = normalizeLocale(params.locale);
@@ -31,12 +31,18 @@ export default function RegisterPage({
   params: { locale: string };
   searchParams: { next?: string };
 }) {
+  const next = safeNext(searchParams.next);
+
+  // Người đã có phiên không cần tạo tài khoản thứ hai — và nếu thật sự muốn, họ phải
+  // đăng xuất trước, chứ không phải điền một form mà backend sẽ trả 409.
+  redirectIfAuthenticated(next);
+
   return (
     <PasswordAuthForm
       mode="register"
       role="CUSTOMER"
       locale={normalizeLocale(params.locale)}
-      redirectTo={safeNext(searchParams.next)}
+      redirectTo={next}
     />
   );
 }

@@ -444,9 +444,9 @@ Bảy điều đừng đảo ngược:
   ai xem trên trang công khai của đúng ngành Google phạt nặng nhất khi phân loại nhầm — và hình
   phạt rơi lên cả tên miền. Avatar thì hiện ngay: nó nằm trong tầm mắt admin ở chính trang duyệt
   hồ sơ, và bắt hồ sơ mới chờ mới có mặt là chặn đúng nhóm cần được nhìn thấy nhất.
-- **Hàng đợi duyệt ảnh là trang riêng** (`/admin/duyet-anh`), không nhét vào trang duyệt hồ sơ.
-  Danh sách kia lọc theo trạng thái **hồ sơ**, nên ảnh mới của một hồ sơ đã duyệt sẽ không xuất
-  hiện ở đâu cả.
+- **Mỗi loại tài sản duyệt được phải có hàng đợi riêng** — xem mục "Ba lần cùng một lỗi" bên
+  dưới. Ảnh là loại đầu tiên (`/admin/duyet-anh`): danh sách hồ sơ lọc theo trạng thái **hồ sơ**,
+  nên ảnh mới của một hồ sơ đã duyệt sẽ không xuất hiện ở đâu cả.
 - **Xoá file khỏi storage phải sau khi DB commit**, nên service trả key cũ ra cho controller
   dọn thay vì tự xoá. Đảo lại thì một lỗi lưu DB để hồ sơ trỏ tới file vừa bị xoá — ảnh vỡ trên
   trang công khai, không lấy lại được. Ngược lại, vượt hạn mức ảnh thì **file đã lên storage rồi**
@@ -588,6 +588,63 @@ lớn. Bốn điều đừng đảo ngược:
   gộp là 24 giờ theo thiết bị — rộng hơn hẳn lead (5 phút) vì người báo cáo lại cùng hồ sơ sau mười
   phút gần như chắc chắn vẫn đang nói về đúng chuyện đó, và để một người tự bơm số báo cáo lên là
   làm hỏng chính thước đo mức độ nghiêm trọng ở gạch đầu dòng trên.
+
+**Ba lần cùng một lỗi: hàng đợi duyệt phải tách theo loại tài sản** (2026-09-07). Nguyên tắc:
+**mỗi thứ admin duyệt được phải có hàng đợi riêng lọc theo trạng thái của chính nó**, không bao
+giờ chỉ hiện lồng trong danh sách hồ sơ. Đã cắn ba lần, và cả ba đều **im lặng theo cùng một
+kiểu**: người gửi nhận đúng câu "đã gửi, chờ duyệt", admin không thấy gì, và không bên nào biết
+là đang chờ vô ích.
+
+Vì sao lồng vào danh sách hồ sơ luôn hỏng: danh sách đó lọc theo trạng thái **hồ sơ**, mà cả ba
+loại tài sản đều thêm/gửi lại được **sau khi** hồ sơ đã duyệt xong — và không lượt nào trong số
+đó làm đổi trạng thái hồ sơ. Chúng rơi vào tab "Đã duyệt", nơi admin không có lý do gì để mở.
+
+- **Ảnh gallery** — lần một, đã tách thành `/admin/duyet-anh`.
+- **Chứng chỉ hành nghề** — lần hai, tách thành `/admin/duyet-chung-chi` cùng
+  `GET /admin/certifications`. Endpoint duyệt `PATCH /admin/certifications/{id}/verify` vốn đã
+  có từ trước: thiếu là đường **tìm ra** thứ cần duyệt, không phải đường duyệt.
+- **CCCD** — lần ba, và hình dạng hơi khác: `GET /admin/identity-documents` **đã có sẵn** từ đợt
+  bắt buộc CCCD, chỉ là **không trang nào gọi tới nó**. Một endpoint không có đường vào giao diện
+  thì không tồn tại đối với người dùng, mà cũng không có gì báo đỏ — nó vẫn trả 200 với curl. Nay
+  là `/admin/duyet-cccd`. Đây là trường hợp nghiêm trọng nhất trong ba: gửi lại CCCD **cố ý** đưa
+  trạng thái về PENDING mà không đụng tới trạng thái hồ sơ, nên lượt thay thẻ của một hồ sơ đã
+  VERIFIED trước đây không xuất hiện ở bất kỳ đâu — đúng cái lỗ mà việc bắt buộc CCCD sinh ra để bịt.
+
+Hệ quả bắt buộc nhớ: **thêm loại tài sản duyệt được thứ tư thì phải thêm cả bốn thứ cùng lúc** —
+endpoint hàng đợi, trang, mục trong `AdminNav`, và **đường xoá cache** (mục ngay dưới). Thiếu mục
+sidebar thì trang tồn tại nhưng không ai tìm ra, tức là quay lại đúng lần thứ ba. Cùng lý do đó,
+`tools/verify-r2.sh` cũng phải được bổ sung khi loại mới là file riêng tư (xem mục CCCD/chứng chỉ
+bên trên).
+
+**Mọi quyết định duyệt của admin phải đi qua `/api/admin-verify`, không phải `/api/proxy`**
+(2026-09-07). Đây là **lần thứ ba** của cùng cái bẫy `revalidatePath` mà `/api/reviews` và
+`/api/ktv-media` đã ghi lại, và lần này nó ẩn lâu nhất. Triệu chứng: admin duyệt chứng chỉ xong,
+trạng thái đổi thành "Đã duyệt", nhưng trang hồ sơ công khai **không hiện gì** — trang là ISR 600
+giây nên vẫn phục vụ bản dựng trước đó. Đã đo trực tiếp: API `by-slug` trả về đúng chứng chỉ trong
+khi HTML trang không có nó, và xoá `.next/cache/fetch-cache` thì nó hiện ra ngay.
+
+Bốn điều đừng đảo ngược:
+
+- **Có HAI tầng cache, và chẩn đoán bằng tay sẽ đi sai đường nếu chỉ biết một.** `fetch-cache`
+  nằm trên đĩa trong container (sống qua `restart`), còn tầng thứ hai nằm **trong bộ nhớ tiến
+  trình**. Hệ quả đo được: xoá thư mục `fetch-cache` rồi tải lại trang vẫn ra nội dung cũ — vì
+  tầng in-memory còn giữ; và `restart` không dọn `fetch-cache` — vì nó ở trên đĩa. Mỗi cách một
+  mình đều cho kết quả "vẫn hỏng", nên rất dễ kết luận nhầm rằng nguyên nhân không phải cache.
+  `revalidatePath` dọn **cả hai** — đó chính là việc nó làm, và là lý do nó là cách sửa đúng chứ
+  không phải một mẹo dọn dẹp.
+- **Nguy hiểm hơn hai lần trước vì người thao tác và người xem là hai người khác nhau.** Ở
+  `/api/reviews` và `/api/ktv-media`, ai vừa bấm cũng là người nhìn kết quả, nên họ ít nhất *biết*
+  có gì đó không ổn. Ở đây admin thấy "Đã duyệt" còn KTV mở hồ sơ mình không thấy gì — không ai ở
+  vị trí nhìn thấy mâu thuẫn, nên nó chỉ lộ ra khi có người tình cờ đối chiếu.
+- **Xoá cache cho MỌI ngôn ngữ trong `LOCALES`.** Bản `/en` là đường dẫn riêng với cache riêng;
+  chỉ xoá bản tiếng Việt là để một nửa số trang giữ nội dung cũ, và là nửa ít người mở nên lâu mới
+  lộ. Mẫu cũ trong `ProfileMediaSection` ghim `'vi'` — đó là chỗ còn thiếu, không phải mẫu để chép.
+- **Duyệt hồ sơ cũng phải xoá cache, không riêng chứng chỉ và ảnh.** Chuyển sang VERIFIED là lần
+  đầu trang công khai đó tồn tại, và gỡ xuống thì nó phải biến mất — kể cả, và nhất là, với hồ sơ
+  vừa bị gỡ vì nghi vấn.
+
+CCCD **cố ý không** đi qua đường này: ảnh CCCD không bao giờ ra trang công khai, nên xoá bản dựng
+sẵn của một trang SEO ở đó là trả giá mà không đổi lại được gì.
 
 Phần Phase 3 còn lại: job delayed `promotion:expire` và Redis read-path — cả hai chỉ trở nên bắt
 buộc khi đường đọc chuyển sang Redis, mà số đo hiện tại (`/search` 28,6ms ở 5.000 hồ sơ) chưa đòi

@@ -141,7 +141,7 @@ function PhotoCard({ photo }: { photo: AdminKtvPhoto }) {
 
         {/* Ảnh đã xử lý vẫn cho đổi quyết định: một tấm bị từ chối nhầm mà không có
             đường sửa sẽ buộc KTV tải lên lại, và lượt tải lại đó tính vào hạn mức. */}
-        <VerifyPhotoForm photoId={photo.id} />
+        <VerifyPhotoForm photoId={photo.id} ktvId={photo.ktvId} ktvSlug={photo.ktvSlug} />
       </div>
     </li>
   );

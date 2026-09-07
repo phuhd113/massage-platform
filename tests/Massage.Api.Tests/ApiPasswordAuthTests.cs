@@ -175,5 +175,54 @@ public class ApiPasswordAuthTests(PostgresFixture fixture)
         me!.HasPassword.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task Số_điện_thoại_sai_định_dạng_trả_400_chứ_không_phải_429()
+    {
+        // Đây là lỗi đã cắn, và nó hỏng ở tầng *câu chữ* chứ không ở tầng chức năng:
+        // khoá tài khoản trước đây cũng trả 400, nên màn hình đăng nhập không phân
+        // biệt được "số nhập sai" với "đang bị khoá" và hiện "sai quá nhiều lần nên
+        // tài khoản tạm khoá" cho người vừa gõ sai ở **lần thử đầu tiên** — đẩy họ
+        // ngồi chờ 15 phút cho một lỗi sửa được trong ba giây.
+        //
+        // Hai tình huống dẫn tới hai hành động khác hẳn nhau, nên hai mã phải khác
+        // nhau. Test này giữ vế "dữ liệu sai"; vế "bị khoá" ở test ngay dưới.
+        var client = _api.CreateClient();
+
+        var res = await client.PostAsJsonAsync("/api/v1/auth/login",
+            new { phone = "901234567", password = GoodPassword });
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Khoá_tài_khoản_trả_429_chứ_không_phải_400()
+    {
+        var client = _api.CreateClient();
+        var phone = ApiClient.UniquePhone();
+
+        await client.PostAsJsonAsync("/api/v1/auth/register", new { phone, password = GoodPassword });
+
+        // Gõ sai đủ số lần để tài khoản bị khoá.
+        for (var i = 0; i < 5; i++)
+        {
+            await client.PostAsJsonAsync("/api/v1/auth/login",
+                new { phone, password = "sai-mat-khau-nhung-du-dai" });
+        }
+
+        // Lượt tiếp theo bị chặn vì khoá — kể cả khi mật khẩu lần này đúng.
+        var res = await client.PostAsJsonAsync("/api/v1/auth/login",
+            new { phone, password = GoodPassword });
+
+        res.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+
+        // 429 cũng là mã của rate limiter (10 lượt / 5 phút, phân vùng theo IP), nên
+        // riêng mã số không chứng minh được test này đang đo đúng thứ nó định đo.
+        // Rate limiter chặn ở tầng middleware và trả body rỗng; khoá tài khoản đi qua
+        // AppExceptionHandler và luôn kèm ProblemDetails. Thiếu vế này thì việc gỡ mất
+        // khoá tài khoản vẫn để test xanh, miễn là rate limit tình cờ chạm ngưỡng.
+        var body = await res.Content.ReadAsStringAsync();
+        body.Should().Contain("khoá", "429 phải đến từ khoá tài khoản, không phải rate limiter");
+    }
+
     private sealed record MeDto(Guid Id, string Phone, string Role, string? Email, bool HasPassword);
 }

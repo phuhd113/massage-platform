@@ -92,7 +92,13 @@ function messageFor(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectEleme
   if (v.rangeUnderflow && 'min' in el) return fill(m.rangeUnderflow, { min: readable(el.min, m.numberLocale) });
   if (v.rangeOverflow && 'max' in el) return fill(m.rangeOverflow, { max: readable(el.max, m.numberLocale) });
   if (v.stepMismatch) return m.stepMismatch;
-  if (v.patternMismatch) return m.patternMismatch;
+
+  // `title` thắng câu chung khi có: "Định dạng chưa đúng" không nói được dạng đúng
+  // là gì, mà mỗi `pattern` lại đòi một câu khác nhau (số điện thoại, mã giới thiệu,
+  // biển số…). Đây đúng là việc `title` sinh ra để làm cho `pattern` trong HTML, và
+  // nó cũng hiện thành tooltip — nên câu giải thích không chỉ tồn tại lúc báo lỗi.
+  // Ô nào không khai `title` vẫn rơi về câu chung như cũ.
+  if (v.patternMismatch) return el.title || m.patternMismatch;
   if (v.typeMismatch) return m.typeMismatch;
 
   return m.invalid;

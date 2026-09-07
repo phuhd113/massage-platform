@@ -22,7 +22,13 @@ public class AppExceptionHandler(ILogger<AppExceptionHandler> logger) : IExcepti
             NotFoundException => HttpStatusCode.NotFound,
             ConflictException => HttpStatusCode.Conflict,
             BadRequestException => HttpStatusCode.BadRequest,
-            Modules.Auth.TooManyAttemptsException => HttpStatusCode.BadRequest,
+            // 429, KHÔNG phải 400. Đây là lỗi đã cắn: FluentValidation cũng trả 400
+            // cho dữ liệu sai định dạng, nên client không phân biệt được "số điện
+            // thoại nhập sai" với "tài khoản đang bị khoá" — và màn hình đăng nhập
+            // hiện "sai quá nhiều lần" cho người vừa gõ sai định dạng ở lần thử đầu
+            // tiên. Hai tình huống dẫn tới hai hành động khác hẳn nhau (sửa ô nhập
+            // / chờ 15 phút), nên chúng phải mang hai mã khác nhau.
+            Modules.Auth.TooManyAttemptsException => HttpStatusCode.TooManyRequests,
             Modules.Auth.InvalidOtpException => HttpStatusCode.Unauthorized,
 
             // Sai số điện thoại hoặc sai mật khẩu — cùng một mã, cùng một message,

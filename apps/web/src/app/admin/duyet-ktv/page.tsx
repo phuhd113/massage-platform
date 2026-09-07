@@ -232,7 +232,7 @@ function ProfileRow({ profile: p }: { profile: AdminKtvProfile }) {
           )}
         </div>
 
-        <VerifyProfileForm ktvId={p.id} currentStatus={p.verificationStatus} />
+        <VerifyProfileForm ktvId={p.id} ktvSlug={p.slug} currentStatus={p.verificationStatus} />
       </div>
     </li>
   );

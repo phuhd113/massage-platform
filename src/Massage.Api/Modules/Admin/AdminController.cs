@@ -158,6 +158,54 @@ public class AdminController(AdminService service, MediaUrls urls) : ControllerB
     }
 
     /// <summary>
+    /// Hàng đợi chứng chỉ chờ duyệt, cũ nhất lên đầu.
+    /// </summary>
+    /// <remarks>
+    /// Tách khỏi hàng đợi hồ sơ vì cùng lý do với ảnh, và đây là lỗi đã gặp thật: chứng
+    /// chỉ chỉ hiện lồng trong danh sách hồ sơ, vốn lọc theo trạng thái **hồ sơ**. KTV
+    /// đã duyệt tải chứng chỉ mới thì nó rơi vào tab "Đã duyệt" — chỗ admin không mở —
+    /// nên không bao giờ được xem tới, trong khi KTV thấy "chờ duyệt" và chờ vô hạn.
+    ///
+    /// URL ký hạn ngắn: chứng chỉ là file riêng tư, bucket để private nên đây là đường
+    /// duy nhất mở được. Admin mở lại trang là có URL mới.
+    /// </remarks>
+    [HttpGet("certifications")]
+    public async Task<IActionResult> ListCertifications(
+        CancellationToken ct,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 50)
+    {
+        status ??= VerificationStatuses.Pending;
+        if (status is not (VerificationStatuses.Pending or VerificationStatuses.Verified or VerificationStatuses.Rejected))
+            throw new BadRequestException("Status phải là PENDING, VERIFIED hoặc REJECTED");
+
+        var (items, total) = await service.ListCertificationsAsync(
+            status, Math.Max(1, page), Math.Clamp(limit, 1, 100), ct);
+
+        return Ok(new
+        {
+            items = items.Select(c => new
+            {
+                c.Id,
+                c.KtvId,
+                KtvName = c.Ktv!.FullName,
+                KtvSlug = c.Ktv.Slug,
+                c.Name,
+                c.IssuingOrg,
+                c.IssuedAt,
+                FileUrl = urls.Signed(c.StorageKey),
+                c.VerifyStatus,
+                c.RejectionReason,
+                c.CreatedAt,
+            }),
+            total,
+            page = Math.Max(1, page),
+            limit = Math.Clamp(limit, 1, 100),
+        });
+    }
+
+    /// <summary>
     /// Hàng đợi ảnh hồ sơ chờ duyệt, cũ nhất lên đầu.
     /// </summary>
     /// <remarks>

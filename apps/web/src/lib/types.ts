@@ -483,3 +483,69 @@ export interface AdminKtvPhotoList {
   page: number;
   limit: number;
 }
+
+/**
+ * Chứng chỉ trong hàng đợi duyệt riêng — khác `AdminCertification`, vốn là bản rút
+ * gọn lồng trong một hồ sơ đang chờ duyệt.
+ *
+ * Mang theo tên và slug KTV vì cùng lý do với ảnh: hàng đợi này xếp theo **chứng
+ * chỉ**, không theo hồ sơ. Một hồ sơ đã duyệt vẫn tải chứng chỉ mới lên bất cứ lúc
+ * nào, nên chứng chỉ ở đây không nhất thiết thuộc về một hồ sơ đang chờ duyệt nào.
+ *
+ * Có cả nơi cấp và ngày cấp, khác bản lồng trong hồ sơ: ở đây admin **chỉ** thấy
+ * chứng chỉ chứ không thấy phần hồ sơ xung quanh, nên hai trường đó là thứ đối chiếu
+ * được với nội dung trên file.
+ */
+export interface AdminKtvCertification {
+  id: string;
+  ktvId: string;
+  ktvName: string;
+  ktvSlug: string;
+  name: string;
+  issuingOrg: string | null;
+  issuedAt: string | null;
+  fileUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+export interface AdminKtvCertificationList {
+  items: AdminKtvCertification[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * CCCD trong hàng đợi duyệt riêng — khác `AdminIdentityDocument`, vốn là bản lồng
+ * trong một hồ sơ đang chờ duyệt và vì thế không cần nhắc lại KTV là ai.
+ *
+ * Có `id` (bản lồng thì không) vì hàng đợi cần khoá React ổn định, nhưng đường duyệt
+ * vẫn đi theo `ktvId`: một hồ sơ có nhiều nhất một CCCD, và endpoint duyệt đã khai
+ * theo `ktvId` từ đầu.
+ *
+ * `ktvVerificationStatus` là trạng thái của **hồ sơ**, không phải của CCCD. Nó có mặt
+ * ở đây vì đó chính là thông tin admin cần để biết việc duyệt CCCD này còn mở ra bước
+ * nào phía sau: hồ sơ đang PENDING thì duyệt xong CCCD là hồ sơ đủ điều kiện lên sóng,
+ * còn hồ sơ đã VERIFIED thì đây chỉ là một lượt thay thẻ.
+ */
+export interface AdminKtvIdentityDocument {
+  id: string;
+  ktvId: string;
+  ktvName: string;
+  ktvSlug: string;
+  ktvVerificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  frontUrl: string;
+  backUrl: string;
+  verifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  submittedAt: string;
+}
+
+export interface AdminKtvIdentityDocumentList {
+  items: AdminKtvIdentityDocument[];
+  total: number;
+  page: number;
+  limit: number;
+}

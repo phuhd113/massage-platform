@@ -57,3 +57,4 @@ tools/area-dataset/*.zip
 
 # Hook script cá nhân (chỉ chạy trên Windows, gọi từ settings.local.json)
 .claude/hooks/
+.playwright-mcp/

@@ -12,9 +12,12 @@ import { useState } from 'react';
  */
 export function VerifyProfileForm({
   ktvId,
+  ktvSlug,
   currentStatus,
 }: {
   ktvId: string;
+  /** Chỉ dùng để xoá cache trang công khai của hồ sơ này. */
+  ktvSlug: string;
   currentStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
 }) {
   const router = useRouter();
@@ -28,7 +31,18 @@ export function VerifyProfileForm({
     setError(null);
 
     try {
-      const res = await fetch(`/api/proxy/admin/ktv/${ktvId}/verify`, {
+      // `/api/admin-verify` chứ không phải `/api/proxy`: duyệt hồ sơ là lần đầu trang
+      // công khai của KTV này tồn tại, và gỡ xuống thì nó phải biến mất. Trang là ISR
+      // 600 giây nên qua proxy sẽ có một khoảng mười phút mà trạng thái hồ sơ và trang
+      // công khai nói hai điều khác nhau — kể cả với hồ sơ vừa bị gỡ vì nghi vấn.
+      const params = new URLSearchParams({
+        target: 'profile',
+        id: ktvId,
+        ktvId,
+        ktvSlug,
+      });
+
+      const res = await fetch(`/api/admin-verify?${params}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

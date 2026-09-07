@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export const SESSION_COOKIE = 'massage_session';
 
@@ -45,6 +46,14 @@ export function getSessionRole(): string | null {
       string,
       unknown
     >;
+
+    // Token hết hạn coi như chưa đăng nhập. Không phải để bảo mật — chữ ký vẫn không
+    // được kiểm ở đây, và backend mới là nơi quyết định — mà để tránh một vòng lặp
+    // chuyển hướng: `redirectIfAuthenticated` đá người dùng sang `/dashboard`, trang
+    // đó gọi API bằng token đã chết, nhận 401 và đá ngược về `/dang-nhap`, nơi hàm
+    // này lại thấy "đã đăng nhập". Cookie và JWT hiện cùng sống 7 ngày nên hai mốc
+    // trùng nhau, nhưng chúng được đặt ở hai nơi khác nhau và sẽ có lúc lệch.
+    if (typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now()) return null;
 
     // .NET phát claim vai trò dưới URI dài của WS-Federation, không phải 'role'.
     const raw =
@@ -111,4 +120,30 @@ export const API_BASE = BASE;
 export function safeNext(next: string | undefined): string | undefined {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return undefined;
   return next;
+}
+
+/**
+ * Đưa người **đã đăng nhập** ra khỏi màn hình đăng nhập / đăng ký.
+ *
+ * Vì sao cần: header trỏ "Dành cho KTV" thẳng vào `/dang-nhap`, nên KTV đã có phiên
+ * bấm nút đó lại thấy đúng cái form họ vừa điền xong — đọc như phiên đăng nhập đã
+ * mất, trong khi nó còn nguyên. Ba trang này vẽ form vô điều kiện, không hề hỏi xem
+ * người đang xem là ai.
+ *
+ * Đi theo **vai trò**, cùng quy tắc mà `PasswordAuthForm` dùng sau khi đăng nhập
+ * thành công: KTV về `/dashboard`, khách về `next` hoặc trang chủ. Hai chỗ lệch nhau
+ * thì cùng một cú bấm cho ra hai kết quả khác nhau tuỳ việc phiên có sẵn hay vừa tạo.
+ *
+ * `getSessionRole` đọc payload JWT **không kiểm chữ ký**, nên nó chỉ được dùng để
+ * điều hướng — đúng như việc ở đây. Cookie giả mạo chỉ đổi được đích đến của một lần
+ * chuyển trang; mọi trang đích vẫn tự gọi API và nhận 401 nếu token không hợp lệ.
+ *
+ * Dùng ở cả ba trang `(auth)`. `/dang-ky-ktv` gọi nó **không kèm** `next` vì trang đó
+ * cố ý không nhận tham số ấy.
+ */
+export function redirectIfAuthenticated(next?: string): void {
+  const role = getSessionRole();
+  if (role === null) return;
+
+  redirect(role === 'KTV' ? '/dashboard' : (next ?? '/'));
 }

@@ -7,6 +7,7 @@ import { CheckIcon, LogoMark } from '@/components/icons';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
+import { VN_PHONE_PATTERN, normalizePhone } from '@/lib/phone';
 import { useFormValidation } from '@/lib/use-form-validation';
 import { messagesFor } from '@/lib/validation-messages';
 import { SITE_NAME } from '@/lib/site';
@@ -60,7 +61,7 @@ export function LoginForm({
       const res = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: normalizePhone(phone) }),
       });
       const data = (await res.json()) as {
         message?: string;
@@ -105,7 +106,7 @@ export function LoginForm({
       const res = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, role }),
+        body: JSON.stringify({ phone: normalizePhone(phone), code, role }),
       });
       const data = (await res.json()) as { message?: string; role?: string };
 
@@ -159,23 +160,23 @@ export function LoginForm({
                 <span className="mb-1.5 block text-body font-semibold text-ink-700">
                   {t('login.phoneLabel')}
                 </span>
-                {/* Viền nằm ở khung ngoài, input bên trong không viền: "+84" là một
-                    phần của cùng một ô nhập, không phải một điều khiển riêng. */}
-                <span className="flex items-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-3 transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
-                  <span className="font-mono text-body-l text-ink-500">+84</span>
-                  <span aria-hidden className="h-[18px] w-px bg-ink-200" />
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    required
-                    autoFocus
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="901 234 567"
-                    className="w-full border-0 bg-transparent p-0 font-mono text-h4 tracking-[0.02em] text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-0"
-                  />
-                </span>
+                {/* Cố ý KHÔNG có tiền tố "+84" — xem chú thích dài ở
+                    `PasswordAuthForm`. Nhãn tĩnh không được gửi đi cộng với
+                    placeholder thiếu số 0 đầu là một cặp bẫy nhau, và hệ thống lưu
+                    số ở dạng 0xxxxxxxxx nên ô nhập hỏi thẳng đúng dạng đó. */}
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  required
+                  autoFocus
+                  pattern={VN_PHONE_PATTERN}
+                  title={t('login.errorInvalidPhone')}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0901 234 567"
+                  className="w-full rounded-lg border border-ink-200 bg-white px-4 py-3 font-mono text-h4 tracking-[0.02em] text-ink-900 transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
               </label>
 
               <button

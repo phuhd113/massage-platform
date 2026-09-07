@@ -184,6 +184,31 @@ public class AdminService(AppDbContext db)
     }
 
     /// <summary>
+    /// Chứng chỉ đang chờ duyệt, cũ nhất lên đầu.
+    ///
+    /// Hàng đợi riêng vì **đúng lý do** với ảnh hồ sơ, và đây là lỗi đã gặp thật: chứng
+    /// chỉ trước đây chỉ hiện lồng trong danh sách hồ sơ, vốn lọc theo trạng thái **hồ
+    /// sơ**. KTV đã VERIFIED tải chứng chỉ mới lên thì nó nằm dưới tab "Đã duyệt" của
+    /// hàng đợi hồ sơ — nơi admin không có lý do gì để mở — nên nó không bao giờ được
+    /// duyệt, trong khi KTV nhận thông báo "đã gửi, chờ duyệt" và chờ mãi.
+    /// </summary>
+    public async Task<(List<Certification> Items, int Total)> ListCertificationsAsync(
+        string status, int page, int limit, CancellationToken ct = default)
+    {
+        var q = db.Certifications.AsNoTracking()
+            .Include(x => x.Ktv)
+            .Where(x => x.VerifyStatus == status);
+
+        var total = await q.CountAsync(ct);
+        var items = await q
+            .OrderBy(x => x.CreatedAt)
+            .Skip((page - 1) * limit).Take(limit)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
+    /// <summary>
     /// Ảnh đang chờ duyệt, cũ nhất lên đầu.
     ///
     /// Hàng đợi riêng chứ không nhét vào danh sách hồ sơ: hồ sơ đã VERIFIED vẫn thêm

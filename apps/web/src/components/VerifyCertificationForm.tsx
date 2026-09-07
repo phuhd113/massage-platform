@@ -4,19 +4,20 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 /**
- * Duyệt hoặc từ chối một ảnh hồ sơ.
+ * Duyệt hoặc từ chối một chứng chỉ hành nghề.
  *
- * Cùng hình dạng hai bước với <c>VerifyProfileForm</c>, và cùng lý do: lý do từ chối
- * là thứ **duy nhất** KTV nhìn thấy để biết phải sửa gì. Từ chối không kèm lý do thì
- * họ tải lên đúng tấm ảnh đó lần nữa.
+ * Cùng hình dạng hai bước với `VerifyPhotoForm`, nhưng là component riêng chứ không
+ * phải một bản dùng chung có prop `kind`: thứ khác nhau giữa hai màn hình là **gợi ý
+ * lý do từ chối**, mà lý do lại là thứ duy nhất KTV nhìn thấy để biết phải sửa gì.
+ * Một placeholder chung chung cho cả hai sẽ làm hỏng đúng phần có giá trị nhất.
  */
-export function VerifyPhotoForm({
-  photoId,
+export function VerifyCertificationForm({
+  certificationId,
   ktvId,
   ktvSlug,
 }: {
-  photoId: string;
-  /** Hồ sơ chứa ảnh này — chỉ dùng để xoá cache trang công khai của nó. */
+  certificationId: string;
+  /** Hồ sơ chứa chứng chỉ này — chỉ dùng để xoá cache trang công khai của nó. */
   ktvId: string;
   ktvSlug: string;
 }) {
@@ -31,12 +32,13 @@ export function VerifyPhotoForm({
     setError(null);
 
     try {
-      // `/api/admin-verify` chứ không phải `/api/proxy`: ảnh vừa duyệt phải hiện ra
-      // trên trang hồ sơ công khai, vốn là ISR 600 giây. Cùng cái bẫy đã ghi ở
-      // `/api/reviews` và `/api/ktv-media` — xem ghi chú đầy đủ trong route đó.
+      // `/api/admin-verify` chứ không phải `/api/proxy`: chứng chỉ vừa duyệt phải hiện
+      // ra trên trang hồ sơ công khai, vốn là ISR 600 giây. Qua proxy thì trang giữ
+      // bản dựng cũ thêm mười phút và nhìn từ mọi phía đều như việc duyệt không có tác
+      // dụng — mà admin và KTV là hai người khác nhau nên không ai thấy được mâu thuẫn.
       const params = new URLSearchParams({
-        target: 'photo',
-        id: photoId,
+        target: 'certification',
+        id: certificationId,
         ktvId,
         ktvSlug,
       });
@@ -62,8 +64,9 @@ export function VerifyPhotoForm({
 
       setRejecting(false);
       setReason('');
-      // Ảnh vừa xử lý phải rời khỏi tab đang mở. Layout admin khai `force-dynamic`
-      // nên `refresh()` là đủ — không có cache fetch nào giữ lại danh sách cũ.
+      // Chứng chỉ vừa xử lý phải rời khỏi tab đang mở. Layout admin khai
+      // `force-dynamic` nên `refresh()` là đủ — không có cache fetch nào giữ danh
+      // sách cũ lại.
       router.refresh();
     } catch {
       setError('Không kết nối được máy chủ.');
@@ -84,7 +87,7 @@ export function VerifyPhotoForm({
             maxLength={500}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Ví dụ: ảnh không liên quan tới dịch vụ trị liệu"
+            placeholder="Ví dụ: ảnh mờ không đọc được nơi cấp; hoặc chứng chỉ không thuộc lĩnh vực trị liệu."
             className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-body transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </label>
@@ -94,6 +97,8 @@ export function VerifyPhotoForm({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            // Lý do là thứ duy nhất KTV thấy để biết phải gửi lại thế nào; thiếu nó thì
+            // họ tải lên đúng file cũ lần nữa.
             disabled={pending || reason.trim().length < 5}
             onClick={() => decide('REJECTED')}
             className="rounded-full bg-danger-fg px-3.5 py-1.5 text-body-s font-semibold text-white transition disabled:opacity-50"

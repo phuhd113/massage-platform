@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { mediaUrl } from '@/lib/media';
 import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
 import { formatDate } from '@/lib/site';
@@ -96,8 +97,20 @@ export function CertificationsSection({
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
+                {/*
+                  Phải đi qua `mediaUrl`, đúng như trang duyệt của admin đã làm: khi
+                  chạy đĩa local backend trả đường tương đối
+                  `/api/v1/ktv/certifications/file?key=...`, mà đường tương đối trong
+                  trình duyệt trỏ vào origin **Next** chứ không phải origin API — link
+                  404 và KTV tưởng file mình vừa tải lên đã mất. `mediaUrl` vòng nó qua
+                  proxy để gắn Authorization từ cookie httpOnly. Với R2 thì `fileUrl`
+                  đã là URL ký tuyệt đối và hàm trả nguyên trạng.
+
+                  `rel="noreferrer"` là bắt buộc chứ không phải thói quen: URL ký gửi đi
+                  trong header Referer là trao quyền mở giấy tờ cho bên thứ ba.
+                */}
                 <a
-                  href={c.fileUrl}
+                  href={mediaUrl(c.fileUrl) ?? '#'}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm text-brand-600 hover:underline"

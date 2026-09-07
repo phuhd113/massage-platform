@@ -85,8 +85,14 @@ public class ApiUploadTests(PostgresFixture fixture) : IAsyncLifetime
         // quyền, và tên file của client không bao giờ thành tên lưu trữ.
         body.FileUrl.Should().Contain("/ktv/certifications/file?key=");
         body.FileUrl.Should().Contain("certifications%2F");
-        body.FileUrl.Should().NotContain("cc.pdf",
-            "tên file do client gửi không được dùng làm tên lưu trữ");
+        // Khớp **nguyên tên file** chứ không phải chuỗi "cc.pdf" trần: tên lưu trữ là
+        // GUID, và cứ khoảng 1/256 lần chạy nó lại tình cờ kết thúc bằng "cc" — lúc đó
+        // test đỏ trong khi code hoàn toàn đúng. Đã cắn thật (GUID
+        // ...787b97c361cc.pdf), và một test đỏ ngẫu nhiên còn tệ hơn không có test:
+        // nó dạy người ta chạy lại cho tới khi xanh.
+        body.FileUrl.Should().NotContain("=cc.pdf")
+            .And.NotContain("%2Fcc.pdf",
+                "tên file do client gửi không được dùng làm tên lưu trữ");
     }
 
     [Fact]

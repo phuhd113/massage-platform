@@ -3,7 +3,7 @@
 import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { mediaUrl } from '@/lib/media';
 import { formatDateTime } from '@/lib/site';
 import type { MyIdentityDocument } from '@/lib/types';
@@ -148,6 +148,7 @@ export function IdentityDocumentSection({ doc }: { doc: MyIdentityDocument | nul
               onChange={(e) => setFront(e.target.files?.[0] ?? null)}
               className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-sm"
             />
+            <FilePreview file={front} label="Xem trước mặt trước" />
           </label>
 
           <label className="block text-sm">
@@ -159,6 +160,7 @@ export function IdentityDocumentSection({ doc }: { doc: MyIdentityDocument | nul
               onChange={(e) => setBack(e.target.files?.[0] ?? null)}
               className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-sm"
             />
+            <FilePreview file={back} label="Xem trước mặt sau" />
           </label>
         </div>
 
@@ -180,6 +182,60 @@ export function IdentityDocumentSection({ doc }: { doc: MyIdentityDocument | nul
         )}
       </form>
     </div>
+  );
+}
+
+/**
+ * Ảnh vừa chọn, hiện ngay trước khi gửi.
+ *
+ * Lý do nó đáng có ở đúng chỗ này: KTV chụp CCCD bằng điện thoại rồi chọn từ thư viện
+ * hàng trăm tấm giống nhau, và mặt trước/mặt sau của cùng một thẻ nằm cạnh nhau. Chọn
+ * nhầm — hai lần mặt trước, hoặc ảnh của người khác — là lỗi thao tác không có gì báo
+ * cho tới khi admin từ chối vài giờ sau. Một khung ảnh nhỏ biến vòng phản hồi đó từ
+ * hàng giờ thành tức thì.
+ *
+ * `URL.createObjectURL` chứ không phải `FileReader`: nó đồng bộ, không đọc cả file vào
+ * bộ nhớ, và ảnh CCCD tới 3MB. Đổi lại là **phải tự thu hồi** — object URL sống tới
+ * hết vòng đời trang, nên KTV chọn lại ảnh mười lần sẽ giữ mười file trong bộ nhớ nếu
+ * không revoke. Thu hồi trong hàm dọn của `useEffect` chứ không ngay sau khi gán src:
+ * revoke sớm thì trình duyệt chưa kịp đọc và ảnh không bao giờ hiện.
+ *
+ * Ảnh nằm **trong** `<label>` bọc ô file, nên phải chặn `onClick` lan lên: không chặn
+ * thì bấm vào ảnh để nhìn kỹ lại mở hộp chọn file và xoá mất lựa chọn vừa rồi.
+ */
+function FilePreview({ file, label }: { file: File | null; label: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  if (!url || !file) return null;
+
+  return (
+    <span className="mt-2 block" onClick={(e) => e.preventDefault()}>
+      {/*
+        `img` thường, không `next/image`: đây là blob: URL của file trên máy KTV, thứ
+        trình tối ưu ảnh của Next không fetch được — nó sẽ trả 400 và ảnh không hiện.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={label}
+        className="h-32 w-full rounded-md border border-ink-200 bg-ink-50 object-contain"
+      />
+      <span className="mt-1 block truncate text-xs text-ink-500" title={file.name}>
+        {file.name} · {(file.size / 1024 / 1024).toFixed(1)}MB
+      </span>
+    </span>
   );
 }
 

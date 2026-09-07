@@ -154,12 +154,12 @@ export function ContactButtons({
         </ul>
 
         {phone && (
-          <p className="mt-3 text-body-s text-ink-700">
-            {t('contact.phoneLabel')}{' '}
-            <a href={`tel:${phone}`} className="tabular font-semibold text-brand-600">
-              {phone}
-            </a>
-          </p>
+          <RevealedPhone
+            phone={phone}
+            label={t('contact.phoneRevealed', { name: firstName })}
+            copyLabel={t('contact.copy')}
+            copiedLabel={t('contact.copied')}
+          />
         )}
 
         {error && (
@@ -177,16 +177,29 @@ export function ContactButtons({
         {/* Giá đứng ngay trên nút gọi: ở mobile khối "Giá từ" của cột phải đã cuộn
             mất từ lâu, nên nếu không nhắc lại ở đây thì khách bấm gọi mà không biết
             mình sắp hỏi giá bao nhiêu. "Trả sau" trả lời nốt câu hỏi đi kèm. */}
-        {cheapestService && (
-          <div className="mb-2.5 flex items-center justify-between gap-3">
-            <span className="text-body text-ink-600">
-              {t('contact.priceFrom')}{' '}
-              <strong className="tabular font-mono font-medium text-ink-900">
-                {formatVnd(cheapestService.priceFrom, locale)}
-              </strong>
-            </span>
-            <span className="text-caption text-ink-500">{t('contact.payLater')}</span>
-          </div>
+        {/* Số đã lộ thay chỗ dòng giá: `tel:` mở app gọi, nhưng khách hay muốn lưu số
+            hoặc dán sang Zalo, và ở mobile thì khối số trong cột phải đã cuộn mất từ
+            lâu — không nhắc lại ở đây thì họ phải cuộn ngược đi tìm. */}
+        {phone ? (
+          <RevealedPhone
+            phone={phone}
+            label={t('contact.phoneRevealed', { name: firstName })}
+            copyLabel={t('contact.copy')}
+            copiedLabel={t('contact.copied')}
+            className="mb-2.5"
+          />
+        ) : (
+          cheapestService && (
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <span className="text-body text-ink-600">
+                {t('contact.priceFrom')}{' '}
+                <strong className="tabular font-mono font-medium text-ink-900">
+                  {formatVnd(cheapestService.priceFrom, locale)}
+                </strong>
+              </span>
+              <span className="text-caption text-ink-500">{t('contact.payLater')}</span>
+            </div>
+          )
         )}
 
         <div className="flex gap-2">
@@ -218,6 +231,78 @@ export function ContactButtons({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Số điện thoại sau khi lượt liên hệ đã được ghi nhận.
+ *
+ * Nổi bật hẳn thay vì một dòng chữ nhỏ, vì đây là **kết quả** của thao tác khách vừa
+ * làm: `tel:` đã tự mở app gọi, nhưng lượt đó hỏng khá thường xuyên — máy tính bàn
+ * không có app gọi, khách đang dùng Zalo/máy khác, hoặc họ chỉ muốn lưu số lại gọi
+ * sau. Khi đó số này là thứ duy nhất còn lại của cả lượt bấm, và một dòng chữ 13px
+ * dưới ba dòng cam kết thì gần như không ai thấy.
+ *
+ * Nút sao chép chứ không bắt khách bôi đen: bôi đen một dãy số trên màn hình cảm ứng
+ * thường tóm luôn chữ xung quanh, và số bị dán thiếu một chữ số thì không có gì báo.
+ * `navigator.clipboard` cần secure context — trên HTTP nó `undefined`, nên phải kiểm
+ * trước khi gọi, và số vẫn chọn tay được vì nó là text thật chứ không phải ảnh.
+ */
+function RevealedPhone({
+  phone,
+  label,
+  copyLabel,
+  copiedLabel,
+  className = 'mt-3',
+}: {
+  phone: string;
+  label: string;
+  copyLabel: string;
+  copiedLabel: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(phone);
+      setCopied(true);
+      // Trả nhãn về sau 2 giây: "Đã chép" đứng mãi thì lần bấm thứ hai không có phản
+      // hồi nào, và khách không biết nó đã chạy hay nút đã hỏng.
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Không có clipboard (HTTP, hoặc trình duyệt từ chối quyền) thì im lặng: số vẫn
+      // nằm đó bôi đen được, còn một thông báo lỗi ở đây chỉ làm khách nghi ngờ chính
+      // cái số họ vừa lấy được.
+    }
+  }
+
+  return (
+    <div
+      className={`${className} flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3.5 py-2.5`}
+    >
+      <div className="min-w-0">
+        <div className="text-caption text-ink-600">{label}</div>
+        <a
+          href={`tel:${phone}`}
+          className="tabular font-display text-h2 font-bold tracking-tight text-brand-700"
+        >
+          {phone}
+        </a>
+      </div>
+
+      {/* `navigator.clipboard` chỉ tồn tại ở secure context, nên nút chỉ hiện khi thật
+          sự bấm được — một nút bấm vào không có gì xảy ra còn tệ hơn không có nút. */}
+      {typeof navigator !== 'undefined' && navigator.clipboard && (
+        <button
+          type="button"
+          onClick={copy}
+          className="shrink-0 rounded-full border border-brand-500 bg-white px-3.5 py-1.5 text-body-s font-semibold text-brand-600 transition hover:bg-brand-50"
+        >
+          {copied ? copiedLabel : copyLabel}
+        </button>
+      )}
+    </div>
   );
 }
 

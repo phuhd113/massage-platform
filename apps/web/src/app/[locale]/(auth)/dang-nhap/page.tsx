@@ -3,7 +3,7 @@ import { PasswordAuthForm } from '@/components/PasswordAuthForm';
 import { normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
-import { safeNext } from '@/lib/session';
+import { redirectIfAuthenticated, safeNext } from '@/lib/session';
 
 export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
   const locale = normalizeLocale(params.locale);
@@ -32,11 +32,18 @@ export default function LoginPage({
   params: { locale: string };
   searchParams: { next?: string };
 }) {
+  const next = safeNext(searchParams.next);
+
+  // Đã đăng nhập thì không có gì để làm ở đây. Header trỏ "Dành cho KTV" thẳng vào
+  // trang này, nên KTV còn phiên bấm nút đó lại gặp đúng form họ vừa điền xong — đọc
+  // như phiên đã mất, trong khi nó còn nguyên.
+  redirectIfAuthenticated(next);
+
   return (
     <PasswordAuthForm
       mode="login"
       locale={normalizeLocale(params.locale)}
-      redirectTo={safeNext(searchParams.next)}
+      redirectTo={next}
     />
   );
 }
