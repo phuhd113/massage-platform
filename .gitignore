@@ -31,6 +31,11 @@ appsettings.*.Local.json
 
 # File KTV upload — không bao giờ commit dữ liệu người dùng
 uploads/
+
+# Dump Postgres do tools/backup-db.sh sinh ra trên máy production. Cùng lý do với
+# uploads/: đây là dữ liệu thật, và một file dump nằm trong repo là toàn bộ DB bị
+# đẩy lên nơi nhiều người đọc được.
+backups/
 *.log
 
 # Editor / OS
