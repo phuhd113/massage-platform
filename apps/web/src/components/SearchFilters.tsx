@@ -61,6 +61,15 @@ export function SearchFilters({
   const hasCoords = Boolean(lat);
 
   /**
+   * Trang đã có phạm vi tìm kiếm chưa — tức có kết quả để lọc.
+   *
+   * Suy từ URL ở đây thay vì nhận qua prop từ server: đây đúng là điều kiện mà trang
+   * `/tim-kiem` dùng để quyết định có gọi API hay không (`hasScope` bên đó), nên hai
+   * chỗ đọc cùng một nguồn sẽ không lệch nhau khi luật đổi.
+   */
+  const hasScope = Boolean(lat) || Boolean(params.get('areaSlug'));
+
+  /**
    * Dò tên quận mỗi khi trang đang ở chế độ toạ độ.
    *
    * Theo dõi toạ độ **trong URL** chứ không gọi ngay trong `useMyLocation`, vì trang
@@ -315,6 +324,9 @@ export function SearchFilters({
           t={t}
           locale={locale}
           disabled={pending}
+          // Chỉ mời lọc khi đã có gì để lọc. `/tim-kiem` trần đang hiện lời mời chọn
+          // khu vực — popup đè lên đó là chặn đúng bước khách phải làm trước.
+          autoOpen={hasScope}
         />
 
         {/*

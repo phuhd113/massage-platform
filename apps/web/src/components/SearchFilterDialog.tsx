@@ -31,12 +31,50 @@ export function countActiveFilters(v: SearchFilterValues): number {
 const EXPERIENCE_STEPS = [1, 3, 5, 10] as const;
 const RATING_STEPS = [3, 4, 4.5] as const;
 
+/**
+ * Khoá nhớ "phiên này đã thấy popup rồi".
+ *
+ * `sessionStorage` chứ không `localStorage` — khác hai chỗ dùng localStorage đã có
+ * (`saved-area`, `ktv-announcement`). Lý do: đây là lời mời lọc cho **lần đi tìm này**,
+ * không phải một tuỳ chọn của người dùng. Nhớ vĩnh viễn nghĩa là khách quay lại sau
+ * một tuần, với nhu cầu khác hẳn, sẽ không bao giờ được mời lọc nữa.
+ *
+ * Đây là chỗ **thứ ba** trong codebase dùng browser storage; mất nó thì popup hiện
+ * lại một lần, không hỏng gì.
+ */
+const AUTO_OPEN_KEY = 'masgo_search_filter_seen';
+
+/**
+ * Đã tự mở trong phiên này chưa.
+ *
+ * Trả `true` (coi như đã hiện) khi storage bị chặn — ngược hẳn với
+ * `hasSeenAnnouncement`, và có lý do: ở đó bỏ sót nghĩa là KTV không bao giờ biết về
+ * chương trình, còn ở đây hiện thừa nghĩa là popup chặn mặt khách **mỗi lần** đổi bộ
+ * lọc trong suốt phiên. Bộ lọc vẫn luôn mở được bằng nút, nên không mất gì.
+ */
+function hasAutoOpened(): boolean {
+  try {
+    return sessionStorage.getItem(AUTO_OPEN_KEY) === '1';
+  } catch {
+    return true;
+  }
+}
+
+function markAutoOpened(): void {
+  try {
+    sessionStorage.setItem(AUTO_OPEN_KEY, '1');
+  } catch {
+    // Chặn storage không phải lỗi cần báo: popup vẫn mở được bằng nút.
+  }
+}
+
 export function SearchFilterDialog({
   value,
   onApply,
   t,
   locale,
   disabled = false,
+  autoOpen = false,
 }: {
   value: SearchFilterValues;
   /**
@@ -50,6 +88,14 @@ export function SearchFilterDialog({
   t: Translator;
   locale: Locale;
   disabled?: boolean;
+  /**
+   * Cho phép tự mở lần đầu trong phiên.
+   *
+   * Nơi gọi chỉ bật khi trang **đã có kết quả** (có toạ độ hoặc khu vực): vào
+   * `/tim-kiem` trần thì màn hình đang mời khách chọn khu vực, và mở popup lọc đè lên
+   * đó là chặn đúng bước họ phải làm trước — lọc một tập rỗng thì không lọc gì cả.
+   */
+  autoOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -66,6 +112,32 @@ export function SearchFilterDialog({
   const openerRef = useRef<HTMLButtonElement>(null);
 
   const activeCount = countActiveFilters(value);
+
+  /**
+   * Tự mở lần đầu trong phiên, khi trang đã có kết quả để lọc.
+   *
+   * Đọc storage trong `useEffect` chứ không lúc khởi tạo state: server không có
+   * `sessionStorage` nên đọc ở lần render đầu cho hai kết quả khác nhau giữa server và
+   * client → hydration mismatch. Cùng cái bẫy đã ghi ở `lib/saved-area.ts`.
+   *
+   * Ghi cờ **ngay lúc mở**, không đợi lúc đóng — cùng lý do với `KtvAnnouncement`:
+   * khách đóng tab giữa chừng vẫn là đã thấy, và hiện lại ở lượt sau đọc như lỗi lặp.
+   *
+   * Không tự mở khi đã có bộ lọc đang bật: khách đến từ một link đã lọc sẵn (tự lưu,
+   * hoặc ai đó gửi) thì họ đã có đúng thứ mình muốn, mở popup lên chỉ để hỏi lại.
+   */
+  useEffect(() => {
+    if (!autoOpen || disabled) return;
+    if (activeCount > 0) return;
+    if (hasAutoOpened()) return;
+
+    markAutoOpened();
+    setOpen(true);
+    // Chỉ chạy cho lượt đánh giá đầu tiên có `autoOpen` bật; `activeCount` đổi theo URL
+    // sau mỗi lần áp dụng, và đưa nó vào deps sẽ mời effect chạy lại đúng lúc khách vừa
+    // xoá hết bộ lọc — tức popup bật lên ngay sau khi họ chủ động tắt nó đi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
 
   useEffect(() => {
     if (!open) return;

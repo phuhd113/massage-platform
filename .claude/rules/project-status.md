@@ -251,6 +251,17 @@ thực tế phải là JPEG/WebP — PNG chỉ đúng cho ảnh có vùng màu p
   khi kết quả không lọc gì. Nhưng trang `/tim-kiem` **lọc sạch tham số ở server trước khi gọi
   API** (danh sách trắng cho gender, kiểm dải cho hai số): query string do khách sửa được, và để
   một tham số phụ gõ sai làm cả trang tìm kiếm trả lỗi là đánh đổi tệ.
+- **Popup tự mở một lần mỗi phiên, và chỉ khi trang đã có kết quả.** Nhớ bằng `sessionStorage`
+  (`masgo_search_filter_seen`) chứ không `localStorage` — đây là lời mời lọc cho *lần đi tìm này*,
+  không phải tuỳ chọn của người dùng; nhớ vĩnh viễn nghĩa là khách quay lại sau một tuần với nhu
+  cầu khác hẳn sẽ không bao giờ được mời lọc nữa. Đây là chỗ **thứ ba** dùng browser storage.
+  Ba điều kiện đi kèm, bỏ cái nào cũng thành phiền: **(1)** `/tim-kiem` trần không mở — màn hình
+  đó đang mời chọn khu vực, popup đè lên là chặn đúng bước phải làm trước, và nó cũng **không đốt
+  cờ phiên** nên popup vẫn còn dành cho khách sau khi họ chọn xong; **(2)** đã có bộ lọc trong URL
+  thì không mở — khách đến từ link đã lọc sẵn đã có đúng thứ mình muốn; **(3)** ghi cờ **ngay lúc
+  mở**, không đợi lúc đóng, cùng lý do với `KtvAnnouncement`. Đọc storage trong `useEffect`, không
+  lúc khởi tạo state — cùng bẫy hydration đã ghi ở `lib/saved-area.ts`. `activeCount` cố ý **không**
+  nằm trong deps: thêm vào thì popup bật lên ngay sau khi khách chủ động xoá hết bộ lọc.
 - **Nút mở popup phải mang số bộ lọc đang bật.** Bộ lọc trong popup là bộ lọc khách không nhìn
   thấy; không có con số đó thì kết quả bị thu hẹp mà không có gì trên màn hình giải thích vì sao.
   Cùng lý do, popup mở ra **luôn đọc lại từ URL** chứ không giữ state riêng — bấm Back sẽ làm bản
