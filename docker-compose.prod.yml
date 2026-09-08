@@ -274,12 +274,15 @@ services:
       - beszel_agent_data:/var/lib/beszel-agent
       # Cho agent đọc thông tin đĩa của host thật thay vì chỉ thấy layer của container.
       - /:/host:ro
-    # Truyền qua **flag dòng lệnh**, không qua biến môi trường. Đã cắn: đặt `HUB_URL` +
-    # `TOKEN` làm env var thì agent bỏ qua và vẫn đòi `KEY` (chế độ hub-SSH-vào-agent),
-    # rồi restart-loop với "no key provided". Tên flag đọc thẳng từ `--help` của binary
-    # nên không phải đoán.
-    command: ['--url', 'http://beszel:8090', '--token', '${BESZEL_AGENT_TOKEN:-}']
     environment:
+      # **Cả ba đều bắt buộc**, và thiếu KEY là lỗi đã cắn: agent load public key TRƯỚC
+      # khi xét chế độ token, nên chỉ đưa URL+TOKEN thì nó restart-loop với
+      # "no key provided" dù hai giá trị kia hoàn toàn đúng. KEY là khoá công khai của
+      # hub (sinh trong volume beszel_data lúc hub chạy lần đầu) — nó xác thực chiều
+      # hub->agent; TOKEN chỉ để agent tự giới thiệu với hub lần đầu.
+      KEY: ${BESZEL_AGENT_KEY:-}
+      HUB_URL: http://beszel:8090
+      TOKEN: ${BESZEL_AGENT_TOKEN:-}
       # Cho agent biết đâu là gốc đĩa của host (đã mount ở /host) thay vì lớp ghi của
       # chính container — không có nó thì ô "Gốc Sử dụng" báo dung lượng của overlayfs.
       FILESYSTEM: /host
