@@ -6,7 +6,7 @@ import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
 import { CoverageAreaPicker, type CoverageAreaLabel } from '@/components/CoverageAreaPicker';
 import { geoErrorMessage, getPosition } from '@/lib/geolocate';
-import type { MyKtvProfile } from '@/lib/types';
+import type { Gender, MyKtvProfile } from '@/lib/types';
 
 const MAX_AREAS = 30;
 
@@ -29,6 +29,16 @@ export function ProfileForm({
   const formRef = useFormValidation(viMessages());
 
   const [fullName, setFullName] = useState(profile?.fullName ?? '');
+
+  /**
+   * `''` là "chưa chọn", không phải một giá trị gửi được — nút lưu bị khoá khi nó
+   * còn rỗng, và nó bắt đầu rỗng cho cả hồ sơ mới lẫn hồ sơ cũ chưa khai.
+   *
+   * Cố ý **không** đặt sẵn 'FEMALE' dù đa số KTV là nữ: một ô đã chọn sẵn là ô người
+   * ta bấm qua mà không đọc, và ở đây chọn sai nghĩa là hồ sơ nằm nguyên trong kết
+   * quả lọc của nhóm khách không tìm mình.
+   */
+  const [gender, setGender] = useState<Gender | ''>(profile?.gender ?? '');
   const [years, setYears] = useState(profile?.yearsExperience ?? 0);
   const [address, setAddress] = useState(profile?.baseAddress ?? '');
   const [radius, setRadius] = useState(profile?.serviceRadiusKm ?? 5);
@@ -84,6 +94,7 @@ export function ProfileForm({
 
     const payload = {
       fullName,
+      gender,
       yearsExperience: years,
       lat: Number(lat),
       lon: Number(lon),
@@ -131,8 +142,10 @@ export function ProfileForm({
 
   return (
     <form ref={formRef} onSubmit={submit} className="space-y-6 rounded-lg border border-ink-200 bg-white p-5 shadow-card">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Họ tên chiếm hai cột: nó là trường dài nhất, và ba ô đều nhau sẽ cắt tên
+            đầy đủ của phần lớn KTV. */}
+        <label className="block text-sm lg:col-span-2">
           <span className="text-ink-700">Họ tên hiển thị *</span>
           <input
             required
@@ -154,6 +167,30 @@ export function ProfileForm({
             onChange={(e) => setYears(Number(e.target.value))}
             className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
+        </label>
+
+        {/*
+          `required` trên <select> chỉ có tác dụng khi option đầu có value="" — nếu
+          không, trình duyệt coi ô đã có giá trị ngay từ đầu và không chặn submit.
+          Chuỗi lỗi đi qua `useFormValidation` nên nó là tiếng Việt, không phải câu
+          của trình duyệt.
+        */}
+        <label className="block text-sm">
+          <span className="text-ink-700">Giới tính *</span>
+          <select
+            required
+            value={gender}
+            onChange={(e) => setGender(e.target.value as Gender | '')}
+            className="mt-1 w-full rounded-md border border-ink-200 bg-white px-3 py-2 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          >
+            <option value="">— Chọn —</option>
+            <option value="FEMALE">Nữ</option>
+            <option value="MALE">Nam</option>
+          </select>
+          <span className="mt-1 block text-xs text-ink-500">
+            Khách lọc theo giới tính rất nhiều. Hồ sơ chưa khai sẽ{' '}
+            <strong>không xuất hiện</strong> khi khách dùng bộ lọc này.
+          </span>
         </label>
       </div>
 
@@ -285,7 +322,7 @@ export function ProfileForm({
       <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"
-          disabled={pending || !coordsValid || fullName.trim().length < 2}
+          disabled={pending || !coordsValid || !gender || fullName.trim().length < 2}
           className="rounded-md bg-brand-500 px-6 py-2.5 font-medium text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {pending ? 'Đang lưu…' : profile ? 'Lưu thay đổi' : 'Tạo hồ sơ'}

@@ -222,6 +222,47 @@ Chuỗi hardcode `"Chỉ hỏi vị trí khi bạn bấm…"` trong `HeroSearch`
 Ảnh nguồn là PNG 7,4 MB mỗi file; đã chuyển sang JPEG 1600px (~140 KB) trước khi commit. Ảnh chụp
 thực tế phải là JPEG/WebP — PNG chỉ đúng cho ảnh có vùng màu phẳng và cần trong suốt.
 
+**Giới tính KTV và popup lọc ở `/tim-kiem`** (2026-09-08, cột `ktv_profiles.gender` +
+`SearchFilterDialog`). KTV khai giới tính lúc tạo hồ sơ; khách lọc theo giới tính, kinh nghiệm,
+đánh giá và trạng thái trong một hộp thoại. Bảy điều đừng vô tình đảo ngược:
+
+- **Cột `gender` nullable và KHÔNG backfill.** Hồ sơ có trước ngày này để NULL; suy giới tính từ
+  tên là đoán, mà đoán sai ở đây nghĩa là khách lọc "KTV nữ" gọi trúng một người nam — hỏng đúng
+  cái nhu cầu trường này sinh ra để phục vụ. Hệ quả có chủ ý: **hồ sơ chưa khai vắng mặt ở mọi
+  lượt lọc theo giới tính**, và có test canh đúng ca đó. Đừng "sửa" bằng cách cho NULL lọt qua.
+- **Bắt buộc lúc TẠO, tuỳ chọn lúc SỬA.** `CreateKtvProfileDto.Gender` là `string` non-null,
+  `UpdateKtvProfileDto.Gender` là `string?` nơi null nghĩa là **không đổi** — không phải "xoá về
+  chưa khai". Diễn giải nó thành xoá sẽ âm thầm đưa hồ sơ ra khỏi bộ lọc mỗi lần KTV sửa một
+  trường khác. Đường sửa vẫn nhận được vì hồ sơ cũ chỉ có lối đó để khai lần đầu — khác hẳn
+  `ReferralCode`, thứ cố ý không có ở đường sửa vì nó là cơ sở tính tiền.
+- **Hai giá trị, cố ý không có "khác".** Giá trị thứ ba sẽ không khớp bộ lọc nào, tức một ô chọn
+  khiến người chọn nó biến mất khỏi kết quả tìm kiếm mà không có gì báo cho họ. CHECK
+  `chk_ktv_gender` ở tầng DB, không chỉ FluentValidation: seed và sửa tay bằng SQL cũng chạm bảng
+  này, và một giá trị lạ hỏng im lặng — hồ sơ vẫn lưu được, chỉ là không hiện ra đâu cả.
+- **Bộ lọc nằm trong CTE `candidates`, trước khi tính điểm và phân trang.** Đặt sau `paged` thì
+  nó lọc trên đúng 20 dòng của trang hiện tại: danh sách trang 1 trông vẫn đúng, nhưng `total`
+  nói dối và phân trang hỏng hẳn. Có test canh chính `total`.
+- **`minRating` phải kèm `rating_count > 0`.** Hồ sơ chưa ai đánh giá có `rating_avg = 0`, nên
+  thiếu vế này thì ngưỡng "từ 0 sao" khác hẳn "không lọc" theo cách không ai đoán được. Ngưỡng so
+  với `rating_avg` **thô**, không với điểm đã làm mượt Bayesian dùng để xếp hạng: khách chỉ nhìn
+  thấy con số thô trên thẻ, lọc theo con số họ không thấy sẽ cho ra danh sách mà bộ lọc trông như
+  đang sai. Tham số truyền `NpgsqlDbType.Numeric` để khớp `NUMERIC(3,2)`, không truyền double.
+- **Giá trị lạ trả 400, không im lặng bỏ qua.** Bỏ qua nghĩa là giao diện hiện "đang lọc" trong
+  khi kết quả không lọc gì. Nhưng trang `/tim-kiem` **lọc sạch tham số ở server trước khi gọi
+  API** (danh sách trắng cho gender, kiểm dải cho hai số): query string do khách sửa được, và để
+  một tham số phụ gõ sai làm cả trang tìm kiếm trả lỗi là đánh đổi tệ.
+- **Nút mở popup phải mang số bộ lọc đang bật.** Bộ lọc trong popup là bộ lọc khách không nhìn
+  thấy; không có con số đó thì kết quả bị thu hẹp mà không có gì trên màn hình giải thích vì sao.
+  Cùng lý do, popup mở ra **luôn đọc lại từ URL** chứ không giữ state riêng — bấm Back sẽ làm bản
+  sao trong state lệch khỏi danh sách bên dưới. Bản nháp chỉ ghi vào URL khi bấm "Xem kết quả":
+  đóng bằng Escape hay bấm ra ngoài phải bỏ hết thay đổi, và cả bốn tiêu chí đi trong **một** lượt
+  điều hướng để không đẩy ba mục thừa vào lịch sử trình duyệt.
+
+"Đang nhận khách" đã **chuyển từ hàng chip vào popup** — giữ ở cả hai chỗ là hai nút bấm cho cùng
+một bộ lọc, phải tự giữ khớp nhau. Đã kiểm chứng trong trình duyệt thật (2026-09-08): lọc đúng ở
+cả vi và en, URL chia sẻ lại được, bottom sheet ở 390px, không lỗi hydration, và `4.5+ stars` ở
+trang EN dùng dấu chấm thập phân — đúng chỗ `HomeHeroMedia` từng sai.
+
 **Thông báo chương trình Beta hiện một lần khi KTV vào dashboard** (2026-09-08,
 `KtvAnnouncement` + `lib/ktv-announcement.ts`). Nội dung: miễn phí trong giai đoạn thử nghiệm, lộ
 trình sẽ thu phí duy trì hồ sơ theo ngày, quyền lợi KTV Tiên phong, và số liên hệ Ban quản trị.

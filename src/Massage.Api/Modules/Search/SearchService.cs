@@ -77,7 +77,7 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
             WHERE verification_status = 'VERIFIED' AND rating_count > 0
         ),
         candidates AS (
-            SELECT k.id, k.full_name, k.slug, k.years_experience,
+            SELECT k.id, k.full_name, k.slug, k.gender, k.years_experience,
                    k.rating_avg, k.rating_count, k.response_rate, k.is_online,
                    k.last_active_at, k.created_at, k.avatar_key,
                    -- Làm tròn 3 chữ số (~100m) trước khi ra khỏi hệ thống. Khoảng
@@ -115,6 +115,19 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
               -- Lọc "đang nhận khách". Đây là bộ lọc thu hẹp tập ứng viên nên phải
               -- nằm ở đây, trước khi tính điểm và phân trang.
               AND (NOT @onlineOnly OR k.is_online)
+              -- Ba bộ lọc của popup. Cùng lý do vị trí với @onlineOnly: đặt sau CTE
+              -- `paged` sẽ lọc trên đúng 20 dòng của trang hiện tại, tức mỗi trang
+              -- trả về một số kết quả khác nhau và `total` nói dối.
+              --
+              -- Hồ sơ chưa khai giới tính (gender IS NULL) bị loại khi bộ lọc bật:
+              -- `k.gender = @gender` đã tự làm điều đó (NULL không bằng gì cả), và
+              -- đó là hành vi đúng — xem SearchQueryDto.Gender.
+              AND (@gender IS NULL OR k.gender = @gender)
+              AND (@minYears IS NULL OR k.years_experience >= @minYears)
+              -- rating_count > 0 là bắt buộc, không thừa: hồ sơ chưa ai đánh giá có
+              -- rating_avg = 0, nên với ngưỡng 0 sao chúng lọt qua và bộ lọc "từ 0
+              -- sao" khác hẳn "không lọc" theo cách không ai đoán được.
+              AND (@minRating IS NULL OR (k.rating_count > 0 AND k.rating_avg >= @minRating))
         ),
         scored AS (
             SELECT c.*,
@@ -166,6 +179,7 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
         SELECT p.id            AS "Id",
                p.full_name     AS "FullName",
                p.slug          AS "Slug",
+               p.gender        AS "Gender",
                p.years_experience AS "YearsExperience",
                p.rating_avg    AS "RatingAvg",
                p.rating_count  AS "RatingCount",
@@ -242,6 +256,12 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
                 Param("serviceSlug", NpgsqlDbType.Text, q.Service),
                 Param("areaId", NpgsqlDbType.Uuid, areaId),
                 Param("onlineOnly", NpgsqlDbType.Boolean, q.IsOnline == true),
+                Param("gender", NpgsqlDbType.Text, q.Gender),
+                Param("minYears", NpgsqlDbType.Smallint, q.MinYearsExperience),
+                // numeric để khớp kiểu cột rating_avg NUMERIC(3,2): truyền double vào
+                // đây buộc Postgres ép kiểu mỗi dòng, và so sánh dấu phẩy động với một
+                // cột thập phân là chỗ 4.5 lọt hoặc trượt tuỳ vào biểu diễn nhị phân.
+                Param("minRating", NpgsqlDbType.Numeric, q.MinRating),
                 Param("skip", NpgsqlDbType.Integer, (q.Page - 1) * q.Size),
                 Param("take", NpgsqlDbType.Integer, q.Size))
             .ToListAsync(ct);
@@ -250,7 +270,7 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
 
         return new SearchResponseDto(
             rows.Select(r => new SearchItemDto(
-                r.Id, r.FullName, r.Slug, r.YearsExperience,
+                r.Id, r.FullName, r.Slug, r.Gender, r.YearsExperience,
                 r.RatingAvg, r.RatingCount, r.IsOnline,
                 r.DistanceM, r.BoostPoints, r.BaseScore, r.Score, r.Lat, r.Lon,
                 urls.Public(r.AvatarKey), r.VerifiedCertCount,
@@ -368,6 +388,10 @@ public class SearchService(AppDbContext db, IAnalyticsQueue analytics, MediaUrls
         public Guid Id { get; set; }
         public string FullName { get; set; } = null!;
         public string Slug { get; set; } = null!;
+
+        /// <summary>Null cho hồ sơ tạo trước 2026-09-08 chưa khai lại.</summary>
+        public string? Gender { get; set; }
+
         public short YearsExperience { get; set; }
         public decimal RatingAvg { get; set; }
         public int RatingCount { get; set; }

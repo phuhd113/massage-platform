@@ -2,6 +2,23 @@ using NetTopologySuite.Geometries;
 
 namespace Massage.Api.Modules.KtvProfiles.Entities;
 
+/// <summary>
+/// Giới tính KTV. Hai giá trị, cố ý không có "khác": trường này tồn tại để khách lọc
+/// ("tôi muốn KTV nữ"), và một hồ sơ mang giá trị thứ ba sẽ không bao giờ khớp bất kỳ
+/// lượt lọc nào — tức một ô chọn khiến người chọn nó biến mất khỏi kết quả tìm kiếm mà
+/// không có gì báo cho họ biết.
+///
+/// Lưu chuỗi chứ không enum số: cột đọc được bằng mắt khi truy vấn tay, và CHECK
+/// constraint ở tầng DB chặn được giá trị lạ — hai điều enum int không cho.
+/// </summary>
+public static class Genders
+{
+    public const string Male = "MALE";
+    public const string Female = "FEMALE";
+
+    public static bool IsValid(string? value) => value is Male or Female;
+}
+
 public static class VerificationStatuses
 {
     public const string Pending = "PENDING";
@@ -28,6 +45,19 @@ public class KtvProfile
     /// nội dung của những hồ sơ đã viết. Đừng nối lại vào DTO nào.
     /// </summary>
     public string? Bio { get; set; }
+
+    /// <summary>
+    /// Giới tính KTV — xem <see cref="Genders"/>. <b>Nullable, và sẽ còn nullable lâu.</b>
+    ///
+    /// Bắt buộc ở đường tạo hồ sơ mới, nhưng hồ sơ có từ trước 2026-09-08 để NULL và
+    /// <b>không backfill</b>: suy giới tính từ tên là đoán, và đoán sai ở đây nghĩa là
+    /// khách lọc "KTV nữ" gọi trúng một người nam — hỏng đúng cái nhu cầu mà trường này
+    /// sinh ra để phục vụ. Hồ sơ cũ khai lại ở lần sửa kế tiếp, nơi ô này cũng bắt buộc.
+    ///
+    /// Hệ quả có chủ ý: <b>lọc theo giới tính ẩn hồ sơ chưa khai</b>. Đó là hành vi đúng
+    /// — hồ sơ không biết giới tính thì không thể khẳng định nó khớp bộ lọc.
+    /// </summary>
+    public string? Gender { get; set; }
 
     public short YearsExperience { get; set; }
 

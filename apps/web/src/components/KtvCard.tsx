@@ -116,6 +116,10 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
               </Chip>
             )}
 
+            {/* Chỉ hiện khi đã khai — hồ sơ cũ chưa khai không hiện "Chưa rõ", đó là
+                một chip chiếm chỗ mà không nói gì. */}
+            {ktv.gender && <Chip tone="neutral">{t(`gender.${ktv.gender}`)}</Chip>}
+
             {distance && (
               <Chip tone="neutral">
                 <PinIcon />

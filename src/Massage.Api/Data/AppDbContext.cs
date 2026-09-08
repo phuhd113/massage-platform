@@ -129,6 +129,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // `bio` đã ngừng dùng (2026-09-07) — xem ghi chú trên KtvProfile.Bio. Mapping
             // giữ nguyên để snapshot EF còn cột, không để migration sau lỡ tay drop nó.
             e.Property(x => x.Bio).HasColumnName("bio");
+            // CHECK `chk_ktv_gender` chỉ tồn tại trong migration (EF không mô hình hoá
+            // được CHECK từ `OnModelCreating` mà không sinh diff rác). Nullable ở tầng
+            // DB là cố ý: hồ sơ cũ chưa khai — xem ghi chú trên KtvProfile.Gender.
+            e.Property(x => x.Gender).HasColumnName("gender").HasMaxLength(10);
             e.Property(x => x.YearsExperience).HasColumnName("years_experience");
             // Kiểu geography (không phải geometry) để ST_DWithin tính bán kính theo mét.
             e.Property(x => x.BasePoint).HasColumnName("base_point").HasColumnType("geography (Point, 4326)").IsRequired();

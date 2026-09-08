@@ -72,6 +72,25 @@ export default async function SearchPage({ params, searchParams }: Props) {
   // cùng một tập kết quả.
   const isOnline = one(searchParams.isOnline) === 'true' ? 'true' : undefined;
 
+  // Ba bộ lọc của popup. Lọc qua danh sách trắng / kiểm số ngay ở đây thay vì chuyển
+  // tiếp nguyên trạng: query string do khách sửa được, và một giá trị lạ sẽ khiến
+  // backend trả 400 — tức cả trang tìm kiếm hỏng vì một tham số phụ gõ sai, thay vì
+  // đơn giản là bỏ qua bộ lọc đó.
+  const genderParam = one(searchParams.gender);
+  const gender = genderParam === 'MALE' || genderParam === 'FEMALE' ? genderParam : undefined;
+
+  const minYearsRaw = numeric(one(searchParams.minYearsExperience));
+  const minYearsExperience =
+    minYearsRaw !== null && minYearsRaw >= 0 && minYearsRaw <= 60
+      ? String(minYearsRaw)
+      : undefined;
+
+  const minRatingRaw = numeric(one(searchParams.minRating));
+  const minRating =
+    minRatingRaw !== null && minRatingRaw >= 0 && minRatingRaw <= 5
+      ? String(minRatingRaw)
+      : undefined;
+
   const hasScope = (lat && lon) || areaSlug;
 
   let results: SearchResponse | null = null;
@@ -82,7 +101,11 @@ export default async function SearchPage({ params, searchParams }: Props) {
       results = await api.search(
         // Bản đồ và danh sách cố ý dùng chung một `size`: chúng phải luôn hiển thị
         // đúng cùng một tập kết quả, nếu không thì bấm đổi cách nhìn lại ra số khác.
-        { lat, lon, areaSlug, provinceSlug, service, radiusKm, isOnline, page, size: 20 },
+        {
+          lat, lon, areaSlug, provinceSlug, service, radiusKm, isOnline,
+          gender, minYearsExperience, minRating,
+          page, size: 20,
+        },
         // Kết quả theo toạ độ là riêng của từng khách, không cache dùng chung.
         0,
       );

@@ -50,6 +50,7 @@ public class ApiCollaboratorTests(PostgresFixture fixture) : IAsyncLifetime
     private static object ProfileBody(string? referralCode) => new
     {
         FullName = "Nguyen Thi Lan",
+        Gender = Genders.Female,
         Lat = 10.7769,
         Lon = 106.7009,
         ServiceRadiusKm = (short)5,

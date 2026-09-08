@@ -1,5 +1,14 @@
 export type AreaLevel = 'PROVINCE' | 'DISTRICT' | 'WARD';
 
+/**
+ * Giới tính KTV. Khớp `Genders` ở backend — hai giá trị, không có "khác": xem ghi chú
+ * ở đó về lý do một giá trị thứ ba sẽ không bao giờ khớp bộ lọc nào.
+ *
+ * `null` nghĩa là **chưa khai** (hồ sơ tạo trước 2026-09-08), không phải "không tiết
+ * lộ" — đừng hiện chữ nào cho nó.
+ */
+export type Gender = 'MALE' | 'FEMALE';
+
 export interface AreaNode {
   id: string;
   name: string;
@@ -58,6 +67,8 @@ export interface SearchItem {
   id: string;
   fullName: string;
   slug: string;
+  /** Null cho hồ sơ chưa khai — thẻ không hiện chip nào, không hiện "Chưa rõ". */
+  gender: Gender | null;
   yearsExperience: number;
   ratingAvg: number;
   ratingCount: number;
@@ -142,6 +153,8 @@ export interface PublicKtvProfile {
   id: string;
   fullName: string;
   slug: string;
+  /** Null cho hồ sơ tạo trước 2026-09-08 chưa khai lại — không hiện chữ nào. */
+  gender: Gender | null;
   yearsExperience: number;
   lat: number;
   lon: number;
@@ -320,6 +333,11 @@ export interface MyKtvProfile {
   id: string;
   fullName: string;
   slug: string;
+  /**
+   * Null cho hồ sơ tạo trước 2026-09-08. Form sửa dùng chính giá trị null này để
+   * bắt KTV khai lần đầu — nó không phải một trạng thái hợp lệ để giữ mãi.
+   */
+  gender: Gender | null;
   yearsExperience: number;
   basePoint: { type: 'Point'; coordinates: [number, number] };
   baseAddress: string | null;

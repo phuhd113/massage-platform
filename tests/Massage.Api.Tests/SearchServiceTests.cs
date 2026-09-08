@@ -218,6 +218,167 @@ public class SearchServiceTests(PostgresFixture fixture)
     }
 }
 
+/// <summary>
+/// Ba bộ lọc của popup tìm kiếm (2026-09-08).
+///
+/// Chạy trên Postgres thật vì cả ba nằm trong câu SQL thô — không có tầng LINQ nào để
+/// kiểm bằng test đơn vị, và cái đáng sợ nhất ở đây là một vị từ <b>im lặng không lọc
+/// gì</b>, thứ chỉ lộ ra khi đếm kết quả thật.
+/// </summary>
+[Collection(PostgresCollection.Name)]
+public class SearchFilterTests(PostgresFixture fixture)
+{
+    private SearchService Service() =>
+        new(fixture.CreateContext(), new FakeAnalyticsQueue(), TestMedia.Urls);
+
+    [Fact]
+    public async Task Lọc_giới_tính_chỉ_trả_đúng_giới_được_chọn()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var nữ = await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Female);
+        var nam = await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Male);
+
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(lat, lon, RadiusKm: 10, Gender: Genders.Female, Size: 50));
+
+        var ids = kếtQuả.Items.Select(i => i.Id).ToList();
+        ids.Should().Contain(nữ.Id);
+        ids.Should().NotContain(nam.Id);
+    }
+
+    [Fact]
+    public async Task Hồ_sơ_chưa_khai_giới_tính_bị_loại_khi_bật_bộ_lọc()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        // Đây là hệ quả có chủ ý, không phải lỗi: không biết giới tính thì không khẳng
+        // định được là khớp. Test canh nó để không ai "sửa" bằng cách cho NULL lọt qua.
+        var chưaKhai = await TestData.CreateKtvAsync(db, lat, lon);
+        var nữ = await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Female);
+
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(lat, lon, RadiusKm: 10, Gender: Genders.Female, Size: 50));
+
+        var ids = kếtQuả.Items.Select(i => i.Id).ToList();
+        ids.Should().Contain(nữ.Id);
+        ids.Should().NotContain(chưaKhai.Id);
+    }
+
+    [Fact]
+    public async Task Không_lọc_giới_tính_thì_hồ_sơ_chưa_khai_vẫn_hiện()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var chưaKhai = await TestData.CreateKtvAsync(db, lat, lon);
+
+        var kếtQuả = await Service().SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, Size: 50));
+
+        kếtQuả.Items.Select(i => i.Id).Should().Contain(chưaKhai.Id);
+    }
+
+    [Fact]
+    public async Task Lọc_kinh_nghiệm_là_cận_dưới_bao_gồm_cả_giá_trị_bằng()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var đủNăm = await TestData.CreateKtvAsync(db, lat, lon, yearsExperience: 5);
+        var thiếuMột = await TestData.CreateKtvAsync(db, lat, lon, yearsExperience: 4);
+
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(lat, lon, RadiusKm: 10, MinYearsExperience: 5, Size: 50));
+
+        var ids = kếtQuả.Items.Select(i => i.Id).ToList();
+        ids.Should().Contain(đủNăm.Id);
+        ids.Should().NotContain(thiếuMột.Id);
+    }
+
+    [Fact]
+    public async Task Lọc_đánh_giá_loại_hồ_sơ_chưa_có_đánh_giá_nào()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var đủSao = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 4.50m, ratingCount: 12);
+        var thấpSao = await TestData.CreateKtvAsync(db, lat, lon, ratingAvg: 3.80m, ratingCount: 12);
+        // rating_avg = 0 nên nếu thiếu vế `rating_count > 0` thì hồ sơ này lọt qua mọi
+        // ngưỡng ≤ 0, và ngưỡng "từ 0 sao" sẽ khác hẳn "không lọc" theo cách không ai đoán.
+        var chưaAiChấm = await TestData.CreateKtvAsync(db, lat, lon);
+
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(lat, lon, RadiusKm: 10, MinRating: 4.0m, Size: 50));
+
+        var ids = kếtQuả.Items.Select(i => i.Id).ToList();
+        ids.Should().Contain(đủSao.Id);
+        ids.Should().NotContain(thấpSao.Id).And.NotContain(chưaAiChấm.Id);
+    }
+
+    [Fact]
+    public async Task Total_phản_ánh_tập_đã_lọc_chứ_không_phải_tập_trước_khi_lọc()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var nữ = await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Female);
+        await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Male);
+        await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Male);
+
+        // Lọc đặt nhầm chỗ (sau CTE `paged`) vẫn cho danh sách trông đúng ở trang 1,
+        // nhưng `total` sẽ đếm cả ba — và phân trang thì hỏng hẳn.
+        var kếtQuả = await Service().SearchAsync(
+            new SearchQueryDto(lat, lon, RadiusKm: 10, Gender: Genders.Female, Size: 50));
+
+        kếtQuả.Items.Should().ContainSingle().Which.Id.Should().Be(nữ.Id);
+        kếtQuả.Total.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Bốn_bộ_lọc_cùng_lúc_thì_giao_nhau_chứ_không_hợp_nhau()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var khớpHết = await TestData.CreateKtvAsync(
+            db, lat, lon, ratingAvg: 4.80m, ratingCount: 20,
+            isOnline: true, gender: Genders.Female, yearsExperience: 8);
+
+        // Mỗi hồ sơ dưới đây trượt đúng MỘT tiêu chí — nếu các vị từ vô tình nối bằng
+        // OR thì cả ba đều lọt, và test một tiêu chí một lúc sẽ không thấy gì.
+        await TestData.CreateKtvAsync(
+            db, lat, lon, ratingAvg: 4.80m, ratingCount: 20,
+            isOnline: true, gender: Genders.Male, yearsExperience: 8);
+        await TestData.CreateKtvAsync(
+            db, lat, lon, ratingAvg: 4.80m, ratingCount: 20,
+            isOnline: true, gender: Genders.Female, yearsExperience: 2);
+        await TestData.CreateKtvAsync(
+            db, lat, lon, ratingAvg: 4.80m, ratingCount: 20,
+            isOnline: false, gender: Genders.Female, yearsExperience: 8);
+
+        var kếtQuả = await Service().SearchAsync(new SearchQueryDto(
+            lat, lon, RadiusKm: 10, IsOnline: true,
+            Gender: Genders.Female, MinYearsExperience: 5, MinRating: 4.5m, Size: 50));
+
+        kếtQuả.Items.Should().ContainSingle().Which.Id.Should().Be(khớpHết.Id);
+    }
+
+    [Fact]
+    public async Task Kết_quả_mang_theo_giới_tính_để_thẻ_hiển_thị_được()
+    {
+        var (lat, lon) = TestData.RandomOrigin();
+        await using var db = fixture.CreateContext();
+
+        var nữ = await TestData.CreateKtvAsync(db, lat, lon, gender: Genders.Female);
+
+        var kếtQuả = await Service().SearchAsync(new SearchQueryDto(lat, lon, RadiusKm: 10, Size: 50));
+
+        kếtQuả.Items.Single(i => i.Id == nữ.Id).Gender.Should().Be(Genders.Female);
+    }
+}
+
 [Collection(PostgresCollection.Name)]
 public class SearchRankingTests(PostgresFixture fixture)
 {

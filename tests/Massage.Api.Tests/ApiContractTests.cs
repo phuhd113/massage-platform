@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Tests;
 
@@ -179,4 +180,115 @@ public class ApiContractTests(PostgresFixture fixture) : IAsyncLifetime
 
     private sealed record AreaResolveDto(
         Guid Id, string Name, string Slug, string Level, string? ProvinceSlug);
+}
+
+/// <summary>
+/// Hợp đồng HTTP của trường giới tính (2026-09-08).
+///
+/// Tầng service không bắt được những thứ ở đây: mã trạng thái khi thiếu trường bắt buộc,
+/// và việc <c>gender</c> có thật sự đi ra tới response hay không — một trường bị quên
+/// trong DTO vẫn để mọi test service xanh.
+/// </summary>
+[Collection(PostgresCollection.Name)]
+public class ApiKtvGenderTests(PostgresFixture fixture) : IAsyncLifetime
+{
+    private ApiFactory _api = null!;
+
+    public Task InitializeAsync()
+    {
+        _api = new ApiFactory(fixture.ConnectionString, fixture.DataSource);
+        return Task.CompletedTask;
+    }
+
+    public async Task DisposeAsync() => await _api.DisposeAsync();
+
+    private static object Body(string? gender) => new
+    {
+        fullName = "Nguyen Thi Lan",
+        gender,
+        yearsExperience = 3,
+        lat = 10.7769,
+        lon = 106.7009,
+        serviceRadiusKm = 5,
+    };
+
+    private sealed record ProfileResponse(Guid Id, string? Gender);
+
+    [Fact]
+    public async Task Tạo_hồ_sơ_không_khai_giới_tính_trả_400()
+    {
+        var (client, _, _) = await _api.LoginAsync(UserRoles.Ktv);
+
+        var res = await client.PostAsJsonAsync("/api/v1/ktv/profile", new
+        {
+            fullName = "Nguyen Thi Lan",
+            lat = 10.7769,
+            lon = 106.7009,
+            serviceRadiusKm = 5,
+        });
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // Form dựa vào cấu trúc errors theo trường để chỉ đúng ô cần sửa.
+        (await res.Content.ReadAsStringAsync()).Should().Contain("Gender");
+    }
+
+    [Fact]
+    public async Task Tạo_hồ_sơ_với_giới_tính_lạ_trả_400()
+    {
+        var (client, _, _) = await _api.LoginAsync(UserRoles.Ktv);
+
+        var res = await client.PostAsJsonAsync("/api/v1/ktv/profile", Body("OTHER"));
+
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Giới_tính_đi_ra_tới_hồ_sơ_của_tôi_và_hồ_sơ_công_khai()
+    {
+        var (client, _, _) = await _api.LoginAsync(UserRoles.Ktv);
+
+        var tạo = await client.PostAsJsonAsync("/api/v1/ktv/profile", Body(Genders.Female));
+        tạo.StatusCode.Should().Be(HttpStatusCode.Created, _api.ErrorsOrEmpty());
+        var id = (await tạo.ReadAsync<ProfileResponse>())!.Id;
+
+        (await (await client.GetAsync("/api/v1/ktv/profile/me")).ReadAsync<ProfileResponse>())!
+            .Gender.Should().Be(Genders.Female);
+
+        // Trang hồ sơ công khai chỉ trả hồ sơ đã duyệt, nên phải duyệt trước khi đọc.
+        await using (var db = fixture.CreateContext())
+        {
+            var p = await db.KtvProfiles.SingleAsync(x => x.Id == id);
+            p.VerificationStatus = VerificationStatuses.Verified;
+            await db.SaveChangesAsync();
+        }
+
+        var côngKhai = await _api.CreateClient().GetAsync($"/api/v1/ktv/{id}");
+        côngKhai.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await côngKhai.ReadAsync<ProfileResponse>())!.Gender.Should().Be(Genders.Female);
+    }
+
+    [Fact]
+    public async Task Sửa_hồ_sơ_không_gửi_giới_tính_thì_giữ_nguyên_chứ_không_xoá()
+    {
+        var (client, _, _) = await _api.LoginAsync(UserRoles.Ktv);
+        (await client.PostAsJsonAsync("/api/v1/ktv/profile", Body(Genders.Female)))
+            .StatusCode.Should().Be(HttpStatusCode.Created, _api.ErrorsOrEmpty());
+
+        // null ở đường PATCH là "không đổi". Diễn giải nó thành "xoá" sẽ âm thầm đưa
+        // hồ sơ ra khỏi mọi lượt lọc theo giới tính mỗi lần KTV sửa một trường khác.
+        var sửa = await client.PatchAsJsonAsync("/api/v1/ktv/profile", new { yearsExperience = 7 });
+        sửa.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await sửa.ReadAsync<ProfileResponse>())!.Gender.Should().Be(Genders.Female);
+    }
+
+    [Fact]
+    public async Task Lọc_tìm_kiếm_với_giới_tính_lạ_trả_400_chứ_không_lặng_lẽ_bỏ_qua()
+    {
+        var res = await _api.CreateClient()
+            .GetAsync("/api/v1/search?areaSlug=tp-ho-chi-minh&gender=OTHER");
+
+        // Bỏ qua nghĩa là giao diện hiện "đang lọc" trong khi kết quả không lọc gì.
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

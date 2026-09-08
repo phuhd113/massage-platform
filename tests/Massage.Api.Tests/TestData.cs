@@ -64,6 +64,10 @@ public static class TestData
         decimal ratingAvg = 0m,
         int ratingCount = 0,
         bool isOnline = false,
+        // Mặc định null, khớp hồ sơ có từ trước khi cột này ra đời — nên mọi test cũ
+        // vẫn dựng đúng hình dạng dữ liệu mà production có thật.
+        string? gender = null,
+        short yearsExperience = 3,
         CancellationToken ct = default)
     {
         var user = await CreateUserAsync(db, ct: ct);
@@ -74,7 +78,8 @@ public static class TestData
             UserId = user.Id,
             FullName = $"KTV Test {suffix}",
             Slug = $"ktv-test-{suffix}",
-            YearsExperience = 3,
+            Gender = gender,
+            YearsExperience = yearsExperience,
             BasePoint = new Point(lon, lat) { SRID = 4326 },
             ServiceRadiusKm = serviceRadiusKm,
             VerificationStatus = status,
