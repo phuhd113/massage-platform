@@ -35,6 +35,9 @@ public class ApiAuthorizationTests(PostgresFixture fixture) : IAsyncLifetime
         { "GET", "/api/v1/ktv/profile/me" },
         { "GET", "/api/v1/ktv/profile/services" },
         { "GET", "/api/v1/admin/ktv" },
+        // Trang tra cứu trả **số điện thoại** KTV, thứ hồ sơ công khai cố ý giấu —
+        // nên nó phải nằm trong danh sách này, không chỉ dựa vào [Authorize] ở class.
+        { "GET", "/api/v1/admin/ktv/search" },
         { "GET", "/api/v1/admin/revenue" },
         { "GET", "/api/v1/admin/reports" },
         { "GET", "/api/v1/me/reviews" },

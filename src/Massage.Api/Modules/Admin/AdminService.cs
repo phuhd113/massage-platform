@@ -1,7 +1,10 @@
 using Massage.Api.Common;
+using Massage.Api.Common.Storage;
 using Massage.Api.Data;
 using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.KtvProfiles.Entities;
+using Massage.Api.Modules.Reviews.Entities;
+using Massage.Promotion.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Massage.Api.Modules.Admin;
@@ -19,7 +22,12 @@ public record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int Li
         = new Dictionary<Guid, (string, string)>();
 }
 
-public class AdminService(AppDbContext db)
+/// <param name="urls">
+/// Dựng URL công khai cho avatar ở <see cref="SearchProfilesAsync"/>. Hàng đợi duyệt để
+/// controller tự dựng vì nó còn cần URL ký cho giấy tờ; trang tra cứu chỉ có avatar nên
+/// dựng luôn trong service, tránh bắt controller lặp lại vòng map chỉ vì một trường.
+/// </param>
+public class AdminService(AppDbContext db, MediaUrls urls)
 {
     public async Task<PagedResult<KtvProfile>> ListProfilesAsync(
         string status, int page, int limit, CancellationToken ct = default)
@@ -80,10 +88,16 @@ public class AdminService(AppDbContext db)
 
         if (dto.Decision == VerificationStatuses.Verified)
         {
+            // Câu chữ nói theo **thao tác trên giao diện**, không theo endpoint. Message
+            // này hiện thẳng lên màn hình admin (AppExceptionHandler trả `title` ra cho
+            // mọi status khác 500), mà người đọc nó có sẵn trang "Duyệt CCCD" trong
+            // sidebar — đưa cho họ một dòng curl là chỉ đường tới thứ họ không dùng.
             if (profile.IdentityDocument?.VerifyStatus != VerificationStatuses.Verified)
                 throw new BadRequestException(
-                    "Chưa duyệt được: hồ sơ phải có ảnh CCCD đã xác minh. "
-                    + "Duyệt CCCD trước bằng PATCH /admin/ktv/{id}/identity/verify.");
+                    profile.IdentityDocument is null
+                        ? "Chưa duyệt được: KTV chưa gửi ảnh CCCD."
+                        : "Chưa duyệt được: hồ sơ phải có ảnh CCCD đã xác minh. "
+                          + "Duyệt CCCD ở trang \"Duyệt CCCD\" trước.");
 
             // Cam kết là nghĩa vụ KTV tự nhận, không phải thứ admin duyệt — nên chỉ
             // kiểm nó có tồn tại và đúng bản đang hiệu lực. Duyệt một hồ sơ chưa cam
@@ -230,4 +244,122 @@ public class AdminService(AppDbContext db)
 
         return (items, total);
     }
+
+    /// <summary>
+    /// Tra cứu KTV cho trang quản lý: mọi trạng thái, có tìm kiếm, kèm số liệu vận hành.
+    /// </summary>
+    /// <remarks>
+    /// <b>Vì sao không mở rộng <see cref="ListProfilesAsync"/>:</b> hàng đợi duyệt và
+    /// trang tra cứu trả lời hai câu hỏi khác nhau và vì thế cần hai thứ tự mặc định
+    /// khác nhau — hàng đợi xếp **cũ nhất trước** (ai chờ lâu nhất được xem trước), còn
+    /// tra cứu xếp **mới nhất trước** (hồ sơ vừa tạo là hồ sơ hay bị hỏi tới nhất). Nhồi
+    /// cả hai vào một hàm sẽ đẻ ra một tham số "sắp xếp kiểu nào" mà chỗ gọi nào cũng
+    /// phải truyền đúng, và truyền sai thì không có gì báo — danh sách vẫn ra kết quả.
+    ///
+    /// <b>Tìm theo <c>Slug</c> chứ không theo <c>FullName</c>:</b> slug là chính cái tên
+    /// đã bỏ dấu (xem <c>SlugHelper</c>), nên gõ "phu" tìm ra "Hồ Duy Phú" mà không cần
+    /// <c>unaccent()</c> lúc query — và <c>unaccent()</c> không IMMUTABLE nên không dùng
+    /// được trong index. Vẫn tìm cả <c>FullName</c> để admin gõ đủ dấu cũng ra.
+    /// </remarks>
+    public async Task<PagedResult<AdminKtvRowDto>> SearchProfilesAsync(
+        string? status,
+        string? q,
+        string? gender,
+        int page,
+        int limit,
+        CancellationToken ct = default)
+    {
+        var query = db.KtvProfiles.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(p => p.VerificationStatus == status);
+
+        if (!string.IsNullOrWhiteSpace(gender))
+            query = query.Where(p => p.Gender == gender);
+
+        // Join users **trước** khi lọc, vì số điện thoại là một trong những thứ tìm theo.
+        var joined = query.Join(
+            db.Users.AsNoTracking(), p => p.UserId, u => u.Id, (p, u) => new { P = p, U = u });
+
+        if (!string.IsNullOrWhiteSpace(qq(q)))
+        {
+            var term = qq(q)!;
+            joined = joined.Where(x =>
+                EF.Functions.ILike(x.P.FullName, $"%{term}%")
+                || EF.Functions.ILike(x.P.Slug, $"%{term}%")
+                || EF.Functions.ILike(x.U.Phone, $"%{term}%"));
+        }
+
+        var total = await joined.CountAsync(ct);
+
+        var now = DateTimeOffset.UtcNow;
+
+        var rows = await joined
+            // Mới nhất trước — xem ghi chú ở phần remarks về việc vì sao khác hàng đợi.
+            .OrderByDescending(x => x.P.CreatedAt)
+            .Skip((page - 1) * limit)
+            .Take(limit)
+            .Select(x => new
+            {
+                x.P,
+                x.U.Phone,
+                // Đếm bằng subquery tương quan thay vì Include: mỗi hồ sơ chỉ cần một
+                // con số, còn Include sẽ kéo về toàn bộ dòng con rồi vứt đi.
+                ReviewCount = db.Reviews.Count(r =>
+                    r.KtvId == x.P.Id && r.Status == ReviewStatuses.Published),
+                ActiveCampaigns = db.Campaigns.Count(c =>
+                    c.KtvId == x.P.Id
+                    && c.Status == CampaignStatuses.Active
+                    && c.EndAt > now),
+                // Ví gắn với **user**, không với hồ sơ. Null khi chưa từng nạp lần nào —
+                // khác hẳn 0 đồng, xem ghi chú ở DTO.
+                WalletBalance = db.Wallets
+                    .Where(w => w.UserId == x.P.UserId)
+                    .Select(w => (decimal?)w.Balance)
+                    .FirstOrDefault(),
+                IdentityStatus = db.IdentityDocuments
+                    .Where(d => d.KtvId == x.P.Id)
+                    .Select(d => d.VerifyStatus)
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(ct);
+
+        var items = rows
+            .Select(r => new AdminKtvRowDto(
+                r.P.Id,
+                r.P.UserId,
+                r.P.FullName,
+                r.P.Slug,
+                r.Phone,
+                r.P.Gender,
+                r.P.YearsExperience,
+                r.P.BaseAddress,
+                r.P.VerificationStatus,
+                r.P.RejectionReason,
+                urls.Public(r.P.AvatarKey),
+                r.P.RatingAvg,
+                r.P.RatingCount,
+                r.P.LeadCount,
+                r.ReviewCount,
+                r.ActiveCampaigns,
+                r.WalletBalance,
+                r.IdentityStatus is not null,
+                r.IdentityStatus,
+                r.P.CommitmentVersion == KtvCommitments.CurrentVersion,
+                r.P.LastActiveAt,
+                r.P.CreatedAt))
+            .ToList();
+
+        return new PagedResult<AdminKtvRowDto>(items, total, page, limit);
+    }
+
+    /// <summary>
+    /// Chuẩn hoá từ khoá tìm kiếm: cắt khoảng trắng, rỗng thành null.
+    ///
+    /// Tách ra một chỗ vì nó chạy hai lần (kiểm có tìm không, và lấy giá trị) và hai bản
+    /// lệch nhau sẽ cho ra ca "có lọc nhưng lọc bằng chuỗi rỗng" — khớp mọi hồ sơ trong
+    /// khi giao diện hiện là đang tìm.
+    /// </summary>
+    private static string? qq(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

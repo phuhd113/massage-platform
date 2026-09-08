@@ -17,6 +17,9 @@ export function AdminNav() {
   // bước hay bị quên nhất: trang tồn tại nhưng không ai tìm ra thì với người dùng
   // nó không khác gì chưa làm — xem "Ba lần cùng một lỗi" trong project-status.md.
   const items = [
+    // Tra cứu đứng trước hàng đợi: câu hỏi "người này là ai" phát sinh bất cứ lúc nào
+    // trong ngày (KTV gọi tới), còn duyệt hồ sơ là việc làm theo đợt.
+    { href: '/admin/ktv', label: 'Quản lý KTV' },
     { href: '/admin/duyet-ktv', label: 'Duyệt hồ sơ KTV' },
     { href: '/admin/duyet-anh', label: 'Duyệt ảnh hồ sơ' },
     { href: '/admin/duyet-cccd', label: 'Duyệt CCCD' },

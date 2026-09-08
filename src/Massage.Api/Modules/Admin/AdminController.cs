@@ -85,6 +85,49 @@ public class AdminController(AdminService service, MediaUrls urls) : ControllerB
         });
     }
 
+    /// <summary>
+    /// Tra cứu KTV: mọi trạng thái, tìm theo tên hoặc số điện thoại, kèm số liệu vận hành.
+    /// </summary>
+    /// <remarks>
+    /// Khác <c>GET /admin/ktv</c> ở trên, vốn là **hàng đợi duyệt** — chỉ một trạng thái
+    /// mỗi lần, xếp cũ nhất trước, kèm giấy tờ để đối chiếu. Endpoint này trả lời câu hỏi
+    /// ngược lại: "người tên X (hoặc số 09xx) là ai, đang thế nào". Câu hỏi đó luôn bắt
+    /// đầu bằng một cái tên chứ không bằng một trạng thái duyệt, nên nó cần đường vào
+    /// riêng chứ không phải một tham số thêm vào hàng đợi.
+    ///
+    /// <paramref name="q"/> tìm cả tên có dấu, tên không dấu (qua <c>slug</c>) và số điện
+    /// thoại — admin cầm máy nghe KTV đọc số thì gõ thẳng số đó.
+    /// </remarks>
+    /// <param name="status">Bỏ trống để lấy **mọi** trạng thái.</param>
+    /// <param name="q">Từ khoá tìm theo tên hoặc số điện thoại.</param>
+    /// <param name="gender">MALE hoặc FEMALE; bỏ trống để không lọc.</param>
+    [HttpGet("ktv/search")]
+    public async Task<IActionResult> SearchProfiles(
+        CancellationToken ct,
+        [FromQuery] string? status = null,
+        [FromQuery] string? q = null,
+        [FromQuery] string? gender = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 20)
+    {
+        if (status is not null
+            && status is not (VerificationStatuses.Pending
+                or VerificationStatuses.Verified
+                or VerificationStatuses.Rejected))
+            throw new BadRequestException("Status phải là PENDING, VERIFIED hoặc REJECTED");
+
+        // Giá trị lạ trả 400 chứ không lặng lẽ bỏ qua: bỏ qua nghĩa là giao diện hiện
+        // "đang lọc theo nữ" trong khi danh sách bên dưới có cả nam. Cùng lý do với bộ
+        // lọc giới tính ở `/tim-kiem`.
+        if (gender is not null && !Genders.IsValid(gender))
+            throw new BadRequestException("Gender phải là MALE hoặc FEMALE");
+
+        if (page < 1 || limit is < 1 or > 100)
+            throw new BadRequestException("page ≥ 1 và limit trong khoảng 1 – 100");
+
+        return Ok(await service.SearchProfilesAsync(status, q, gender, page, limit, ct));
+    }
+
     /// <summary>Duyệt hoặc từ chối một hồ sơ KTV.</summary>
     [HttpPatch("ktv/{id:guid}/verify")]
     public async Task<IActionResult> VerifyProfile(Guid id, VerifyDecisionDto dto, CancellationToken ct)

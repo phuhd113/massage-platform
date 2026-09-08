@@ -48,3 +48,49 @@ public record RevenueReportDto(
     decimal Total,
     IReadOnlyList<RevenueRowDto> Items,
     IReadOnlyList<RevenueDayDto> Daily);
+
+/// <summary>
+/// Một KTV nhìn từ trang tra cứu của admin.
+///
+/// Khác <c>GET /admin/ktv</c> (hàng đợi duyệt) ở chỗ nó trả **mọi trạng thái** và kèm
+/// số liệu vận hành. Hai màn hình cố ý tách nhau: hàng đợi trả lời "còn gì phải duyệt",
+/// trang này trả lời "người tên X là ai, đang thế nào" — câu hỏi thứ hai luôn bắt đầu
+/// bằng một cái tên hoặc số điện thoại, không bao giờ bằng một trạng thái duyệt.
+/// </summary>
+/// <param name="Phone">
+/// Số điện thoại tài khoản. Đây là **thứ admin tra cứu theo** khi KTV gọi điện tới, nên
+/// nó là lý do chính trang này tồn tại. Chỉ có ở đường admin — hồ sơ công khai vẫn giấu
+/// số, và quy tắc đó không đổi.
+/// </param>
+/// <param name="ActiveCampaigns">
+/// Số campaign đang chạy **tại thời điểm hỏi**, không phải tổng số đã mua. Admin cần biết
+/// KTV này có đang trả tiền hay không để xử lý khiếu nại theo đúng mức ưu tiên.
+/// </param>
+/// <param name="WalletBalance">
+/// Null khi KTV chưa từng có ví (chưa nạp lần nào) — khác hẳn với 0 đồng, vốn nghĩa là
+/// đã có ví và đã tiêu hết. Gộp hai thứ đó thành 0 sẽ giấu mất một nửa câu trả lời cho
+/// câu hỏi "người này đã bao giờ trả tiền chưa".
+/// </param>
+public record AdminKtvRowDto(
+    Guid Id,
+    Guid UserId,
+    string FullName,
+    string Slug,
+    string Phone,
+    string? Gender,
+    short YearsExperience,
+    string? BaseAddress,
+    string VerificationStatus,
+    string? RejectionReason,
+    string? AvatarUrl,
+    decimal RatingAvg,
+    int RatingCount,
+    int LeadCount,
+    int ReviewCount,
+    int ActiveCampaigns,
+    decimal? WalletBalance,
+    bool HasIdentityDoc,
+    string? IdentityStatus,
+    bool CommitmentsUpToDate,
+    DateTimeOffset? LastActiveAt,
+    DateTimeOffset CreatedAt);

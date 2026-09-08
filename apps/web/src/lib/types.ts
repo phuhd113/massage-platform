@@ -663,3 +663,46 @@ export interface AdminRevenueReport {
   items: AdminRevenueRow[];
   daily: AdminRevenueDay[];
 }
+
+/**
+ * Một KTV trong trang tra cứu của admin.
+ *
+ * Khác `AdminKtvProfile` (hàng đợi duyệt) ở chỗ nó có **số liệu vận hành** và **số điện
+ * thoại**, nhưng không có giấy tờ để đối chiếu — hai màn hình trả lời hai câu hỏi khác
+ * nhau. `phone` chỉ tồn tại ở đường admin: hồ sơ công khai vẫn giấu số, và quy tắc đó
+ * không đổi.
+ *
+ * `walletBalance` null nghĩa là **chưa từng có ví**, khác hẳn 0 đồng (đã nạp và tiêu
+ * hết). Đừng dùng `?? 0` cho trường này.
+ */
+export interface AdminKtvRow {
+  id: string;
+  userId: string;
+  fullName: string;
+  slug: string;
+  phone: string;
+  gender: 'MALE' | 'FEMALE' | null;
+  yearsExperience: number;
+  baseAddress: string | null;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  rejectionReason: string | null;
+  avatarUrl: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  leadCount: number;
+  reviewCount: number;
+  activeCampaigns: number;
+  walletBalance: number | null;
+  hasIdentityDoc: boolean;
+  identityStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+  commitmentsUpToDate: boolean;
+  lastActiveAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminKtvRowList {
+  items: AdminKtvRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
