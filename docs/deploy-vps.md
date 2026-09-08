@@ -396,6 +396,16 @@ docker image prune -f
 - **Đổi `SITE_URL`, `API_BASE_URL_PUBLIC` hoặc `R2_PUBLIC_BASE_URL` phải
   `up -d --build web`** — restart không đủ, cả ba được chốt vào bản build.
 
+- **Sửa `Caddyfile` phải `up -d --force-recreate caddy`**, không phải `caddy reload`.
+  `git pull` ghi file mới bằng cách thay inode, mà bind mount đã gắn vào inode cũ — nên
+  container vẫn thấy nội dung cũ và `caddy reload` trả về `"config is unchanged"`, nghe
+  như đã áp dụng xong trong khi chưa đổi gì. `up -d caddy` trần cũng không đủ: Compose
+  thấy service không đổi nên báo `Running` rồi bỏ qua. Kiểm bằng cách so hai bên:
+  ```bash
+  grep -c status Caddyfile                                  # trên đĩa
+  docker exec masgo_caddy grep -c status /etc/caddy/Caddyfile   # trong container
+  ```
+
 - **Đổi `DOCKER_SUBNET` phải đổi ở cả hai chỗ** (`ipam` trong compose và
   `.env.production`) trong cùng một lần. Lệch nhau là mất IP thật của khách, và hỏng
   lặng lẽ.
@@ -419,13 +429,34 @@ $C logs -f caddy       # chờ Caddy xin xong chứng chỉ cho status.masgo.vn
 ```
 
 2. Mở `https://status.masgo.vn`, tạo tài khoản admin đầu tiên của Beszel.
-3. Trong giao diện: **Add System** → chọn kiểu kết nối **Universal agent** (agent tự nối
-   ra hub qua websocket, không phải hub SSH vào agent — xem ghi chú trong
-   `docker-compose.prod.yml` về lý do tránh `network_mode: host`) → copy token hiển thị.
-4. Dán token vào `.env.production`:
+3. Trong giao diện: **Add System**, tab **Docker**:
+   - **Tên**: tuỳ ý (vd `masgo-vps`)
+   - **Máy chủ / IP**: `beszel-agent` — tên service trong network `internal`, **không phải**
+     IP công khai của VPS. Agent không mở port nào ra ngoài (xem ghi chú trong
+     `docker-compose.prod.yml` về lý do tránh `network_mode: host`).
+   - **Cổng**: để nguyên `45876`
+
+   Bấm **Thêm Hệ thống**, rồi copy **cả hai** giá trị "Khoá" và "Token" trong dialog.
+4. Dán vào `.env.production`:
    ```bash
-   nano .env.production   # BESZEL_AGENT_TOKEN=<token vừa copy>
+   nano .env.production
+   #   BESZEL_AGENT_TOKEN=<token>
+   #   BESZEL_AGENT_KEY="ssh-ed25519 AAAA..."
    ```
+
+   > **Phải có cả hai.** Agent load public key **trước** khi xét chế độ token, nên thiếu
+   > `KEY` thì nó restart-loop với `no key provided` dù URL và token đều đúng — thông báo
+   > lỗi đọc như sai token, trong khi token không liên quan gì. Đã cắn.
+   >
+   > Nếu lỡ đóng dialog trước khi copy, lấy lại từ chính hub:
+   > ```bash
+   > # Token:
+   > docker run --rm -v masgo_beszel_data:/d alpine sh -c \
+   >   'apk add -q sqlite; sqlite3 /d/data.db "SELECT token FROM fingerprints;"'
+   > # Khoá công khai (derive từ private key hub sinh lúc chạy lần đầu):
+   > docker run --rm -v masgo_beszel_data:/d alpine sh -c \
+   >   'apk add -q openssh-keygen; cp /d/id_ed25519 /tmp/k; chmod 600 /tmp/k; ssh-keygen -y -f /tmp/k'
+   > ```
 5. Khởi động agent:
    ```bash
    $C up -d beszel-agent
