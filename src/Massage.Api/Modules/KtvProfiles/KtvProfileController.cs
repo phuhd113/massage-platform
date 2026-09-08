@@ -328,6 +328,9 @@ public class KtvProfileController(
             p.Id,
             p.FullName,
             p.Slug,
+            // Null cho hồ sơ tạo trước 2026-09-08. Form sửa dựa vào đó để bắt KTV khai
+            // lần đầu — nên nó phải ra tới đây, không chỉ ra đường công khai.
+            p.Gender,
             p.YearsExperience,
             // Toạ độ đầy đủ, không làm tròn: đây là hồ sơ của chính chủ, và form sửa
             // cần đúng điểm đã lưu để không dịch vị trí mỗi lần bấm lưu.

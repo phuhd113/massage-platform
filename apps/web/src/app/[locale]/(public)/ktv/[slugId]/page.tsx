@@ -202,6 +202,10 @@ export default async function KtvPage({ params }: Props) {
                 <>{t('ktvProfile.newProfileInline')} </>
               )}
               {t('ktvProfile.experience', { count: profile.yearsExperience })}
+              {/* Nối vào cùng dòng thay vì thêm một dòng riêng: hồ sơ chưa khai (hồ sơ
+                  cũ) sẽ không để lại khoảng trống nào, và một dòng chỉ có mỗi chữ "Nữ"
+                  không đáng chiếm một tầng trong khối đầu trang. */}
+              {profile.gender && <> · {t(`gender.${profile.gender}`)}</>}
             </p>
           </div>
         </header>

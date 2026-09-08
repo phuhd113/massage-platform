@@ -76,19 +76,37 @@ export default async function DashboardLayout({ children }: { children: React.Re
         dung: 248px chiếm gần hết bề ngang điện thoại, giữ nguyên là không còn chỗ cho
         chính thứ khách vào đây để xem. */}
     <div className="grid min-h-screen bg-brand-50 lg:grid-cols-[248px_minmax(0,1fr)]">
-      <aside className="border-b border-ink-200 bg-white px-4 py-5 lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2.5 px-2 pb-5">
+      {/* Ở mobile thanh này dính đỉnh: khi menu gập lại nó chỉ cao một hàng, mà đó
+          cũng là chỗ duy nhất còn nói cho KTV biết mình đang ở trang nào. Desktop
+          bỏ `sticky` vì sidebar vốn đã đứng yên cạnh nội dung. */}
+      <aside className="sticky top-0 z-30 border-b border-ink-200 bg-white px-4 py-3 lg:static lg:border-b-0 lg:border-r lg:py-5">
+        {/* Chỉ còn là dòng tiêu đề riêng ở desktop. Ở mobile logo lùi về làm dấu
+            nhận diện nhỏ cạnh nút menu — một hàng chữ "Bảng điều khiển" chiếm trọn
+            bề ngang điện thoại chỉ để nhắc lại thứ KTV vừa chủ động mở. */}
+        <div className="hidden items-center gap-2.5 px-2 pb-5 lg:flex">
           <LogoMark className="h-7 w-7 shrink-0" />
           <span className="font-display text-body-l font-bold text-ink-900">Bảng điều khiển</span>
         </div>
 
-        <DashboardNav
-          balanceLabel={wallet ? formatVndShort(wallet.available, 'vi') : ''}
-          runningCount={running}
-          hasProfile={hasProfile}
-        />
+        {/* `items-start`, không phải `items-center`: khi menu mở ra, nav cao lên vài
+            trăm px và logo canh giữa sẽ trôi xuống lơ lửng giữa danh sách. Nó phải
+            đứng yên ngang hàng với nút menu — đó là hàng duy nhất tồn tại khi gập. */}
+        <div className="flex items-start gap-2 lg:block">
+          <LogoMark className="mt-2 h-7 w-7 shrink-0 lg:hidden" />
 
-        <div className="mt-6 border-t border-ink-100 px-3 pt-4">
+          <div className="min-w-0 flex-1 lg:flex-none">
+            <DashboardNav
+              balanceLabel={wallet ? formatVndShort(wallet.available, 'vi') : ''}
+              runningCount={running}
+              hasProfile={hasProfile}
+            />
+          </div>
+        </div>
+
+        {/* `hidden lg:block` — ở mobile hai lối này nằm trong nhóm gập cùng menu
+            (xem `DashboardNav`), nên bản ngoài chỉ dành cho desktop. Để cả hai cùng
+            hiện là "Đăng xuất" xuất hiện hai lần trên cùng màn hình. */}
+        <div className="mt-6 hidden border-t border-ink-100 px-3 pt-4 lg:block">
           {/* Link về trang công khai: KTV thường muốn kiểm tra hồ sơ mình đang trông
               thế nào với khách, và không có đường nào khác từ trong dashboard. */}
           <Link

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Massage.Api.Modules.KtvProfiles.Entities;
 
 namespace Massage.Api.Modules.Search;
 
@@ -15,6 +16,26 @@ namespace Massage.Api.Modules.Search;
 /// </param>
 /// <param name="IsOnline">Lọc "đang nhận khách". Bỏ trống = không lọc; chỉ nhận giá trị
 /// true có nghĩa, vì "chỉ hiện KTV đang bận" không phải nhu cầu có thật của khách.</param>
+/// <param name="Gender">
+/// <c>MALE</c> / <c>FEMALE</c>, bỏ trống = không lọc.
+///
+/// <b>Hồ sơ chưa khai giới tính (cột NULL) bị loại khi bộ lọc này bật.</b> Đó là hành vi
+/// đúng chứ không phải thiếu sót: không biết giới tính thì không khẳng định được là khớp,
+/// và với chính bộ lọc này thì đoán sai tệ hơn hẳn việc vắng mặt.
+/// </param>
+/// <param name="MinYearsExperience">
+/// Số năm kinh nghiệm tối thiểu. Chỉ có cận dưới, cố ý không có cận trên: "KTV nhiều kinh
+/// nghiệm nhất có thể" là nhu cầu thật, còn "KTV dưới 5 năm kinh nghiệm" thì không.
+/// </param>
+/// <param name="MinRating">
+/// Điểm đánh giá tối thiểu, so với <c>rating_avg</c> thô chứ <b>không</b> với điểm đã làm
+/// mượt Bayesian dùng để xếp hạng. Hai con số khác nhau và khách chỉ nhìn thấy con số thô
+/// trên thẻ — lọc theo con số họ không thấy sẽ cho ra một danh sách mà chính bộ lọc trông
+/// như đang sai.
+///
+/// Hồ sơ chưa có đánh giá nào (<c>rating_count = 0</c>) bị loại: <c>rating_avg</c> của
+/// chúng là 0, nên để lọt qua thì phải coi "chưa ai chấm" là "đạt ngưỡng".
+/// </param>
 public record SearchQueryDto(
     double? Lat = null,
     double? Lon = null,
@@ -23,6 +44,9 @@ public record SearchQueryDto(
     string? AreaSlug = null,
     string? ProvinceSlug = null,
     bool? IsOnline = null,
+    string? Gender = null,
+    short? MinYearsExperience = null,
+    decimal? MinRating = null,
     int Page = 1,
     int Size = 20);
 
@@ -51,6 +75,15 @@ public class SearchQueryDtoValidator : AbstractValidator<SearchQueryDto>
 
         RuleFor(x => x.RadiusKm).InclusiveBetween(1, 50)
             .WithMessage("Bán kính phải trong khoảng 1 – 50km");
+
+        // Từ chối giá trị lạ thay vì im lặng bỏ qua bộ lọc: một `?gender=nu` viết sai
+        // sẽ trả về cả nam lẫn nữ trong khi giao diện vẫn hiện là đang lọc.
+        RuleFor(x => x.Gender).Must(Genders.IsValid).When(x => x.Gender is not null)
+            .WithMessage("Giới tính phải là MALE hoặc FEMALE");
+
+        RuleFor(x => x.MinYearsExperience).InclusiveBetween((short)0, (short)60)
+            .When(x => x.MinYearsExperience.HasValue);
+        RuleFor(x => x.MinRating).InclusiveBetween(0m, 5m).When(x => x.MinRating.HasValue);
         RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
         RuleFor(x => x.Size).InclusiveBetween(1, 50);
     }
@@ -67,10 +100,12 @@ public record SearchItemServiceDto(string Name, short DurationMin, decimal Price
 /// <param name="VerifiedCertCount">Số chứng chỉ **đã duyệt**. Hồ sơ đang chờ xét không được
 /// tính: thẻ hiển thị con số này kèm chữ "đã duyệt", nên đếm cả PENDING là nói sai với khách.</param>
 /// <param name="Services">Tối đa 2 dịch vụ, giá thấp trước.</param>
+/// <param name="Gender">Null cho hồ sơ chưa khai — thẻ không hiện gì, không hiện "Chưa rõ".</param>
 public record SearchItemDto(
     Guid Id,
     string FullName,
     string Slug,
+    string? Gender,
     short YearsExperience,
     decimal RatingAvg,
     int RatingCount,

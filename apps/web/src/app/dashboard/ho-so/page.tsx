@@ -47,18 +47,41 @@ export default async function ProfilePage() {
     : [];
 
   return (
-    <>
+    /* `pb-24` cho thanh hành động dính đáy của `ProfileForm` — thiếu là nó che mất
+       khối cuối trang. Xem quy ước ở project-status. */
+    <div className="pb-24">
       <h1 className="text-h1 text-ink-900">Hồ sơ kỹ thuật viên</h1>
 
       {profile ? (
         <StatusBanner profile={profile} />
       ) : (
         /* Nói rõ vì sao các mục khác đang khoá: KTV bị đưa về đây từ một trang khác
-           mà không được giải thích sẽ tưởng mình bấm nhầm, rồi bấm lại đúng mục đó. */
-        <p className="mt-4 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-700">
-          Tạo hồ sơ để bắt đầu — ví, gói đẩy tin và chiến dịch chỉ mở sau bước này. Sau khi gửi,
-          quản trị viên sẽ duyệt trước khi hồ sơ hiển thị trong kết quả tìm kiếm.
-        </p>
+           mà không được giải thích sẽ tưởng mình bấm nhầm, rồi bấm lại đúng mục đó.
+           Ba bước liệt kê ra vì đây là màn hình đầu tiên của một quy trình dài hơn
+           chính cái form: hồ sơ xong vẫn chưa hiện, còn CCCD và cam kết nữa — và cả
+           hai khối đó nằm ngoài màn hình đầu tiên, chỉ xuất hiện sau khi tạo xong. */
+        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
+          <p className="text-body text-brand-700">
+            Tạo hồ sơ để bắt đầu — ví, gói đẩy tin và chiến dịch chỉ mở sau bước này.
+          </p>
+          <ol className="mt-3 grid gap-2 text-body-s text-brand-700 sm:grid-cols-3">
+            {[
+              'Khai hồ sơ ở form bên dưới',
+              'Gửi ảnh CCCD và ký cam kết',
+              'Quản trị viên duyệt, hồ sơ lên tìm kiếm',
+            ].map((label, i) => (
+              <li key={label} className="flex items-start gap-2">
+                <span
+                  aria-hidden
+                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-caption font-semibold text-white"
+                >
+                  {i + 1}
+                </span>
+                {label}
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
 
       <section className="mt-8">
@@ -131,7 +154,7 @@ export default async function ProfilePage() {
           </section>
         </>
       )}
-    </>
+    </div>
   );
 }
 

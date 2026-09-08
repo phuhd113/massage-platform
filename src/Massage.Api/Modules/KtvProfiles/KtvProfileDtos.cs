@@ -1,4 +1,5 @@
 using FluentValidation;
+using Massage.Api.Modules.KtvProfiles.Entities;
 
 namespace Massage.Api.Modules.KtvProfiles;
 
@@ -12,8 +13,16 @@ namespace Massage.Api.Modules.KtvProfiles;
 /// Cố ý <b>không</b> có trong <see cref="UpdateKtvProfileDto"/>: đây là dữ liệu tính
 /// tiền, chốt lúc tạo. Sửa sai thì đi qua admin.
 /// </param>
+/// <param name="Gender">
+/// <c>MALE</c> hoặc <c>FEMALE</c> — xem <see cref="Genders"/>. <b>Bắt buộc ở đường tạo.</b>
+///
+/// Đây là tiêu chí lọc khách dùng nhiều nhất trong ngành này, và hồ sơ không khai sẽ
+/// không xuất hiện ở bất kỳ lượt lọc theo giới tính nào — để nó tuỳ chọn lúc tạo nghĩa
+/// là mời KTV mới tự loại mình khỏi kết quả tìm kiếm mà không biết.
+/// </param>
 public record CreateKtvProfileDto(
     string FullName,
+    string Gender,
     short? YearsExperience,
     double Lat,
     double Lon,
@@ -24,8 +33,18 @@ public record CreateKtvProfileDto(
     List<Guid>? CoverageAreaIds,
     string? ReferralCode = null);
 
+/// <param name="Gender">
+/// Sửa được, khác <c>ReferralCode</c>: đây là dữ liệu mô tả bản thân KTV chứ không phải
+/// cơ sở tính tiền, và hồ sơ cũ (tạo trước 2026-09-08, cột NULL) chỉ có đúng đường này
+/// để khai lần đầu.
+///
+/// Nullable ở đây nghĩa là "không đổi", theo đúng quy ước của mọi trường khác trong DTO
+/// này — <b>không</b> phải "xoá về chưa khai". Không có đường nào đưa một hồ sơ đã khai
+/// về lại NULL: giá trị đó chỉ dành cho hồ sơ chưa từng được hỏi.
+/// </param>
 public record UpdateKtvProfileDto(
     string? FullName,
+    string? Gender,
     short? YearsExperience,
     double? Lat,
     double? Lon,
@@ -79,10 +98,16 @@ public record PublicKtvPhotoDto(Guid Id, string Url, string? Caption);
 /// <param name="Lat">Toạ độ đã làm tròn ~100m, đủ để đặt ghim bản đồ.</param>
 /// <param name="AvatarUrl">Null khi KTV chưa đặt ảnh — frontend hiện ảnh thay thế, không để trống ô.</param>
 /// <param name="Photos">Chỉ ảnh đã duyệt. Ảnh chờ duyệt không bao giờ ra trang công khai.</param>
+/// <param name="Gender">
+/// Null cho hồ sơ tạo trước 2026-09-08 chưa khai lại. Frontend phải xử lý null bằng
+/// cách <b>không hiện gì</b> — đừng hiện "Chưa rõ", đó là một dòng thông tin trống chiếm
+/// chỗ trên chính trang bán hàng của KTV.
+/// </param>
 public record PublicKtvProfileDto(
     Guid Id,
     string FullName,
     string Slug,
+    string? Gender,
     short YearsExperience,
     double Lat,
     double Lon,
@@ -102,6 +127,11 @@ public class CreateKtvProfileDtoValidator : AbstractValidator<CreateKtvProfileDt
     public CreateKtvProfileDtoValidator()
     {
         RuleFor(x => x.FullName).NotEmpty().Length(2, 120);
+        // Kiểm bằng Genders.IsValid chứ không bằng danh sách chuỗi viết lại ở đây: hai
+        // bản sao sẽ trôi khỏi nhau, và bản lệch chỉ lộ ra khi CHECK ở tầng DB từ chối
+        // một giá trị mà validator đã cho qua — tức lỗi 500 thay vì lỗi 400 có câu chữ.
+        RuleFor(x => x.Gender).Must(Genders.IsValid)
+            .WithMessage("Giới tính phải là MALE hoặc FEMALE");
         RuleFor(x => x.YearsExperience).InclusiveBetween((short)0, (short)60).When(x => x.YearsExperience.HasValue);
         RuleFor(x => x.Lat).InclusiveBetween(-90, 90).WithMessage("Vĩ độ không hợp lệ");
         RuleFor(x => x.Lon).InclusiveBetween(-180, 180).WithMessage("Kinh độ không hợp lệ");
@@ -118,6 +148,9 @@ public class UpdateKtvProfileDtoValidator : AbstractValidator<UpdateKtvProfileDt
     public UpdateKtvProfileDtoValidator()
     {
         RuleFor(x => x.FullName).Length(2, 120).When(x => x.FullName is not null);
+        // `null` = không đổi (quy ước chung của DTO này), nên chỉ kiểm khi có gửi.
+        RuleFor(x => x.Gender).Must(Genders.IsValid).When(x => x.Gender is not null)
+            .WithMessage("Giới tính phải là MALE hoặc FEMALE");
         RuleFor(x => x.YearsExperience).InclusiveBetween((short)0, (short)60).When(x => x.YearsExperience.HasValue);
         RuleFor(x => x.Lat).InclusiveBetween(-90, 90).When(x => x.Lat.HasValue);
         RuleFor(x => x.Lon).InclusiveBetween(-180, 180).When(x => x.Lon.HasValue);

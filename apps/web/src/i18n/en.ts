@@ -194,6 +194,11 @@ export const en: Dictionary = {
     featured: 'Featured therapists in {name}',
   },
 
+  gender: {
+    FEMALE: 'Female',
+    MALE: 'Male',
+  },
+
   ktvCard: {
     sponsored: 'Sponsored',
     sponsoredTitle: 'Advertised placement — this therapist paid to appear here',
@@ -466,5 +471,25 @@ export const en: Dictionary = {
     areaSuggestions: 'Area suggestions',
     areaKtvCount: { one: '{count} therapist', other: '{count} therapists' },
     areaNoKtv: 'No therapists yet',
+
+    moreFilters: 'Filters',
+    moreFiltersActive: 'Filters ({count})',
+    filterDialogTitle: 'Filter therapists',
+    filterDialogClose: 'Close',
+    genderLabel: 'Gender',
+    genderAny: 'Any',
+    genderFemale: 'Female',
+    genderMale: 'Male',
+    genderNote: 'Profiles that have not stated a gender are hidden while this filter is on.',
+    experienceLabel: 'Minimum experience',
+    experienceAny: 'Any',
+    experienceYears: { one: '{count}+ year', other: '{count}+ years' },
+    ratingLabel: 'Minimum rating',
+    ratingAny: 'Any',
+    ratingStars: '{count}+ stars',
+    ratingNote: 'Only shows profiles that already have reviews.',
+    statusLabel: 'Status',
+    filterReset: 'Clear filters',
+    filterApply: 'Show results',
   },
 };

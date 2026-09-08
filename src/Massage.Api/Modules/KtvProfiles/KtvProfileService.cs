@@ -32,6 +32,7 @@ public class KtvProfileService(
         {
             UserId = userId,
             FullName = dto.FullName,
+            Gender = dto.Gender,
             Slug = await GenerateUniqueSlugAsync(dto.FullName, ct),
             YearsExperience = dto.YearsExperience ?? 0,
             BasePoint = ToPoint(dto.Lon, dto.Lat),
@@ -60,6 +61,9 @@ public class KtvProfileService(
         await AssertWardExistsAsync(dto.BaseWardId, ct);
 
         if (dto.FullName is not null) profile.FullName = dto.FullName;
+        // Không có nhánh nào đưa Gender về null: null ở đây là "không đổi" (xem DTO),
+        // và giá trị NULL chỉ dành cho hồ sơ chưa từng được hỏi.
+        if (dto.Gender is not null) profile.Gender = dto.Gender;
         if (dto.YearsExperience.HasValue) profile.YearsExperience = dto.YearsExperience.Value;
         if (dto.BaseAddress is not null) profile.BaseAddress = dto.BaseAddress;
         if (dto.BaseWardId.HasValue) profile.BaseWardId = dto.BaseWardId;
@@ -137,6 +141,7 @@ public class KtvProfileService(
             profile.Id,
             profile.FullName,
             profile.Slug,
+            profile.Gender,
             profile.YearsExperience,
             Math.Round(profile.BasePoint.Y, 3),
             Math.Round(profile.BasePoint.X, 3),

@@ -7,6 +7,10 @@ import { createTranslator } from '@/i18n/t';
 import { serviceName } from '@/lib/service-i18n';
 import { useEffect, useState, useTransition } from 'react';
 import { AreaSearchBox } from '@/components/AreaSearchBox';
+import {
+  SearchFilterDialog,
+  type SearchFilterValues,
+} from '@/components/SearchFilterDialog';
 import { CertifiedIcon } from '@/components/icons';
 import {
   applyAreaScope,
@@ -16,7 +20,7 @@ import {
   resolveArea,
 } from '@/lib/area-search';
 import { geoErrorMessage, getPosition } from '@/lib/geolocate';
-import type { ServiceItem } from '@/lib/types';
+import type { Gender, ServiceItem } from '@/lib/types';
 
 /**
  * Bộ lọc là phần tương tác duy nhất của trang tìm kiếm, tách riêng thành client
@@ -55,6 +59,15 @@ export function SearchFilters({
   const lat = params.get('lat');
   const lon = params.get('lon');
   const hasCoords = Boolean(lat);
+
+  /**
+   * Trang đã có phạm vi tìm kiếm chưa — tức có kết quả để lọc.
+   *
+   * Suy từ URL ở đây thay vì nhận qua prop từ server: đây đúng là điều kiện mà trang
+   * `/tim-kiem` dùng để quyết định có gọi API hay không (`hasScope` bên đó), nên hai
+   * chỗ đọc cùng một nguồn sẽ không lệch nhau khi luật đổi.
+   */
+  const hasScope = Boolean(lat) || Boolean(params.get('areaSlug'));
 
   /**
    * Dò tên quận mỗi khi trang đang ở chế độ toạ độ.
@@ -158,7 +171,51 @@ export function SearchFilters({
   }
 
   const isMap = params.get('view') === 'map';
-  const onlineOnly = params.get('isOnline') === 'true';
+
+  /**
+   * Bộ lọc nâng cao đọc **từ URL**, không giữ state riêng.
+   *
+   * URL là nguồn duy nhất: trang là server component render theo query string, nên một
+   * bản sao trong state sẽ lệch ngay khi khách bấm nút Back — popup hiện bộ lọc cũ
+   * trong khi danh sách bên dưới đã là kết quả mới.
+   *
+   * `gender` lọc qua danh sách trắng vì nó đi thẳng vào query string gửi lên backend:
+   * một `?gender=<script>` gõ tay không được vào tới đó, và cũng không được hiện lên
+   * nút "Bộ lọc (1)" như một lựa chọn hợp lệ.
+   */
+  const genderParam = params.get('gender');
+  const filterValues: SearchFilterValues = {
+    gender: genderParam === 'MALE' || genderParam === 'FEMALE' ? (genderParam as Gender) : '',
+    minYears: params.get('minYearsExperience') ?? '',
+    minRating: params.get('minRating') ?? '',
+    onlineOnly: params.get('isOnline') === 'true',
+  };
+
+  /**
+   * Áp dụng cả bốn tiêu chí trong **một** lượt điều hướng.
+   *
+   * Không gọi `setParam` bốn lần: mỗi lượt là một `router.push` và một lượt gọi API,
+   * nên bốn lần sẽ đẩy ba mục thừa vào lịch sử trình duyệt — bấm Back sau đó đi ngược
+   * từng bộ lọc một thay vì quay lại nơi khách đến.
+   */
+  function applyFilters(next: SearchFilterValues) {
+    const params2 = new URLSearchParams(params.toString());
+
+    const set = (key: string, value: string) => {
+      if (value) params2.set(key, value);
+      else params2.delete(key);
+    };
+
+    set('gender', next.gender);
+    set('minYearsExperience', next.minYears);
+    set('minRating', next.minRating);
+    // Chỉ ghi khi bật: `isOnline=false` tạo thêm một biến thể URL cho đúng cùng một
+    // tập kết quả — cùng lý do với chỗ trang tìm kiếm lọc tham số ở server.
+    set('isOnline', next.onlineOnly ? 'true' : '');
+
+    params2.delete('page');
+    apply(params2);
+  }
 
   // Ô chọn dùng chung một kiểu: viền mảnh, bo 999px, nền trắng. Gom vào hằng thay
   // vì lặp bốn lần — bốn bản sao sẽ trôi khỏi nhau ngay lần chỉnh đầu tiên.
@@ -254,23 +311,23 @@ export function SearchFilters({
         */}
         <div className="order-5 -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5 sm:order-none sm:mx-0 sm:contents sm:overflow-visible sm:px-0">
         {/*
-          Bật/tắt được, khác với ba ô chọn phía trên. Trạng thái bật dùng nền
-          success nhạt — cùng ngôn ngữ với chip "Đang nhận khách" trên thẻ, để
-          khách nối được bộ lọc với thứ nó lọc ra.
+          Nút mở bộ lọc nâng cao. "Đang nhận khách" đã chuyển vào trong popup cùng ba
+          tiêu chí mới: giữ nó ở đây nữa là hai chỗ bấm cho cùng một bộ lọc, và hai
+          trạng thái bật/tắt phải giữ khớp nhau bằng tay.
+
+          Nhãn nút mang số bộ lọc đang bật — đó là thứ bù lại cho việc chúng bị giấu
+          đi. Không có nó thì kết quả bị thu hẹp mà không có gì trên màn hình nói vì sao.
         */}
-        <button
-          type="button"
-          aria-pressed={onlineOnly}
-          onClick={() => setParam('isOnline', onlineOnly ? '' : 'true')}
-          className={`shrink-0 self-end rounded-full border px-3.5 py-2 text-sm font-medium transition ${
-            onlineOnly
-              ? 'border-success-bd bg-success-bg text-success-fg'
-              : 'border-ink-300 bg-white text-ink-700 hover:bg-ink-50'
-          }`}
-        >
-          <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />
-          {t('filters.onlineOnly')}
-        </button>
+        <SearchFilterDialog
+          value={filterValues}
+          onApply={applyFilters}
+          t={t}
+          locale={locale}
+          disabled={pending}
+          // Chỉ mời lọc khi đã có gì để lọc. `/tim-kiem` trần đang hiện lời mời chọn
+          // khu vực — popup đè lên đó là chặn đúng bước khách phải làm trước.
+          autoOpen={hasScope}
+        />
 
         {/*
           Nhãn tĩnh, KHÔNG phải nút bật/tắt: `/search` luôn lọc

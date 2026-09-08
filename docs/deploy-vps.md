@@ -156,6 +156,21 @@ dig +short api.masgo.vn
 Cả hai phải trả đúng IP VPS. **Caddy xin chứng chỉ khi DNS chưa tới sẽ thất bại và đốt
 hạn mức Let's Encrypt** (5 chứng chỉ trùng tên miền mỗi 7 ngày).
 
+### Bản ghi email nằm ở tài liệu riêng
+
+Hộp thư `@masgo.vn` chạy trên Email Server của P.A Việt Nam, **không** trên VPS này — cụm
+MX/CNAME/TXT của nó khai ở `docs/email-server-setup.md`. Ba điều đáng biết ngay ở đây:
+
+- **Thêm MX không ảnh hưởng gì tới bốn bản ghi A ở trên.** Web và email là hai đường độc
+  lập; A record phục vụ trình duyệt, MX phục vụ mail server.
+- **Hai CNAME `mail` và `mx` phải để DNS only**, cùng lý do kỹ thuật với `api` ở trên
+  nhưng hậu quả khác: Cloudflare chỉ proxy được HTTP/HTTPS, nên bật proxy sẽ khiến
+  SMTP/IMAP trỏ vào IP Cloudflare và không kết nối được.
+- **`ACME_EMAIL=ban@masgo.vn` ở mục 5 là một hộp thư phải tồn tại thật.** Chưa dựng email
+  server thì địa chỉ đó không nhận được gì, và cảnh báo "chứng chỉ sắp hết hạn mà chưa gia
+  hạn được" của Let's Encrypt rơi vào hư vô — Caddy vẫn chạy bình thường nên không có gì
+  báo cho biết là mình đang không được cảnh báo.
+
 ## 5. Clone repo và tạo cấu hình
 
 ```bash

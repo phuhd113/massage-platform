@@ -205,6 +205,18 @@ export const vi = {
     featured: 'Kỹ thuật viên nổi bật tại {name}',
   },
 
+  /**
+   * Nhãn giới tính, dùng chung cho thẻ tìm kiếm và trang hồ sơ.
+   *
+   * Đặt ở cấp gốc chứ không nhét vào `ktvCard`: hai nơi hiển thị cùng một dữ liệu phải
+   * đọc cùng một chuỗi, nếu không sẽ có ngày thẻ ghi "Nữ" còn hồ sơ ghi "KTV nữ".
+   * Không có key cho trường hợp null — hồ sơ chưa khai thì không hiện gì cả.
+   */
+  gender: {
+    FEMALE: 'Nữ',
+    MALE: 'Nam',
+  },
+
   ktvCard: {
     sponsored: 'Tài trợ',
     sponsoredTitle: 'Vị trí quảng cáo — KTV trả phí để hiện ở đây',
@@ -487,5 +499,30 @@ export const vi = {
     areaSuggestions: 'Gợi ý khu vực',
     areaKtvCount: { one: '{count} KTV', other: '{count} KTV' },
     areaNoKtv: 'Chưa có KTV',
+
+    // Popup lọc nâng cao. Nhãn nút mang luôn số bộ lọc đang bật: bộ lọc nằm trong
+    // popup là bộ lọc khách không nhìn thấy, nên kết quả bị thu hẹp mà không có gì
+    // trên màn hình giải thích vì sao lại ít hồ sơ đến vậy.
+    moreFilters: 'Bộ lọc',
+    moreFiltersActive: 'Bộ lọc ({count})',
+    filterDialogTitle: 'Lọc kỹ thuật viên',
+    filterDialogClose: 'Đóng',
+    genderLabel: 'Giới tính',
+    genderAny: 'Không giới hạn',
+    genderFemale: 'Nữ',
+    genderMale: 'Nam',
+    // Câu này bắt buộc phải có: hồ sơ chưa khai giới tính bị loại khỏi kết quả, và
+    // không nói ra thì khách thấy danh sách ngắn đi mà tưởng khu vực mình ít KTV.
+    genderNote: 'Hồ sơ chưa khai giới tính sẽ không hiện khi bạn lọc mục này.',
+    experienceLabel: 'Kinh nghiệm tối thiểu',
+    experienceAny: 'Không giới hạn',
+    experienceYears: { one: 'Từ {count} năm', other: 'Từ {count} năm' },
+    ratingLabel: 'Đánh giá tối thiểu',
+    ratingAny: 'Không giới hạn',
+    ratingStars: 'Từ {count} sao',
+    ratingNote: 'Chỉ hiện hồ sơ đã có đánh giá.',
+    statusLabel: 'Trạng thái',
+    filterReset: 'Xoá bộ lọc',
+    filterApply: 'Xem kết quả',
   },
 } as const;
