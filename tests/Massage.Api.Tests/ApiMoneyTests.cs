@@ -223,5 +223,52 @@ public class ApiMoneyTests(PostgresFixture fixture) : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Báo cáo doanh thu phải trả **tên** khu vực, không chỉ id.
+    ///
+    /// Trước đây endpoint trả GUID trần, nên người đọc phải tra ngược từng dòng bằng
+    /// SQL để biết mình đang nhìn doanh thu ở đâu — tức báo cáo chỉ dùng được bởi
+    /// người có quyền vào thẳng DB, đúng nhóm ít cần tới nó nhất. Ca hỏng im lặng:
+    /// endpoint vẫn 200 và vẫn có đủ số.
+    /// </summary>
+    [Fact]
+    public async Task Báo_cáo_doanh_thu_trả_tên_khu_vực_và_số_liệu_theo_ngày()
+    {
+        var (client, areaId) = await ReadyKtvAsync();
+        var packageId = await SeedPackageAsync(price: 500_000);
+
+        var mua = await client.SendAsync(Buy(packageId, areaId, Guid.NewGuid().ToString()));
+        mua.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        string tênKhuVực;
+        await using (var db = fixture.CreateContext())
+            tênKhuVực = (await db.AdministrativeAreas.SingleAsync(a => a.Id == areaId)).Name;
+
+        var admin = await _api.LoginAdminAsync();
+        var báoCáo = await admin.GetFromJsonAsync<RevenueDto>("/api/v1/admin/revenue");
+
+        var dòng = báoCáo!.Items.Should().ContainSingle(i => i.AreaId == areaId).Subject;
+
+        dòng.AreaName.Should().Be(tênKhuVực);
+        dòng.PackageType.Should().Be(PackageTypes.VipPin);
+
+        // CAPTURE mang dấu âm trong sổ; báo cáo đảo dấu nên doanh thu ra số dương.
+        dòng.NetRevenue.Should().Be(500_000);
+
+        báoCáo.Daily.Should().NotBeEmpty(
+            "lượt mua vừa rồi phải rơi vào đúng một ngày trong chuỗi — chuỗi rỗng nghĩa là "
+            + "phần gom nhóm theo ngày không nhìn thấy giao dịch nào");
+        báoCáo.Daily.Sum(d => d.NetRevenue).Should().Be(báoCáo.Items.Sum(i => i.NetRevenue),
+            "hai cách gộp cùng một tập bút toán thì phải ra cùng một tổng");
+    }
+
     private sealed record WalletBalanceDto(decimal Balance, decimal Held, decimal Available);
+
+    private sealed record RevenueRow(
+        Guid AreaId, string AreaName, string PackageType, decimal NetRevenue, int Transactions);
+
+    private sealed record RevenueDay(DateOnly Date, decimal NetRevenue);
+
+    private sealed record RevenueDto(
+        decimal Total, List<RevenueRow> Items, List<RevenueDay> Daily);
 }

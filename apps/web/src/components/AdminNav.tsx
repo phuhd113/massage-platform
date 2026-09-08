@@ -12,12 +12,19 @@ import { usePathname } from 'next/navigation';
 export function AdminNav() {
   const pathname = usePathname();
 
+  // Bốn hàng đợi duyệt trước, rồi hai hàng đợi kiểm duyệt nội dung, rồi hai trang
+  // tra cứu. Mục sidebar là bước cuối cùng của việc thêm một hàng đợi và cũng là
+  // bước hay bị quên nhất: trang tồn tại nhưng không ai tìm ra thì với người dùng
+  // nó không khác gì chưa làm — xem "Ba lần cùng một lỗi" trong project-status.md.
   const items = [
     { href: '/admin/duyet-ktv', label: 'Duyệt hồ sơ KTV' },
     { href: '/admin/duyet-anh', label: 'Duyệt ảnh hồ sơ' },
     { href: '/admin/duyet-cccd', label: 'Duyệt CCCD' },
     { href: '/admin/duyet-chung-chi', label: 'Duyệt chứng chỉ' },
+    { href: '/admin/bao-cao', label: 'Báo cáo vi phạm' },
+    { href: '/admin/ra-soat-danh-gia', label: 'Rà soát đánh giá' },
     { href: '/admin/cong-tac-vien', label: 'Cộng tác viên' },
+    { href: '/admin/doanh-thu', label: 'Doanh thu' },
   ];
 
   return (

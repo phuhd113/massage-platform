@@ -149,6 +149,7 @@ public class ReviewService(AppDbContext db)
                 x.Review.Id,
                 x.Review.KtvId,
                 x.Ktv.FullName,
+                x.Ktv.Slug,
                 x.Review.AuthorUserId,
                 x.Review.Rating,
                 x.Review.Comment,

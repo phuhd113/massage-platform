@@ -111,6 +111,31 @@ public class ReportServiceTests(PostgresFixture fixture)
         củaTest[0].PendingReportCount.Should().Be(3);
     }
 
+    /// <summary>
+    /// Hàng đợi phải trả cả slug lẫn id của hồ sơ.
+    ///
+    /// URL hồ sơ công khai là <c>/ktv/{slug}-{id}</c> nên thiếu một vế là trang admin
+    /// không dựng được link — mà admin gần như luôn phải mở hồ sơ ra xem trước khi
+    /// quyết định. Đây là ca hỏng im lặng: DTO thiếu trường thì frontend nhận
+    /// <c>undefined</c> và dựng ra một đường dẫn trông vẫn hợp lệ.
+    /// </summary>
+    [Fact]
+    public async Task Hàng_đợi_trả_slug_để_dựng_link_hồ_sơ_công_khai()
+    {
+        await using var db = fixture.CreateContext();
+        var (lat, lon) = TestData.RandomOrigin();
+        var ktv = await TestData.CreateKtvAsync(db, lat, lon);
+
+        await Service().CreateAsync(
+            new CreateReportDto(ktv.Id, ProfileReportReasons.Prostitution, null), null, Ip, Ua);
+
+        var hàngĐợi = await Service().ListAsync(ProfileReportStatuses.Pending, 1, 1000);
+        var dòng = hàngĐợi.Items.Single(i => i.Report.KtvId == ktv.Id).Report;
+
+        dòng.KtvSlug.Should().Be(ktv.Slug);
+        dòng.KtvFullName.Should().Be(ktv.FullName);
+    }
+
     [Fact]
     public async Task Chốt_xong_thì_báo_cáo_rời_hàng_đợi_và_ghi_lại_ai_chốt()
     {

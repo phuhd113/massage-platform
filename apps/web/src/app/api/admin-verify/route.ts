@@ -35,6 +35,11 @@ const TARGETS: Record<string, (id: string) => string> = {
   certification: (id) => `admin/certifications/${id}/verify`,
   photo: (id) => `admin/photos/${id}/verify`,
   profile: (id) => `admin/ktv/${id}/verify`,
+  // Kiểm duyệt đánh giá đổi **hai** thứ trên trang công khai: nội dung đánh giá, và
+  // `rating_avg`/`rating_count` được tính lại. Vế thứ hai là lý do nó bắt buộc phải
+  // nằm ở đây — điểm sao hiện trên thẻ tìm kiếm lẫn structured data `AggregateRating`,
+  // nên một bản dựng cũ khai điểm không còn đúng ra cho cả Google đọc.
+  review: (id) => `admin/reviews/${id}/moderate`,
 };
 
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;

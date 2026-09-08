@@ -208,6 +208,11 @@ public class ReviewServiceTests(PostgresFixture fixture)
         dòng.HasLead.Should().BeTrue(
             "lead có customer_user_id là bằng chứng người viết từng thật sự liên hệ — "
             + "đó là thứ phân biệt đánh giá thật với tài khoản vừa lập để bơm sao");
+
+        // Hàng đợi rà soát cũng phải dựng được link về hồ sơ công khai: admin đọc
+        // một nhận xét đáng ngờ thì việc tiếp theo luôn là mở hồ sơ ra xem. Thiếu
+        // slug là frontend nhận `undefined` rồi ghép ra đường dẫn trông vẫn hợp lệ.
+        dòng.KtvSlug.Should().Be(ktv.Slug);
     }
 
     [Fact]

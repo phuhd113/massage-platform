@@ -567,3 +567,99 @@ export interface AdminKtvIdentityDocumentList {
   page: number;
   limit: number;
 }
+
+/** Lý do báo cáo — danh sách đóng, khớp `ProfileReportReasons` ở backend. */
+export type ReportReason =
+  | 'PROSTITUTION'
+  | 'INAPPROPRIATE_CONTENT'
+  | 'FALSE_INFORMATION'
+  | 'IMPERSONATION'
+  | 'MISCONDUCT'
+  | 'OTHER';
+
+export type ReportStatus = 'PENDING' | 'ACTION_TAKEN' | 'DISMISSED';
+
+export interface AdminReport {
+  id: string;
+  ktvId: string;
+  ktvFullName: string;
+  ktvSlug: string;
+  ktvVerificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  reason: ReportReason;
+  detail: string | null;
+  status: ReportStatus;
+  reporterUserId: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  resolutionNote: string | null;
+  createdAt: string;
+}
+
+/**
+ * `pendingReportCount` là số báo cáo **còn chờ** của cùng hồ sơ đó, kể cả dòng này —
+ * và nó cố ý không đổi theo tab đang mở: khi admin xem danh sách đã xử lý, con số này
+ * vẫn trả lời "hồ sơ đó hiện còn bao nhiêu việc chưa làm".
+ */
+export interface AdminReportQueueItem {
+  report: AdminReport;
+  pendingReportCount: number;
+}
+
+export interface AdminReportList {
+  items: AdminReportQueueItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Một đánh giá nhìn từ hàng đợi rà soát.
+ *
+ * `hasLead` là **dấu hiệu, không phải bằng chứng**: khách bấm gọi lúc chưa đăng nhập
+ * thì lead ẩn danh và không bao giờ khớp, nên rất nhiều đánh giá thật cũng có `false`.
+ * Chiều ngược lại mới đáng tin. Đừng dựng luật tự động gỡ dựa trên cột này.
+ */
+export interface AdminReviewForModeration {
+  id: string;
+  ktvId: string;
+  ktvFullName: string;
+  ktvSlug: string;
+  authorUserId: string;
+  rating: number;
+  comment: string | null;
+  status: 'PENDING' | 'PUBLISHED' | 'REJECTED';
+  hasLead: boolean;
+  /** Tài khoản được tạo bao lâu trước khi viết đánh giá này. Càng nhỏ càng đáng ngờ. */
+  authorAccountAgeHours: number;
+  createdAt: string;
+}
+
+export interface AdminReviewList {
+  items: AdminReviewForModeration[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Doanh thu ròng của một khu vực với một loại gói. Có thể **âm** khi hoàn nhiều hơn bán. */
+export interface AdminRevenueRow {
+  areaId: string;
+  areaName: string;
+  packageType: string;
+  netRevenue: number;
+  transactions: number;
+}
+
+/** Ngày theo **giờ Việt Nam**. Chỉ có ngày phát sinh giao dịch — ngày trống không có dòng. */
+export interface AdminRevenueDay {
+  date: string;
+  netRevenue: number;
+}
+
+export interface AdminRevenueReport {
+  from: string;
+  to: string;
+  total: number;
+  items: AdminRevenueRow[];
+  daily: AdminRevenueDay[];
+}

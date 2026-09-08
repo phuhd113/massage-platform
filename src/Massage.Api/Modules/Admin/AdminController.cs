@@ -312,22 +312,54 @@ public class AdminController(AdminService service, MediaUrls urls) : ControllerB
         var end = to ?? DateTimeOffset.UtcNow;
         if (end <= start) throw new BadRequestException("Khoảng thời gian không hợp lệ");
 
-        var rows = await db.WalletTransactions.AsNoTracking()
+        // Join tới `administrative_areas` để trả **tên** khu vực chứ không chỉ id.
+        // Một danh sách GUID buộc người đọc tra ngược từng dòng bằng SQL để biết mình
+        // đang nhìn doanh thu ở đâu, tức là báo cáo chỉ dùng được bởi người có quyền
+        // vào thẳng DB — đúng nhóm người ít cần tới nó nhất.
+        var lines = db.WalletTransactions.AsNoTracking()
             .Where(t => t.CreatedAt >= start && t.CreatedAt < end && t.CampaignId != null)
-            .Join(db.Campaigns, t => t.CampaignId, c => c.Id, (t, c) => new { t.Amount, c.AreaId, c.PackageType })
-            .GroupBy(x => new { x.AreaId, x.PackageType })
-            .Select(g => new
-            {
+            .Join(db.Campaigns, t => t.CampaignId, c => c.Id,
+                (t, c) => new { t.Amount, t.CreatedAt, c.AreaId, c.PackageType });
+
+        var rows = await lines
+            .Join(db.AdministrativeAreas, x => x.AreaId, a => a.Id,
+                (x, a) => new { x.Amount, x.AreaId, x.PackageType, AreaName = a.Name })
+            .GroupBy(x => new { x.AreaId, x.AreaName, x.PackageType })
+            // Sắp xếp **trước** khi projection sang record: EF không dịch được
+            // `OrderBy` trên thuộc tính của một record vừa dựng trong `Select`, và nó
+            // nổ lúc chạy chứ không lúc biên dịch. Bút toán CAPTURE mang dấu âm nên
+            // doanh thu cao nhất là tổng âm nhất — `OrderBy` chứ không `OrderByDescending`.
+            .OrderBy(g => g.Sum(x => x.Amount))
+            .Select(g => new RevenueRowDto(
                 g.Key.AreaId,
+                g.Key.AreaName,
                 g.Key.PackageType,
                 // Bút toán CAPTURE mang dấu âm, REFUND dấu dương — đảo dấu tổng để
                 // ra doanh thu ròng đã trừ hoàn tiền.
-                NetRevenue = -g.Sum(x => x.Amount),
-                Transactions = g.Count(),
-            })
-            .OrderByDescending(x => x.NetRevenue)
+                -g.Sum(x => x.Amount),
+                g.Count()))
             .ToListAsync(ct);
 
-        return Ok(new { from = start, to = end, total = rows.Sum(r => r.NetRevenue), items = rows });
+        // Chuỗi theo ngày, cắt theo **giờ Việt Nam**: một ngày doanh thu kết thúc lúc
+        // nửa đêm giờ địa phương chứ không phải 7 giờ sáng. Gom theo UTC sẽ đẩy doanh
+        // thu buổi tối — đúng khung giờ bán chạy nhất — sang ngày hôm sau.
+        var daily = await lines
+            // `AddHours` chứ không `ToOffset`: EF **không dịch được** `ToOffset` và nổ
+            // lúc chạy. Cộng thẳng 7 giờ vào mốc UTC rồi lấy phần ngày cho ra cùng kết
+            // quả — giờ Việt Nam là UTC+7 cố định, không có DST để cộng sai.
+            .GroupBy(x => x.CreatedAt.AddHours(VietnamOffsetHours).Date)
+            // Cùng lý do như trên: sắp xếp trên khoá nhóm, không trên record đã dựng.
+            .OrderBy(g => g.Key)
+            .Select(g => new RevenueDayDto(DateOnly.FromDateTime(g.Key), -g.Sum(x => x.Amount)))
+            .ToListAsync(ct);
+
+        return Ok(new RevenueReportDto(
+            start, end, rows.Sum(r => r.NetRevenue), rows, daily));
     }
+
+    /// <summary>
+    /// Giờ Việt Nam là UTC+7 cố định — không có DST, nên một hằng số là đủ và tránh
+    /// phụ thuộc vào tzdata của container (chỗ đã cắn một lần ở Hangfire).
+    /// </summary>
+    private const double VietnamOffsetHours = 7;
 }

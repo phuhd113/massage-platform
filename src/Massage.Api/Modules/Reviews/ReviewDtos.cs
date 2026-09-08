@@ -60,6 +60,7 @@ public record ReviewForModerationDto(
     Guid Id,
     Guid KtvId,
     string KtvFullName,
+    string KtvSlug,
     Guid AuthorUserId,
     short Rating,
     string? Comment,

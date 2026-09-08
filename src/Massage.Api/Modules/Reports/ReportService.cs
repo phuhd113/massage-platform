@@ -95,6 +95,7 @@ public class ReportService(AppDbContext db)
             {
                 Report = r,
                 k.FullName,
+                k.Slug,
                 k.VerificationStatus,
                 PendingCount = db.ProfileReports.Count(p =>
                     p.KtvId == r.KtvId && p.Status == ProfileReportStatuses.Pending),
@@ -111,7 +112,7 @@ public class ReportService(AppDbContext db)
 
         var items = rows
             .Select(x => new ReportQueueItemDto(
-                ToDto(x.Report, x.FullName, x.VerificationStatus),
+                ToDto(x.Report, x.FullName, x.Slug, x.VerificationStatus),
                 x.PendingCount))
             .ToList();
 
@@ -144,14 +145,15 @@ public class ReportService(AppDbContext db)
 
         var ktv = await db.KtvProfiles
             .Where(k => k.Id == report.KtvId)
-            .Select(k => new { k.FullName, k.VerificationStatus })
+            .Select(k => new { k.FullName, k.Slug, k.VerificationStatus })
             .FirstAsync(ct);
 
-        return ToDto(report, ktv.FullName, ktv.VerificationStatus);
+        return ToDto(report, ktv.FullName, ktv.Slug, ktv.VerificationStatus);
     }
 
-    private static ReportDto ToDto(ProfileReport r, string fullName, string verificationStatus) =>
-        new(r.Id, r.KtvId, fullName, verificationStatus, r.Reason, r.Detail, r.Status,
+    private static ReportDto ToDto(
+        ProfileReport r, string fullName, string slug, string verificationStatus) =>
+        new(r.Id, r.KtvId, fullName, slug, verificationStatus, r.Reason, r.Detail, r.Status,
             r.ReporterUserId, r.ReviewedBy, r.ReviewedAt, r.ResolutionNote, r.CreatedAt);
 
     private static string? Truncate(string? value, int max) =>

@@ -34,10 +34,16 @@ public class CreateReportDtoValidator : AbstractValidator<CreateReportDto>
 /// </param>
 public record ReportCreatedDto(Guid Id, DateTimeOffset CreatedAt, bool Deduplicated);
 
+/// <param name="KtvSlug">
+/// Đi cùng <paramref name="KtvId"/> vì URL hồ sơ công khai là <c>/ktv/{slug}-{id}</c>
+/// — cần cả hai. Admin xử lý hàng đợi này gần như luôn phải mở hồ sơ ra xem trước khi
+/// quyết định, nên thiếu nó là bắt frontend gọi thêm một lượt cho mỗi dòng.
+/// </param>
 public record ReportDto(
     Guid Id,
     Guid KtvId,
     string KtvFullName,
+    string KtvSlug,
     string KtvVerificationStatus,
     string Reason,
     string? Detail,
