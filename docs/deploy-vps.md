@@ -121,13 +121,17 @@ thứ từ TLS đến R2 custom domain đều chờ nó.
    ```bash
    dig NS masgo.vn +short     # phải trả nameserver của Cloudflare
    ```
-4. Trong Cloudflare → **DNS** → thêm ba bản ghi, tất cả trỏ về IP VPS:
+4. Trong Cloudflare → **DNS** → thêm bốn bản ghi, tất cả trỏ về IP VPS:
 
-   | Type | Name  | Content    | Proxy status          |
-   |------|-------|------------|-----------------------|
-   | A    | `@`   | `<IP-VPS>` | **DNS only** (xám)    |
-   | A    | `api` | `<IP-VPS>` | **DNS only** (xám)    |
-   | A    | `www` | `<IP-VPS>` | **DNS only** (xám)    |
+   | Type | Name     | Content    | Proxy status          |
+   |------|----------|------------|-----------------------|
+   | A    | `@`      | `<IP-VPS>` | **DNS only** (xám)    |
+   | A    | `api`    | `<IP-VPS>` | **DNS only** (xám)    |
+   | A    | `www`    | `<IP-VPS>` | **DNS only** (xám)    |
+   | A    | `status` | `<IP-VPS>` | **DNS only** (xám)    |
+
+   `status` là dashboard giám sát hạ tầng (Beszel, mục 12) — dựng cùng lúc với ba bản ghi
+   kia cho đỡ phải quay lại Cloudflare lần hai, dù container của nó tới mục 12 mới chạy.
 
 ### Proxy hay DNS-only — quyết định quan trọng
 
@@ -399,6 +403,40 @@ docker image prune -f
 - **Chạy `docker compose down` sẽ xoá mạng và Docker cấp subnet mới khi tạo lại** — nếu
   không ghim `ipam` thì `ForwardedHeaders` tự hỏng sau lần restart đó. File compose đã
   ghim sẵn; đừng gỡ.
+
+## 12. Giám sát hạ tầng (Beszel)
+
+Dashboard CPU/RAM/disk/uptime của VPS và từng container, ở `https://status.masgo.vn`. Auth
+**riêng** với app — tài khoản tạo trong chính Beszel, không liên quan role ADMIN.
+
+```bash
+cd ~/masgo
+C="docker compose -f docker-compose.prod.yml --env-file .env.production"
+
+# 1. Chỉ dựng hub trước. Agent cần TOKEN chưa tồn tại nên đừng bật cùng lúc.
+$C up -d beszel
+$C logs -f caddy       # chờ Caddy xin xong chứng chỉ cho status.masgo.vn
+```
+
+2. Mở `https://status.masgo.vn`, tạo tài khoản admin đầu tiên của Beszel.
+3. Trong giao diện: **Add System** → chọn kiểu kết nối **Universal agent** (agent tự nối
+   ra hub qua websocket, không phải hub SSH vào agent — xem ghi chú trong
+   `docker-compose.prod.yml` về lý do tránh `network_mode: host`) → copy token hiển thị.
+4. Dán token vào `.env.production`:
+   ```bash
+   nano .env.production   # BESZEL_AGENT_TOKEN=<token vừa copy>
+   ```
+5. Khởi động agent:
+   ```bash
+   $C up -d beszel-agent
+   ```
+6. Trong giao diện Beszel, system vừa thêm phải chuyển từ "pending" sang "up" trong vài
+   giây. Thấy CPU/RAM/disk của VPS và danh sách container (postgres/redis/api/web/caddy)
+   kèm trạng thái từng cái.
+
+**Không cần mở port nào ở firewall cho việc này** — agent chỉ nói chuyện với hub qua
+network `internal`, và hub ra ngoài qua Caddy như mọi site khác. `ufw status` không cần
+đổi gì.
 
 ---
 

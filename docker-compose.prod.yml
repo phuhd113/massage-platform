@@ -244,6 +244,46 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
 
+  # Giám sát hạ tầng (CPU/RAM/disk/uptime container) — xem qua https://status.{$DOMAIN},
+  # bảo vệ bằng tài khoản Beszel riêng (KHÔNG dùng chung với ADMIN của app). Hub và agent
+  # nói chuyện qua SSH trong network nội bộ; hub không cần biết gì về Postgres/Redis.
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: masgo_beszel
+    restart: unless-stopped
+    volumes:
+      - beszel_data:/beszel_data
+    networks:
+      - internal
+
+  # Agent đọc số liệu CPU/RAM/disk của chính VPS (qua socket Docker, read-only) và của
+  # từng container, rồi tự mở kết nối RA hub qua websocket ("universal agent" — biến
+  # HUB_URL + TOKEN). Cố ý chọn chiều này thay vì hub SSH vào agent: chiều ngược lại đòi
+  # agent LISTEN trên một port, và cách duy nhất để agent thấy được số liệu của host thật
+  # (không phải số liệu bó hẹp trong container) là `network_mode: host` — cái đó bind
+  # thẳng lên MỌI interface kể cả IP công khai VPS, đi vòng qua toàn bộ layer DNAT mà
+  # phần `ports:` của các service khác trong file này đang cố tránh (xem ghi chú ở khối
+  # `postgres` phía trên). Chiều agent-tự-nối-ra không mở port nào ở phía agent.
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: masgo_beszel_agent
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - beszel_agent_data:/var/lib/beszel-agent
+      # Cho agent đọc thông tin đĩa của host thật thay vì chỉ thấy layer của container.
+      - /:/host:ro
+    environment:
+      HUB_URL: http://beszel:8090
+      # Token một-lần lấy từ hub lúc "Add System" trong giao diện — xem
+      # docs/deploy-vps.md mục giám sát. Không đặt sẵn giá trị thật vì nó gắn với một hub
+      # cụ thể, sinh lại mỗi lần dựng stack mới.
+      TOKEN: ${BESZEL_AGENT_TOKEN:-}
+      FILESYSTEM: /host
+    networks:
+      - internal
+
 networks:
   internal:
     driver: bridge
@@ -268,3 +308,5 @@ volumes:
   uploads:
   caddydata:
   caddyconfig:
+  beszel_data:
+  beszel_agent_data:

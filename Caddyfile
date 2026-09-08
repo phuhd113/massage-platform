@@ -106,3 +106,15 @@ www.{$DOMAIN} {
 	# @hangfire path /hangfire*
 	# respond @hangfire 404
 }
+
+# ---------------------------------------------------------------------------
+# Giám sát hạ tầng (Beszel) — CPU/RAM/disk/uptime của VPS và từng container.
+#
+# Đăng nhập bằng tài khoản Beszel riêng (tạo lúc mở hub lần đầu), KHÔNG dùng chung với
+# ADMIN của app — hai hệ thống auth độc lập, đừng ngộ nhận vai ADMIN của app tự có quyền
+# ở đây. Không thêm bất kỳ site block nào khác kiểu này mà thiếu `import common` — thiếu
+# là mất luôn HSTS/nosniff/frame-options cho đúng trang lộ số liệu hạ tầng.
+status.{$DOMAIN} {
+	import common
+	reverse_proxy beszel:8090
+}
