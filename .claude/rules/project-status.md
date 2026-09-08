@@ -557,7 +557,7 @@ Bảy điều đừng đảo ngược:
   ai xem trên trang công khai của đúng ngành Google phạt nặng nhất khi phân loại nhầm — và hình
   phạt rơi lên cả tên miền. Avatar thì hiện ngay: nó nằm trong tầm mắt admin ở chính trang duyệt
   hồ sơ, và bắt hồ sơ mới chờ mới có mặt là chặn đúng nhóm cần được nhìn thấy nhất.
-- **Mỗi loại tài sản duyệt được phải có hàng đợi riêng** — xem mục "Ba lần cùng một lỗi" bên
+- **Mỗi loại tài sản duyệt được phải có hàng đợi riêng** — xem mục "Bốn lần cùng một lỗi" bên
   dưới. Ảnh là loại đầu tiên (`/admin/duyet-anh`): danh sách hồ sơ lọc theo trạng thái **hồ sơ**,
   nên ảnh mới của một hồ sơ đã duyệt sẽ không xuất hiện ở đâu cả.
 - **Xoá file khỏi storage phải sau khi DB commit**, nên service trả key cũ ra cho controller
@@ -702,11 +702,16 @@ lớn. Bốn điều đừng đảo ngược:
   phút gần như chắc chắn vẫn đang nói về đúng chuyện đó, và để một người tự bơm số báo cáo lên là
   làm hỏng chính thước đo mức độ nghiêm trọng ở gạch đầu dòng trên.
 
-**Ba lần cùng một lỗi: hàng đợi duyệt phải tách theo loại tài sản** (2026-09-07). Nguyên tắc:
+**Bốn lần cùng một lỗi: hàng đợi duyệt phải tách theo loại tài sản** (2026-09-08). Nguyên tắc:
 **mỗi thứ admin duyệt được phải có hàng đợi riêng lọc theo trạng thái của chính nó**, không bao
-giờ chỉ hiện lồng trong danh sách hồ sơ. Đã cắn ba lần, và cả ba đều **im lặng theo cùng một
+giờ chỉ hiện lồng trong danh sách hồ sơ. Đã cắn bốn lần, và cả bốn đều **im lặng theo cùng một
 kiểu**: người gửi nhận đúng câu "đã gửi, chờ duyệt", admin không thấy gì, và không bên nào biết
 là đang chờ vô ích.
+
+**Dạng tổng quát của lỗi này rộng hơn hàng đợi duyệt**: một endpoint không có đường vào giao diện
+thì **không tồn tại đối với người dùng**, mà không có gì báo đỏ — nó vẫn trả 200 với curl, test
+service vẫn xanh, và không test nào biết hỏi câu "có trang nào gọi tới nó không". Vì vậy khi thêm
+một endpoint admin, việc chưa xong cho tới khi có trang **và** có mục sidebar.
 
 Vì sao lồng vào danh sách hồ sơ luôn hỏng: danh sách đó lọc theo trạng thái **hồ sơ**, mà cả ba
 loại tài sản đều thêm/gửi lại được **sau khi** hồ sơ đã duyệt xong — và không lượt nào trong số
@@ -722,12 +727,40 @@ loại tài sản đều thêm/gửi lại được **sau khi** hồ sơ đã du
   là `/admin/duyet-cccd`. Đây là trường hợp nghiêm trọng nhất trong ba: gửi lại CCCD **cố ý** đưa
   trạng thái về PENDING mà không đụng tới trạng thái hồ sơ, nên lượt thay thẻ của một hồ sơ đã
   VERIFIED trước đây không xuất hiện ở bất kỳ đâu — đúng cái lỗ mà việc bắt buộc CCCD sinh ra để bịt.
+- **Báo cáo vi phạm** — lần bốn (2026-09-08), và là lần tốn kém nhất vì nó hứa với **khách** chứ
+  không phải với KTV. `GET /admin/reports` + `PATCH /admin/reports/{id}/resolve` có từ 2026-09-04
+  nhưng không trang nào gọi tới, nên toàn bộ hệ thống báo cáo chạy vào hư không: khách bấm báo cáo,
+  nhận đúng câu "đã ghi nhận", dữ liệu vào DB, và không ai đọc. Nay là `/admin/bao-cao`. Cùng đợt
+  thêm `/admin/ra-soat-danh-gia` (`GET /admin/reviews`, cùng hình dạng — endpoint có từ 2026-09-04,
+  chưa từng được dùng) và `/admin/doanh-thu` (`GET /admin/revenue`).
 
-Hệ quả bắt buộc nhớ: **thêm loại tài sản duyệt được thứ tư thì phải thêm cả bốn thứ cùng lúc** —
+Hệ quả bắt buộc nhớ: **thêm loại tài sản duyệt được thứ năm thì phải thêm cả bốn thứ cùng lúc** —
 endpoint hàng đợi, trang, mục trong `AdminNav`, và **đường xoá cache** (mục ngay dưới). Thiếu mục
 sidebar thì trang tồn tại nhưng không ai tìm ra, tức là quay lại đúng lần thứ ba. Cùng lý do đó,
 `tools/verify-r2.sh` cũng phải được bổ sung khi loại mới là file riêng tư (xem mục CCCD/chứng chỉ
 bên trên).
+
+Ba trang của lần thứ tư, ba điều đừng vô tình đảo ngược:
+
+- **Trang báo cáo không gỡ hồ sơ tại chỗ.** Nó chỉ đóng dòng trong hàng đợi; việc gỡ đi qua đúng
+  `PATCH /admin/ktv/{id}/verify` như cũ, nên thẻ báo cáo mang một link sang `/admin/duyet-ktv` chứ
+  không phải một nút gỡ. Nhân bản logic đổi trạng thái hồ sơ vào đây sẽ tạo ra hai đường phải giữ
+  cho khớp nhau mãi mãi — và một trong hai sẽ quên ghi lại ai quyết định.
+- **Kiểm duyệt đánh giá đi qua `/api/admin-verify`, báo cáo thì `/api/proxy`.** Khác nhau vì đánh
+  giá **tính lại `rating_avg`**, mà con số đó nằm trong `AggregateRating` của trang SEO — bản dựng
+  cũ sẽ khai điểm sai cho cả Google đọc. Chốt một báo cáo không đổi gì trên trang công khai, nên
+  xoá cache ISR ở đó là trả giá mà không đổi lại được gì (cùng lý do CCCD cố ý không đi qua).
+- **Cảnh báo "chưa gắn lượt liên hệ không có nghĩa là giả" đặt ngay cạnh bộ lọc**, không ở cuối
+  trang. Đó là chỗ dễ đọc sai nhất trên màn hình: danh sách trông hệt một danh sách đánh giá giả,
+  trong khi phần lớn đánh giá thật cũng nằm trong đó (khách bấm gọi lúc chưa đăng nhập thì lead ẩn
+  danh và không bao giờ khớp). `hasLead` chỉ đáng tin theo **chiều dương**.
+
+Hai cái bẫy EF đã cắn khi làm trang doanh thu, cả hai **nổ lúc chạy chứ không lúc biên dịch**:
+`OrderBy` trên thuộc tính của một record vừa dựng trong `Select` không dịch được (phải sắp xếp
+trên khoá nhóm, **trước** projection), và `DateTimeOffset.ToOffset` cũng không — dùng `AddHours(7)`,
+giờ Việt Nam là UTC+7 cố định nên không có DST để cộng sai. Báo cáo doanh thu cũng trả **tên** khu
+vực chứ không chỉ `areaId`: một danh sách GUID buộc người đọc tra ngược bằng SQL, tức báo cáo chỉ
+dùng được bởi người có quyền vào thẳng DB — đúng nhóm ít cần tới nó nhất.
 
 **Mọi quyết định duyệt của admin phải đi qua `/api/admin-verify`, không phải `/api/proxy`**
 (2026-09-07). Đây là **lần thứ ba** của cùng cái bẫy `revalidatePath` mà `/api/reviews` và
