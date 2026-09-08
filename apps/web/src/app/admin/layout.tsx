@@ -57,7 +57,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <main className="px-4 py-7 sm:px-8 lg:pb-16">
+      {/*
+        `min-w-0` là bắt buộc, không phải trang trí: grid item mặc định có
+        `min-width: auto`, nghĩa là nó **nở ra theo nội dung rộng nhất bên trong**
+        thay vì ép nội dung đó cuộn. Thiếu nó thì một bảng `min-w-[540px]` nằm trong
+        `overflow-x-auto` vẫn kéo cả cột chính rộng ra, và **cả trang** cuộn ngang ở
+        390px — đúng thứ mà `overflow-x-auto` sinh ra để tránh. Đã đo: trang 574px
+        trên viewport 375px, trong khi khung cuộn của bảng lại không hề cuộn.
+      */}
+      <main className="min-w-0 px-4 py-7 sm:px-8 lg:pb-16">
         <div className="mx-auto max-w-[1000px]">{children}</div>
       </main>
     </div>

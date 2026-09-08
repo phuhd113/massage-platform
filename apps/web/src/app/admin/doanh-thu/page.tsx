@@ -199,9 +199,13 @@ function DailyChart({ daily, days }: { daily: AdminRevenueDay[]; days: number })
             <div
               key={d.date}
               className="group relative flex-1 rounded-t-sm transition"
-              // Cột 0 đồng vẫn phải chiếm chỗ để trục không co lại — 2px đủ thấy là
-              // "ngày này không bán được gì" chứ không phải "ngày này không tồn tại".
-              style={{ height: `${Math.max(height, d.netRevenue === 0 ? 1.5 : 4)}%` }}
+              // Ngày 0 đồng vẫn phải **nhìn thấy được**, không chỉ tồn tại trong DOM.
+              // Bản đầu để 1.5% — đúng 1,8px trên khung 120px, tức một đường mờ không
+              // ai nhận ra là một ngày; biểu đồ đọc thành một cột trôi lơ lửng không
+              // có đường nền. 6% cho ra ~7px: đủ thành một hàng răng cưa liền mạch
+              // nói "ngày này không bán được gì", vẫn thấp hơn hẳn cột có doanh thu
+              // thật nên không đọc nhầm thành một khoản tiền nhỏ.
+              style={{ height: `${Math.max(height, d.netRevenue === 0 ? 6 : 8)}%` }}
             >
               <div
                 className={`h-full w-full rounded-t-sm ${
