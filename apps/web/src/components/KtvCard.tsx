@@ -20,7 +20,28 @@ import type { SearchItem } from '@/lib/types';
  * sơ) mới là client — nhờ vậy tên, đánh giá và khoảng cách nằm trong HTML đầu
  * tiên, tức thứ Google đọc được.
  */
-export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
+export function KtvCard({
+  ktv,
+  locale,
+  compact = false,
+}: {
+  ktv: SearchItem;
+  locale: Locale;
+  /**
+   * Bố cục cho cột hẹp cạnh bản đồ, không phải một biến thể thẩm mỹ.
+   *
+   * Mặc định thẻ là hàng ngang: avatar 132px + nội dung + hàng giá và hai nút
+   * trên cùng một dòng. Trong cột 26rem, phần nội dung chỉ còn hơn 200px nên tên
+   * KTV vỡ thành từng chữ một dòng và mọi chip xuống dòng riêng — đúng thứ
+   * comment ở nhánh một cột của `/tim-kiem` đã cảnh báo, chỉ là nhánh bản đồ vẫn
+   * làm.
+   *
+   * Cố ý KHÔNG tách thành component thứ hai (khác `MapKtvCard`, vốn tách vì lý
+   * do server/client): thẻ này vẫn là server component ở cả hai chế độ, nên hai
+   * bản sao của cùng bố cục chỉ tạo ra nghĩa vụ giữ cho chúng khớp nhau mãi mãi.
+   */
+  compact?: boolean;
+}) {
   const t = createTranslator(getDictionary(locale), locale);
   const distance = formatDistance(ktv.distanceM);
   const tier = tierFromBoost(ktv.boostPoints);
@@ -55,17 +76,24 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
         </div>
       )}
 
-      <div className="flex gap-4 p-4">
+      <div className={`flex p-4 ${compact ? 'gap-3' : 'gap-4'}`}>
         <Avatar
           name={ktv.fullName}
           href={href}
           sponsored={tier !== null}
           avatarUrl={ktv.avatarUrl}
+          compact={compact}
         />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="min-w-0 text-h3 text-ink-900">
+            {/*
+              `text-h3` ở cột hẹp là chỗ vỡ đầu tiên: tên ba chữ như "Phú Hồ Duy"
+              không lọt một dòng nên rơi xuống ba dòng, mỗi dòng một chữ. Hạ một
+              bậc cỡ chữ ở compact thay vì cho `truncate` — tên KTV là thứ khách
+              đang tìm, cắt cụt nó tệ hơn là để nó xuống hai dòng.
+            */}
+            <h3 className={`min-w-0 text-ink-900 ${compact ? 'text-h4' : 'text-h3'}`}>
               <Link
                 href={href}
                 // Vị trí trả phí phải khai báo với công cụ tìm kiếm. Bỏ qua thuộc
@@ -141,7 +169,19 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
             Hàng giá và hai nút hành động ngăn bằng một đường kẻ: phần trên là "người
             này là ai", phần dưới là "làm gì tiếp" — hai câu hỏi khác nhau.
           */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
+          {/*
+            Ở cột hẹp, hàng giá và hai nút không bao giờ đứng chung một dòng được,
+            nên `justify-between` chỉ tạo ra một khoảng trống lệch phải. Xếp dọc
+            tường minh và cho hai nút chia đôi bề ngang: cụm hành động là thứ phải
+            bấm trúng, không phải thứ nhặt nhạnh chỗ trống còn lại.
+          */}
+          <div
+            className={`mt-3 border-t border-ink-100 pt-3 ${
+              compact
+                ? 'flex flex-col gap-3'
+                : 'flex flex-wrap items-center justify-between gap-3'
+            }`}
+          >
             {ktv.services.length > 0 ? (
               <ul className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-body-s text-ink-600">
                 {ktv.services.map((s, i) => (
@@ -167,11 +207,13 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
               <span className="text-body-s text-ink-400">{t('ktvCard.noPrices')}</span>
             )}
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className={`flex shrink-0 items-center gap-2 ${compact ? 'w-full' : ''}`}>
               <Link
                 href={href}
                 rel={tier ? 'sponsored' : undefined}
-                className="rounded-full border border-ink-300 px-4 py-2 text-body-s font-semibold text-ink-700 transition hover:border-ink-400 hover:bg-ink-50"
+                className={`rounded-full border border-ink-300 px-4 py-2 text-body-s font-semibold text-ink-700 transition hover:border-ink-400 hover:bg-ink-50 ${
+                  compact ? 'flex-1 text-center' : ''
+                }`}
               >
                 {t('ktvCard.viewProfile')}
               </Link>
@@ -184,7 +226,9 @@ export function KtvCard({ ktv, locale }: { ktv: SearchItem; locale: Locale }) {
               <Link
                 href={href}
                 rel={tier ? 'sponsored' : undefined}
-                className="rounded-full bg-brand-500 px-5 py-2 text-body-s font-semibold text-white shadow-button transition hover:bg-brand-600"
+                className={`rounded-full bg-brand-500 px-5 py-2 text-body-s font-semibold text-white shadow-button transition hover:bg-brand-600 ${
+                  compact ? 'flex-1 text-center' : ''
+                }`}
               >
                 {t('ktvCard.call')}
               </Link>
@@ -218,13 +262,19 @@ function Avatar({
   href,
   sponsored,
   avatarUrl,
+  compact,
 }: {
   name: string;
   href: string;
   sponsored: boolean;
   avatarUrl: string | null;
+  compact: boolean;
 }) {
   const src = mediaUrl(avatarUrl);
+  // 132px chiếm hơn một phần ba cột cạnh bản đồ, nên phần nội dung còn lại không
+  // đủ cho một dòng tên. 88px giữ được vai trò nhận diện mà trả lại bề ngang cho
+  // thứ khách thật sự đọc.
+  const size = compact ? 88 : 132;
 
   return (
     <Link
@@ -232,18 +282,21 @@ function Avatar({
       rel={sponsored ? 'sponsored' : undefined}
       aria-hidden
       tabIndex={-1}
-      className="hidden h-[132px] w-[132px] shrink-0 select-none items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-brand-50 text-4xl font-bold text-brand-400 transition hover:border-brand-300 sm:flex"
+      style={{ width: size, height: size }}
+      className={`hidden shrink-0 select-none items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-brand-50 font-bold text-brand-400 transition hover:border-brand-300 sm:flex ${
+        compact ? 'text-3xl' : 'text-4xl'
+      }`}
     >
       {src ? (
         <Image
           src={src}
           alt=""
-          width={132}
-          height={132}
-          // Kích thước cố định trong bố cục nên khai đúng 132px: để Next tự đoán
-          // sẽ tải bản rộng theo viewport, tức vài trăm KB thừa cho mỗi thẻ trên
-          // một trang có tới 20 thẻ.
-          sizes="132px"
+          width={size}
+          height={size}
+          // Kích thước cố định trong bố cục nên khai đúng số pixel đang dùng: để
+          // Next tự đoán sẽ tải bản rộng theo viewport, tức vài trăm KB thừa cho
+          // mỗi thẻ trên một trang có tới 20 thẻ.
+          sizes={`${size}px`}
           className="h-full w-full object-cover"
           unoptimized={!isOptimizable(src)}
         />

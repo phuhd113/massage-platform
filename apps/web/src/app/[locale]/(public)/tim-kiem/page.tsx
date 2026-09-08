@@ -232,7 +232,7 @@ export default async function SearchPage({ params, searchParams }: Props) {
             {showMap ? (
               // Danh sách vẫn render ở server và vẫn nằm trong HTML đầu tiên — bản
               // đồ là lớp phủ thêm bên cạnh, không thay thế nó.
-              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_26rem]">
                 <Suspense
                   fallback={<div className="h-[420px] rounded-lg bg-ink-100 lg:h-[560px]" />}
                 >
@@ -248,7 +248,10 @@ export default async function SearchPage({ params, searchParams }: Props) {
                   {results.items.length > 0 ? (
                     <ul className="grid gap-3">
                       {results.items.map((ktv) => (
-                        <KtvCard key={ktv.id} ktv={ktv} locale={locale} />
+                        // `compact` chỉ đúng ở nhánh này: cột cạnh bản đồ hẹp hơn
+                        // hẳn bề ngang mà thẻ được thiết kế cho. Nhánh một cột bên
+                        // dưới giữ bố cục đầy đủ.
+                        <KtvCard key={ktv.id} ktv={ktv} locale={locale} compact />
                       ))}
                     </ul>
                   ) : (
