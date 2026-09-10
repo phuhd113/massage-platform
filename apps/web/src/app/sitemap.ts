@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { LEGAL_PAGES } from '@/components/LegalPage';
 import { LOCALES, localePath } from '@/i18n/config';
 import { api } from '@/lib/api';
 import { absolute } from '@/lib/site';
@@ -44,6 +45,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ),
     ...data.services.flatMap((s) =>
       perLocale(s.path, { changeFrequency: 'weekly' as const, priority: 0.5 }),
+    ),
+
+    // Ba trang pháp lý. Chúng là URL tĩnh do frontend biết sẵn, nên **không** đi qua
+    // `SitemapController` — backend khai "trang nào đáng index" dựa trên dữ liệu
+    // (ngưỡng KTV, hồ sơ đã duyệt), còn ba trang này không phụ thuộc dữ liệu nào.
+    //
+    // Ưu tiên thấp và tần suất `yearly` đúng với bản chất: chúng đổi khi nghĩa vụ
+    // đổi, không phải hằng tuần. Khai `daily` cho một văn bản gần như không đổi là
+    // dạy Googlebot bỏ qua chính tín hiệu đó ở những trang thật sự đổi hằng ngày.
+    ...LEGAL_PAGES.flatMap((p) =>
+      perLocale(p.path, { changeFrequency: 'yearly' as const, priority: 0.3 }),
     ),
   ];
 }

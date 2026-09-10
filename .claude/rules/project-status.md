@@ -302,6 +302,35 @@ Năm điều đừng vô tình đảo ngược:
 reload, **không** hiện cho tài khoản CUSTOMER, không có lỗi hydration, và khoá cuộn nền được trả
 lại sau khi đóng.
 
+**Thông báo đó cũng mở được từ màn hình đăng ký KTV** (2026-09-09, `BetaAnnouncementDialog` +
+`KtvBetaAside`). Câu chữ tách khỏi `KtvAnnouncement` thành component dùng chung; cột phải của
+`/dang-ky-ktv` nay là tóm tắt chương trình Beta + nút mở đúng hộp thoại đó. Bốn điều đừng vô tình
+đảo ngược:
+
+- **Một nguồn câu chữ, hai luật hiển thị.** Nội dung nằm ở `BetaAnnouncementDialog`, còn luật
+  "hiện một lần" ở lại `KtvAnnouncement`. Chép câu chữ sang file thứ hai là để người đọc lúc đăng
+  ký đồng ý với một bản còn bản họ thấy sau khi vào dashboard là bản khác — đây là lời hứa về
+  chính sách thu phí, và `ANNOUNCEMENT_VERSION` chỉ canh được **một** bản.
+- **Ở trang đăng ký là nút bấm, KHÔNG tự bật.** Popup tự hiện chồng lên ô nhập của người vừa tới
+  để tạo tài khoản là đặt lời chào trước việc họ tới để làm. Quan trọng hơn: cờ localStorage bị
+  đốt **ngay lúc mở**, nên tự bật ở đây sẽ tiêu mất lượt hiện duy nhất ở dashboard — KTV xem lướt
+  lúc đang điền form rồi không bao giờ được mời đọc lại. Nút bấm không đụng tới cờ đó, nên hai
+  đường độc lập.
+- **Chỉ cửa KTV đổi; `/dang-ky` và `/dang-nhap` giữ nguyên khối cũ.** Bốn key `login.asideTitleKtv`
+  / `asideKtv1..3` **giữ lại** dù không nơi nào đọc: chúng mô tả sàn không phụ thuộc thời gian,
+  còn khối Beta gắn với một chương trình có hạn — kết thúc Beta là trả khối cũ về. Cùng lý do với
+  `login.crossLink*` đang chờ bản OTP.
+- **Nạp bằng `next/dynamic`, nhưng KHÔNG `ssr: false`.** Import tĩnh gom hộp thoại vào chunk chung
+  của form, và chunk đó nạp ở cả hai cửa khách nơi nó không bao giờ render — đã đo trên bản build
+  trước khi sửa. Tách chunk cắt được điều đó (`/dang-ky` 114 kB → 112 kB). Nhưng `ssr: false` thì
+  cột phải trống ở lần vẽ đầu rồi mới hiện, một cú chớp ngay cạnh ô nhập; giữ SSR thì chữ có sẵn
+  trong HTML và chỉ riêng nút sống muộn hơn một nhịp (chunk 2 KB).
+
+Đã kiểm chứng trên bản build production (2026-09-09): khối Beta có trong HTML thô của
+`/dang-ky-ktv` và `/en/dang-ky-ktv` (chỉ tiếng Việt, cùng lý do với dashboard KTV), hai cửa khách
+không có, nội dung hộp thoại **không** nằm trong HTML ban đầu, và không chunk nào của cửa khách
+còn chứa nó.
+
 **KTV chưa tạo hồ sơ bị giữ ở `/dashboard/ho-so`** (2026-09-07, `lib/require-profile.ts`).
 Tài khoản KTV mới đăng ký **không** tự có hồ sơ — phải gọi `POST /ktv/profile` riêng, và trước đó
 mọi trang dashboard đều mở nhưng rỗng. Năm điều đừng vô tình đảo ngược:
@@ -552,11 +581,11 @@ Bảy điều đừng đảo ngược:
   đó app khởi động bình thường rồi mới hỏng ở lượt upload đầu tiên — tức hỏng trên tay KTV thật
   chứ không phải lúc deploy. Thiếu `R2:PublicBaseUrl` khi đã có key thì app **từ chối khởi
   động**: cùng lý do với `Jwt:Secret`.
-- **Ảnh gallery có trạng thái duyệt riêng, ảnh đại diện thì không.** Hồ sơ đã VERIFIED vẫn thêm
-  ảnh mới bất cứ lúc nào, nên đi theo trạng thái hồ sơ nghĩa là mở một khe đăng nội dung không
-  ai xem trên trang công khai của đúng ngành Google phạt nặng nhất khi phân loại nhầm — và hình
-  phạt rơi lên cả tên miền. Avatar thì hiện ngay: nó nằm trong tầm mắt admin ở chính trang duyệt
-  hồ sơ, và bắt hồ sơ mới chờ mới có mặt là chặn đúng nhóm cần được nhìn thấy nhất.
+- **Ảnh gallery có trạng thái duyệt riêng.** Hồ sơ đã VERIFIED vẫn thêm ảnh mới bất cứ lúc nào,
+  nên đi theo trạng thái hồ sơ nghĩa là mở một khe đăng nội dung không ai xem trên trang công
+  khai của đúng ngành Google phạt nặng nhất khi phân loại nhầm — và hình phạt rơi lên cả tên
+  miền. **Ảnh đại diện từ 2026-09-10 cũng phải qua duyệt** — xem mục riêng bên dưới; câu cũ ở
+  đây ("avatar hiện ngay") đã không còn đúng.
 - **Mỗi loại tài sản duyệt được phải có hàng đợi riêng** — xem mục "Bốn lần cùng một lỗi" bên
   dưới. Ảnh là loại đầu tiên (`/admin/duyet-anh`): danh sách hồ sơ lọc theo trạng thái **hồ sơ**,
   nên ảnh mới của một hồ sơ đã duyệt sẽ không xuất hiện ở đâu cả.
@@ -702,6 +731,109 @@ lớn. Bốn điều đừng đảo ngược:
   phút gần như chắc chắn vẫn đang nói về đúng chuyện đó, và để một người tự bơm số báo cáo lên là
   làm hỏng chính thước đo mức độ nghiêm trọng ở gạch đầu dòng trên.
 
+**Ba trang pháp lý công khai** (2026-09-10, `/an-toan`, `/dieu-khoan`, `/chinh-sach-bao-mat`
++ `lib/legal.ts` + `components/LegalPage.tsx`). Trước đợt này codebase **không có một trang
+FAQ, giới thiệu, điều khoản hay chính sách nào** — grep 0 kết quả. Sáu điều đừng vô tình đảo
+ngược:
+
+- **`/an-toan` là nơi lời hứa "đã duyệt" sống ở đúng MỘT chỗ.** Trước đây câu khẳng định về
+  việc duyệt hồ sơ nằm rải rác ở footer, badge trang chủ và meta description của ~700 trang
+  khu vực — và đã trôi khỏi `AdminService.DecideProfileAsync` mà không có gì báo đỏ, phải đi
+  sửa hàng loạt ngày 2026-09-09. Mọi câu trong phần "chúng tôi kiểm tra gì" phải kiểm được ở
+  đúng hàm đó: hiện là **hai** điều kiện (CCCD VERIFIED + cam kết đúng phiên bản). Trang có
+  mục riêng nói rõ **chứng chỉ hành nghề là tuỳ chọn** — không nói ra thì khách tự hiểu là
+  bắt buộc, và ta lại hứa thừa đúng thứ vừa phải gỡ.
+- **Khối "Điều chúng tôi không thể đảm bảo" là bắt buộc, và nằm TRONG phần nói về việc duyệt.**
+  Một trang an toàn chỉ liệt kê thứ mình làm được sẽ đọc như bảo lãnh cho từng cuộc hẹn — thứ
+  sàn không thể bảo lãnh và là chỗ tranh chấp sẽ rơi vào. Đẩy nó xuống cuối trang thì người
+  đọc kỹ nhất phần "chúng tôi kiểm tra gì" lại là người không đọc vế còn lại.
+- **`lib/legal.ts` là nguồn sự thật duy nhất cho pháp nhân, và đang còn placeholder.**
+  `LEGAL_ENTITY_INCOMPLETE` bật cảnh báo **chỉ ngoài production**: ở production thứ hiện ra
+  cho khách phải là chỗ trống trong khối pháp nhân, không phải một dòng nội bộ về tên file.
+  **Phải điền trước khi mở traffic thật** — Nghị định 13/2023 buộc nêu rõ Bên Kiểm soát dữ
+  liệu, và một trang chính sách khai sai pháp nhân tệ hơn không có vì nó là lời khai chủ động.
+  Cố ý **không** nằm trong `i18n/*.ts`: tên doanh nghiệp, MST và địa chỉ đăng ký không dịch,
+  để trong dictionary là mời một bản "cho thuận tai" vào đúng chỗ cần nguyên văn theo giấy phép.
+- **`LEGAL_PAGES` trong `LegalPage.tsx` là danh sách duy nhất**, và footer + sitemap + cụm
+  liên kết chéo đều dựng từ nó. Thêm trang pháp lý thứ tư là nó tự có mặt ở cả ba nơi. Thiếu
+  đường vào từ giao diện thì trang không tồn tại với người dùng — lỗi đã cắn **bốn lần** trong
+  dự án này (xem mục "Bốn lần cùng một lỗi"), và footer nằm trong HTML của mọi trang công khai
+  nên đó cũng là thứ làm ba trang này tồn tại với Googlebot.
+- **Ba trang khai `changeFrequency: 'yearly'`, priority 0.3.** Chúng đổi khi nghĩa vụ đổi chứ
+  không hằng tuần; khai `daily` cho một văn bản gần như không đổi là dạy Googlebot bỏ qua chính
+  tín hiệu đó ở những trang thật sự đổi hằng ngày. Chúng **không** đi qua `SitemapController`:
+  backend khai "trang nào đáng index" dựa trên dữ liệu (ngưỡng KTV, hồ sơ đã duyệt), còn ba
+  trang này không phụ thuộc dữ liệu nào.
+- **`LEGAL_EFFECTIVE_DATE` phải tăng khi nghĩa vụ đổi**, cùng nguyên tắc với
+  `KtvCommitments.CurrentVersion`; sửa lỗi chính tả thì giữ nguyên. Khác ở chỗ bản cam kết KTV
+  cần bằng chứng phía server (ai đồng ý bản nào, lúc nào) còn ba trang này chỉ công bố — một
+  ngày hiệu lực là đủ, không cần cột DB.
+
+Bốn dòng "bị cấm tuyệt đối" ở `/an-toan` là bản rút gọn cho khách của `KtvCommitments.Items`
+ở backend. **Sửa bản cam kết thì đọc lại cả bốn dòng đó** — đây đúng dạng lỗi "câu chữ UI trôi
+khỏi luật backend mà không có gì báo đỏ", vì không test nào đọc câu chữ. Cùng lý do, mục 8 của
+chính sách bảo mật kê **đúng ba chỗ** dùng browser storage đang có (`lib/saved-area.ts`,
+`lib/ktv-announcement.ts`, cờ popup lọc trong `sessionStorage`); thêm chỗ thứ tư mà quên sửa
+mục này thì chính sách kê thiếu, tức kê sai.
+
+`/an-toan` cố ý **không** dùng `sm:text-display` cho `h1` như trang khu vực và trang hồ sơ: cỡ
+display (3rem, weight 800) là cỡ tiêu đề bán hàng, ở đầu một văn bản pháp lý dài nó đọc như
+khẩu hiệu và nuốt mất tương phản với các `h2` đánh số bên dưới — thứ duy nhất giúp quét nhanh
+trang này.
+
+**Giới hạn độ dài dòng đặt ở từng khối chữ, KHÔNG ở `<article>`.** Bản đầu bó cả article vào
+`max-w-prose` và lưới thẻ bị ép theo: hai cột "Lời khuyên an toàn" tụt xuống ~31 ký tự mỗi cột,
+tiêu đề ngắt giữa cụm ("Nói không với mọi đề / nghị ngoài phạm vi"), nửa phải màn hình bỏ trống.
+Nay `<article>` là `max-w-3xl`, còn `LegalSection` nhận cờ `wide` cho những mục có lưới thẻ —
+đoạn văn thuần bên trong mục `wide` tự giữ `max-w-prose` của riêng nó. Chỉ thấy được bằng mắt
+trên bản dev; typecheck, lint và build đều xanh với bản sai.
+
+Đã kiểm chứng trên bản build production (2026-09-10): cả sáu URL trả 200 và **prerender tĩnh**
+(`●` cho cả `/vi` lẫn `/en`, khác các trang khu vực vì chúng không phụ thuộc API); canonical +
+cụm hreflang đối xứng đủ ba thẻ ở cả hai chiều; nội dung nằm trong HTML thô; `BreadcrumbList`
+hợp lệ; sitemap có đủ 6 `<loc>`; robots.txt không chặn trang nào; footer hiện cả ba link ở `/`
+và `/en`; cụm liên kết chéo loại đúng trang hiện tại; cảnh báo placeholder **không** lọt ra
+production build trong khi chỗ trống pháp nhân vẫn hiện.
+
+Chưa làm, và cố ý: `/gioi-thieu` và `/cach-hoat-dong` (SEO informational) cùng `/cho-ktv`
+(cẩm nang KTV). Trang cuối phải lấy nội dung về gói đẩy tin và chính sách hoàn tiền **từ
+backend** chứ không viết tay vào JSX — cùng lý do với `KtvCommitments`: bản chép tay sẽ trôi
+khỏi `PackageTypes` và logic hoàn tiền thật, và bản lệch chỉ lộ ra khi có KTV khiếu nại về tiền.
+
+**Chứng chỉ hành nghề là TUỲ CHỌN** (2026-09-09). Điều kiện để hồ sơ sang VERIFIED chỉ có hai,
+và cả hai nằm ở `AdminService.DecideProfileAsync`: **CCCD đã xác minh + cam kết đúng phiên bản**.
+Chứng chỉ không phải điều kiện, `SearchService` cũng không lọc theo nó — hồ sơ 0 chứng chỉ vẫn
+duyệt được và vẫn hiển thị. Hai test canh đúng điều đó (`Duyệt_CCCD_xong_thì_duyệt_được_hồ_sơ`,
+`Đủ_CCCD_và_cam_kết_thì_duyệt_được` — cả hai duyệt thành công với 0 chứng chỉ), nên thêm ràng buộc
+chứng chỉ vào đường duyệt sẽ làm chúng đỏ. Đó là chốt chặn có chủ ý, không phải test thiếu sót.
+
+Đợt này **backend không đổi một dòng nào** — thứ sai chỉ là những gì hệ thống nói với người dùng:
+
+- **Lời hứa công khai phải kiểm được ở `DecideProfileAsync`.** Đây là dạng lỗi cùng họ với "endpoint
+  không có đường vào giao diện" ở mục ngay dưới, và cũng im lặng y hệt: câu chữ trong UI trôi khỏi
+  luật ở backend mà **không có gì báo đỏ**, vì không test nào đọc câu chữ. Đã tồn tại tới lúc phát
+  hiện: footer, meta description trang khu vực (~700 trang) và badge trang chủ đều khẳng định "**mọi**
+  hồ sơ hiển thị đều đã qua duyệt chứng chỉ hành nghề" — một lời hứa **với khách** mà sàn không giữ,
+  trong đúng cái ngành Google soi kỹ nhất. Nay mọi câu khẳng định nói về **đối chiếu danh tính**.
+- **Phân biệt "khẳng định mọi hồ sơ đều có" với "mô tả tính năng".** Không phải chuỗi nào nhắc chứng
+  chỉ cũng sai: "xem chứng chỉ trước khi gọi", "{n} chứng chỉ đã duyệt", và nhất là `areaDistrict.
+  howTo1` ("**Ưu tiên** hồ sơ có chứng chỉ đã duyệt") đều giữ nguyên — câu cuối thậm chí chỉ **có
+  nghĩa** khi chứng chỉ là tuỳ chọn. Đừng quét sạch từ khoá này khỏi trang: nó là từ khoá SEO thật.
+- **`verifiedKtvCount` đếm hồ sơ đã DUYỆT, không đếm chứng chỉ.** Con số vốn luôn đúng; chỉ có câu
+  chữ quanh nó gán nhầm cho chứng chỉ. Đừng "sửa" theo chiều ngược lại bằng cách đổi nguồn số.
+- **Bản EN khẳng định mạnh hơn bản VI ở cùng một key.** "certified therapists" là khẳng định về
+  **từng** người, trong khi vế tiếng Việt tương ứng chỉ là cụm từ khoá danh mục. Khi soát lời hứa,
+  đọc từng bản một — dịch sát nghĩa không có nghĩa là mức khẳng định bằng nhau.
+- **Dashboard KTV không có mục todo nhắc chứng chỉ**, cố ý: `TodoPanel` chỉ chứa việc "làm xong thì
+  biến mất", mà một lời khuyên tuỳ chọn thì không bao giờ xong nên sẽ nằm đó vĩnh viễn và làm nhờn
+  cả panel. Phần khuyến khích nằm ở section chứng chỉ trong `/dashboard/ho-so`, đúng ngữ cảnh.
+  Dòng cũ ở đó còn tệ hơn: nó nói "hồ sơ cần ít nhất một chứng chỉ đã duyệt để hiển thị" — sai hẳn,
+  và đọc như lý do khiến hồ sơ mãi không lên sàn.
+
+Ba section trong `/dashboard/ho-so` giữ thứ tự CCCD → cam kết → chứng chỉ, và hai cái đầu mở bằng
+"Bắt buộc." còn cái thứ ba mở bằng "Không bắt buộc." — đối xứng đó là thứ trả lời câu hỏi "tôi còn
+thiếu gì" ngay trong lúc đọc lướt.
+
 **Bốn lần cùng một lỗi: hàng đợi duyệt phải tách theo loại tài sản** (2026-09-08). Nguyên tắc:
 **mỗi thứ admin duyệt được phải có hàng đợi riêng lọc theo trạng thái của chính nó**, không bao
 giờ chỉ hiện lồng trong danh sách hồ sơ. Đã cắn bốn lần, và cả bốn đều **im lặng theo cùng một
@@ -791,6 +923,160 @@ Bốn điều đừng đảo ngược:
 
 CCCD **cố ý không** đi qua đường này: ảnh CCCD không bao giờ ra trang công khai, nên xoá bản dựng
 sẵn của một trang SEO ở đó là trả giá mà không đổi lại được gì.
+
+**Trang "Dịch vụ và giá" của KTV + công tắc nhận khách** (2026-09-10, `/dashboard/dich-vu`,
+`PUT /ktv/profile/online`, `/api/ktv-profile`). Sáu điều đừng vô tình đảo ngược:
+
+- **Bật/tắt nhận khách là endpoint RIÊNG, không phải một trường trong `PATCH /ktv/profile`.**
+  Đường sửa hồ sơ đưa hồ sơ đã duyệt về PENDING — đúng cho việc đổi tên hay đổi khu vực, nhưng
+  gộp công tắc vào đó nghĩa là **mỗi lần KTV tắt nhận khách lúc đi ngủ là một lần hồ sơ rớt khỏi
+  tìm kiếm chờ admin duyệt lại**, im lặng. Đây là thao tác dùng nhiều lần mỗi ngày, không phải một
+  lượt khai báo lại hồ sơ. `ApiOnlineToggleTests` canh đúng điều đó — bản "gọn hoá" sẽ làm nó đỏ.
+- **Công tắc cũng KHÔNG đụng `updated_at`.** Cột đó là "hồ sơ đổi nội dung lần cuối lúc nào" và
+  sitemap đọc nó làm `lastmod`. Bật/tắt trong ngày không đổi một chữ nào trên trang, nên đẩy cột
+  này lên là khai với Google rằng hàng trăm trang vừa được sửa — trong khi không trang nào đổi.
+  Có test canh riêng.
+- **Đây là lần thứ TƯ của cái bẫy `revalidatePath`**, sau `/api/reviews`, `/api/ktv-media` và
+  `/api/admin-verify`. Bảng giá và trạng thái nhận khách đều nằm trên trang hồ sơ công khai (ISR
+  600 giây), nên `ServicePricingForm` gọi `/api/proxy` là sai — và nó **đã sai từ trước đợt này**.
+  Thiệt hại ở đây quy thẳng ra tiền theo hai chiều: KTV hạ giá mà khách vẫn thấy giá cũ, hoặc KTV
+  tăng giá mà khách gọi tới theo giá đã hết hiệu lực rồi tranh cãi ngay ở cửa nhà. Đã đo trong
+  trình duyệt thật: sửa giá xong, HTML thô của **cả `/vi` lẫn `/en`** hiện giá mới ngay lập tức.
+- **`/api/ktv-profile` KHÔNG nhận `path` từ client**, khác mẫu `/api/ktv-media`. Mẫu đó để phía
+  gọi tự dựng đường dẫn, và đó chính là chỗ `ProfileMediaSection` ghim `'vi'` rồi bỏ quên bản
+  `/en`. Ở đây route tự hỏi backend hồ sơ của token này là ai rồi lặp `LOCALES`, nên không có tham
+  số nào để quên. Đổi lại là một lượt `GET` thêm — chỉ ở đường ghi, vốn hiếm hơn đường đọc rất nhiều.
+- **Section bảng giá cũ ở `/dashboard/ho-so` GIỮ NGUYÊN, và cả hai nơi render chung một
+  `ServicePricingForm`.** Chép form ra bản thứ hai là dựng hai bản sẽ trôi khỏi nhau, và bản lệch
+  chỉ lộ ra với KTV nào tình cờ dùng đúng lối vào ít được sửa hơn — ví dụ một bản còn gọi
+  `/api/proxy`, tức mất bước xoá cache ở đúng một trong hai đường.
+- **Chip trạng thái ở `/dashboard` là NÚT, không phải nhãn.** Trước đợt này nó là một `<span>`
+  tĩnh và **không có chỗ nào trong toàn bộ giao diện bật/tắt được `is_online`** — cùng họ với lỗi
+  "endpoint không có đường vào giao diện", nhưng nặng hơn vì cả endpoint cũng chưa có. `TodoPanel`
+  thì vẫn khuyên "bật đang nhận khách", tức mời KTV làm một việc không có nút nào làm được. Chỗ
+  hiển thị trạng thái và chỗ đổi trạng thái phải là một.
+
+Cố ý không cập nhật lạc quan (optimistic) ở công tắc: đây là trạng thái quyết định việc có bị gọi
+lúc đang bận hay không, nên một cái nút nhảy sang "đang tắt" rồi âm thầm bật lại khi request hỏng
+là kiểu sai tệ nhất — KTV rời màn hình với niềm tin là mình đã tắt. Nút hiện trạng thái *đã ghi
+được*, lấy từ response của backend chứ không từ thứ vừa gửi đi.
+
+**Checklist tiến độ hồ sơ** (2026-09-10, `ProfileChecklist`) thay hai khối cũ ở đầu
+`/dashboard/ho-so`: một danh sách 3 bước tĩnh chỉ hiện khi CHƯA có hồ sơ, và `StatusBanner` chỉ
+hiện khi ĐÃ có. Hai khối cùng trả lời "tôi còn thiếu gì?" ở hai nhánh loại trừ nhau thì phải tự
+giữ cho khớp nhau mãi mãi. Sáu điều đừng vô tình đảo ngược:
+
+- **Nhóm "bắt buộc" phải khớp ĐÚNG `AdminService.DecideProfileAsync`** — hiện là hai điều kiện
+  (CCCD VERIFIED + cam kết đúng phiên bản), cộng bước "có hồ sơ" vốn là tiền đề của cả hai. Thêm
+  một mục backend không kiểm là bắt KTV làm việc thừa rồi tin rằng mình đang bị chặn vì nó; bỏ một
+  điều kiện thật ra thì hồ sơ nằm chờ vô thời hạn trong khi màn hình báo "đã xong". Đây là cùng
+  một họ lỗi với "lời hứa công khai phải kiểm được ở `DecideProfileAsync`" — câu chữ UI trôi khỏi
+  luật backend mà **không có gì báo đỏ**, vì không test nào đọc câu chữ.
+- **Chứng chỉ hành nghề nằm ở nhóm khuyến nghị, KHÔNG phải nhóm bắt buộc.** Nó tuỳ chọn (xem mục
+  riêng ở trên). Đẩy lên nhóm trên là dựng lại đúng dòng sai đã gỡ ngày 2026-09-09.
+- **Bốn trạng thái, không ba**: `done` / `pending` (chờ admin) / `todo` / `problem` (bị từ chối).
+  Gộp `pending` vào `done` thì KTV gửi CCCD xong thấy "3/3" sẽ tưởng hết việc và không quay lại —
+  trong khi CCCD bị từ chối là chuyện có thật và cần họ gửi lại. Vì vậy bộ đếm chỉ tính `done`.
+- **Nhóm khuyến nghị hiện ĐỦ 5 mục kể cả khi chưa có hồ sơ**, dù lúc đó chưa làm được mục nào.
+  Bản đầu gộp chúng thành một dòng "sẽ xuất hiện sau khi tạo hồ sơ" — và dòng đó thậm chí không
+  nhắc tới chứng chỉ, nên KTV mới **không thấy bước chứng chỉ tồn tại**. Checklist tồn tại để cho
+  biết con đường phía trước; giấu nó với đúng người đang cân nhắc có nên bắt đầu hay không là bỏ
+  đi phần lớn giá trị của nó. Khi chưa có hồ sơ, các mục chỉ mất `href` (xem gạch dưới), không
+  mất chỗ đứng.
+- **Ảnh gallery là mục RIÊNG, tách khỏi ảnh đại diện.** Hai thứ khác nhau ở điểm quan trọng nhất:
+  avatar hiển thị ngay, ảnh gallery phải qua duyệt. Gộp một dòng thì KTV tải ảnh phòng lên, không
+  thấy nó đâu trên trang công khai, và tưởng là hỏng.
+- **Neo `href` chỉ gắn khi section đích thật sự tồn tại.** Các section CCCD/cam kết/ảnh/chứng chỉ
+  nằm trong nhánh `{profile && ...}` của trang, nên khi chưa có hồ sơ thì `#cccd` là một link
+  không đi tới đâu cả — đã bắt được trong lúc kiểm bằng mắt, không phải suy luận. Cùng lý do, link
+  không hiện cạnh mục đã xong: mời người ta bấm vào chỗ không còn gì để làm.
+- **`serviceCount` truyền qua prop, không gọi API lần hai.** Trang đã lấy danh sách đó cho
+  `ServicePricingForm` bên dưới.
+- **Dùng token `warning`, KHÔNG dùng `champagne-500` cho trạng thái chờ.** Champagne cố ý chỉ dành
+  cho vị trí trả phí (thẻ VIP, huy hiệu boost) — xem comment trong `tailwind.config.ts`; mượn nó
+  cho một trạng thái quy trình là làm nhoè đúng tín hiệu KTV trả tiền để có.
+
+**Một dòng "hồ sơ đã hiển thị trên website hay chưa"** đứng đầu checklist (`LiveStatus`). Điều kiện
+là **đúng một thứ**: `verification_status = 'VERIFIED'` — mệnh đề duy nhất mà cả `SearchService` lẫn
+đường đọc hồ sơ công khai lọc theo. `is_online` **không** tham gia: nó chỉ là bộ lọc tuỳ chọn của
+khách. Thêm bất kỳ điều kiện nào khác vào dòng này (có ảnh, có dịch vụ, có chứng chỉ) là nói với KTV
+rằng họ chưa lên sàn trong khi khách đang thấy họ. Tách khỏi `StatusLine` dù cùng đọc một trường:
+dòng này trả lời "tôi có đang được nhìn thấy không", dòng kia trả lời "tôi còn phải làm gì" — người
+vào kiểm tra nhanh chỉ cần vế đầu và phải đọc được trong một nhịp.
+
+**Ảnh đại diện phải qua duyệt** (2026-09-10, `pending_avatar_key` + `/admin/duyet-anh-dai-dien`).
+Đảo lại quyết định cũ "avatar hiện ngay". Lý do cũ có hai vế và **một vế đã sai từ lâu**: "avatar
+nằm trong tầm mắt admin ở chính trang duyệt hồ sơ" chỉ đúng với hồ sơ mới — hồ sơ **đã VERIFIED**
+đổi avatar bất cứ lúc nào và không lượt nào lọt vào mắt ai, tức đúng cái lỗ mà việc duyệt ảnh
+gallery đã bịt từ đầu, chỉ khác là nó nằm ở tấm ảnh lớn nhất trên trang công khai. Bảy điều đừng
+vô tình đảo ngược:
+
+- **HAI cột, không phải một cột kèm cờ trạng thái.** `avatar_key` giữ ảnh **đang hiển thị** (bất
+  biến: chỉ chứa ảnh đã duyệt), `pending_avatar_key` giữ ảnh chờ. Một cột thì hồ sơ đã duyệt đổi
+  ảnh là mất hiển thị vài giờ, và KTV sẽ học được rằng đừng bao giờ đổi ảnh — tức tính năng tự vô
+  hiệu hoá chính nó. Bị từ chối cũng không mất gì: ảnh cũ vẫn ở đó.
+- **Mọi đường ghi của KTV vào `pending_avatar_key`.** Ghi thẳng vào `avatar_key` từ đường KTV là
+  mở lại đúng lỗ hổng vừa bịt. `ApiAvatarModerationTests` canh chính điều đó.
+- **Duyệt hồ sơ thì duyệt kèm avatar đang chờ** (`DecideProfileAsync`, chỉ chiều sang VERIFIED).
+  Đây là vế **đúng** của quyết định cũ được giữ lại: admin vừa xem CCCD và toàn bộ hồ sơ, avatar
+  nằm ngay trước mắt — bắt nó đi vòng qua hàng đợi riêng nghĩa là hồ sơ vừa duyệt xong lên sàn mà
+  không có ảnh. **Từ chối hồ sơ không đụng tới avatar**: hai quyết định độc lập.
+- **`avatar_verify_status` NULL nghĩa là "không có ảnh nào đang chờ"**, không phải PENDING. Mặc
+  định PENDING sẽ đưa mọi hồ sơ chưa từng tải ảnh vào hàng đợi admin vĩnh viễn — không có gì để
+  duyệt và không cách nào dọn. CHECK `chk_ktv_pending_avatar_pair` chặn ca ngược lại (PENDING mà
+  không có ảnh), thứ lọt vào hàng đợi thành một ô trống.
+- **Gỡ ảnh xoá CẢ HAI cột.** Chỉ xoá bản đang hiển thị sẽ để một ảnh chờ sống sót rồi tự lên sàn
+  khi admin duyệt — ảnh KTV đã chủ động gỡ lại xuất hiện, muộn vài giờ, không ai hiểu vì sao.
+- **Hàng đợi riêng, tách khỏi `/admin/duyet-anh`** (ảnh gallery), và thẻ hiện **cả hai ảnh** cạnh
+  nhau: quyết định ở đây là "có nên thay tấm bên phải bằng tấm bên trái không", nhìn riêng tấm mới
+  là thiếu đúng vế so sánh. Kèm mục sidebar — thiếu là quay lại đúng lỗi "endpoint không có đường
+  vào giao diện" đã cắn bốn lần.
+- **Đường GỬI avatar không xoá cache ISR, đường GỠ thì có.** Gửi không đổi một pixel nào trên trang
+  công khai (ảnh cũ vẫn hiển thị) nên xoá cache ở đó là dựng lại một trang SEO mà không đổi lại
+  được gì; gỡ thì ảnh biến mất thật. Cache được xoá đúng chỗ nó cần: lúc admin duyệt, qua
+  `/api/admin-verify`.
+
+Cùng đợt **sửa một bug đã ghi trong tài liệu mà chưa ai sửa**: `/api/ktv-media` nhận nguyên đường
+dẫn từ client, và `ProfileMediaSection` ghim `'vi'` — nên bản `/en` không bao giờ được xoá cache.
+Nay route tự lặp `LOCALES` (dùng `stripLocale`), client chỉ nói **có cần xoá hay không**.
+
+**Nút đặt lịch ở cột phải bỏ tên KTV** (2026-09-10, `contact.callName`). Trước đó là "Đặt lịch với
+{name}" / "Book {name}", nay là "Đặt lịch" / "Book now". Ba điều đừng vô tình đảo ngược:
+
+- **Khách đang đứng trên trang hồ sơ của đúng người đó** — tên đã ở tiêu đề ngay phía trên, nhắc
+  lại trong nút chỉ đẩy chữ xuống hai dòng ở khối cột phải hẹp và làm hai nút cạnh nhau lệch hẳn
+  chiều rộng.
+- **Nút Zalo GIỮ NGUYÊN.** Đây chỉ là đổi câu chữ; cả hai nút vẫn đứng cạnh nhau ở cột phải lẫn
+  thanh dính đáy mobile.
+- **Thanh đáy mobile vẫn là "Đặt lịch ngay"** (`contact.callNow`), cố ý khác nhãn cột phải: ở đó nút
+  tách khỏi mọi ngữ cảnh khác nên một từ thúc giục còn chỗ đứng.
+
+`firstName` vẫn được tính và vẫn dùng — nhưng chỉ cho `contact.phoneRevealed` ("Số điện thoại của
+Mai"), đúng chỗ tên thật sự cần vì lúc đó khách sắp lưu số vào danh bạ.
+
+**Token của tài khoản đã bị xoá nay trả 401, không phải 500** (2026-09-10, `OnTokenValidated` trong
+`Program.cs`). Phát hiện từ một lỗi thật: trang duyệt ảnh báo "Đã có lỗi xảy ra, vui lòng thử lại"
+và log server chỉ có `ktv_photos_verified_by_fkey`. Nguyên nhân: JWT **không thu hồi được** — chữ ký
+vẫn hợp lệ và còn hạn sau khi tài khoản biến mất, nên mọi request đi tiếp bình thường rồi vỡ ở tận
+khoá ngoại `verified_by` dưới DB. Ba điều đáng nhớ:
+
+- **Ràng buộc DB đã làm đúng việc của nó** — không hàng nào ghi sai. Thứ hỏng chỉ là *cách báo lỗi*:
+  một 500 kèm câu chung chung không nói được gì cho người thao tác, trong khi việc họ cần làm là
+  đăng nhập lại. Đây là kịch bản production thật: admin bị thu hồi quyền hoặc tài khoản bị xoá.
+- **Dùng `TryGetUserId()`, KHÔNG `GetUserId()`** trong handler này: bản kia ném lỗi khi claim hỏng,
+  và một exception ở đây thành 500 — đúng thứ đoạn code đó sinh ra để loại bỏ.
+- Cái giá là **một truy vấn theo khoá chính mỗi request đã xác thực**. Đường công khai
+  (`AllowAnonymous`) không đi qua handler này nên các trang SEO không chịu chi phí đó.
+
+Backfill: 2 avatar đang có được coi là **đã duyệt** — chúng đã hiển thị công khai từ trước và admin
+đã nhìn thấy chúng ở trang duyệt hồ sơ. Đẩy ngược vào hàng chờ là phạt người dùng cũ vì một thay
+đổi nội bộ họ không gây ra.
+
+Đã kiểm chứng trong trình duyệt thật (2026-09-10) đủ năm trạng thái của nhóm bắt buộc: chưa có hồ
+sơ (0/3), vừa tạo hồ sơ (1/3), CCCD chờ duyệt + đã cam kết (**2/3**, không phải 3/3), CCCD bị từ
+chối (hiện đúng lý do admin nhập), và đã duyệt (3/3, giữ nguyên URL công khai + cảnh báo "sửa sẽ
+phải duyệt lại" của `StatusBanner` cũ). Nhóm khuyến nghị kiểm ca hỗn hợp: 1 ảnh gallery đã duyệt
++ 1 chờ duyệt, 2 khu vực, chứng chỉ ở cả ba trạng thái. Neo nhảy đúng section, không lỗi console.
 
 Phần Phase 3 còn lại: job delayed `promotion:expire` và Redis read-path — cả hai chỉ trở nên bắt
 buộc khi đường đọc chuyển sang Redis, mà số đo hiện tại (`/search` 28,6ms ở 5.000 hồ sơ) chưa đòi
