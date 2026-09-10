@@ -224,6 +224,26 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+// Giá minh bạch — nhãn giá có lỗ treo
+export function PriceTagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11.5 3.5H20v8.5l-8.6 8.6a2 2 0 0 1-2.8 0l-5.7-5.7a2 2 0 0 1 0-2.8l8.6-8.6z" />
+      <circle cx="16.3" cy="7.7" r="1.4" />
+    </Icon>
+  );
+}
+
+// Chủ động lựa chọn — con trỏ chạm vào một trong nhiều lựa chọn
+export function ChoiceIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 5.5h6M4 10h6M4 14.5h4" />
+      <path d="M13.5 6.5 20.5 13l-3 .9-.9 3-3.1-10.4z" />
+    </Icon>
+  );
+}
+
 /**
  * Dấu nhận diện của sàn.
  *
@@ -233,6 +253,13 @@ export function CheckIcon(props: IconProps) {
  * Khác mọi icon còn lại, đây **không** theo `currentColor`: nền xanh và nét trắng
  * là màu cố định của thương hiệu. Đặt nó lên nền xanh khác sẽ mất tương phản, nên
  * để nguyên khung bo tròn thay vì bỏ nền đi.
+ *
+ * **Hiện KHÔNG route nào render nó**: toàn bộ dashboard, admin và ba màn đăng nhập đã
+ * chuyển sang logo ảnh thật (`SiteLogoMark`) để cả sàn chỉ có một dấu nhận diện. Giữ
+ * lại vì nó là bản vector duy nhất của logo — dùng được ở nơi cần nét theo màu chữ
+ * hoặc nơi không tải được ảnh, và vẽ lại từ đầu tốn hơn nhiều so với để nó nằm đây.
+ * Favicon không dùng hàm này (đã là `app/icon.png` riêng), nên xoá nó không làm hỏng
+ * tab trình duyệt — nhưng cũng không thu lại được gì.
  */
 export function LogoMark({ className, title }: { className?: string; title?: string }) {
   return (

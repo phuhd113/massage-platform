@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type Locale } from '@/i18n/config';
+import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { serviceName } from '@/lib/service-i18n';
@@ -115,7 +115,7 @@ export function SearchFilters({
   const areaBoxLabel = hasCoords && nearbyLabel ? nearbyLabel : areaLabel;
 
   function apply(next: URLSearchParams) {
-    startTransition(() => router.push(`/tim-kiem?${next.toString()}`));
+    startTransition(() => router.push(localePath(locale, `/tim-kiem?${next.toString()}`)));
   }
 
   function setParam(key: string, value: string) {

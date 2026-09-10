@@ -89,11 +89,13 @@ export function ContactButtons({
     }
   }
 
-  // Chỉ tên riêng (từ cuối), không phải cả họ tên: "Gọi Trần Thị Hường" tràn hai
-  // dòng trong khối liên hệ hẹp ở cột phải, và nút cao gấp đôi các nút khác.
-  // Người Việt cũng gọi nhau bằng tên chứ không bằng họ.
+  // Chỉ tên riêng (từ cuối), không phải cả họ tên: "Số điện thoại của Trần Thị Hường"
+  // tràn hai dòng trong khối liên hệ hẹp ở cột phải. Người Việt cũng gọi nhau bằng tên
+  // chứ không bằng họ. Nút đặt lịch **không** còn dùng tên (bỏ 2026-09-10, xem i18n),
+  // nhưng dòng số điện thoại đã lộ thì vẫn — đó là chỗ tên thật sự cần thiết, vì lúc
+  // đó khách sắp lưu số vào danh bạ.
   const firstName = ktvName.trim().split(/\s+/).at(-1) ?? ktvName;
-  const callLabel = t('contact.callName', { name: firstName });
+  const callLabel = t('contact.callName');
 
   return (
     <>

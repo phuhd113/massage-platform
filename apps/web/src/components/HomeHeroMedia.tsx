@@ -2,14 +2,12 @@ import Image from 'next/image';
 
 import heroImage from '../../public/hero-massage-tan-noi.jpg';
 
-import { INTL_LOCALE, type Locale } from '@/i18n/config';
-import { formatVnd } from '@/lib/site';
+import { CertifiedIcon } from '@/components/icons';
 
 import type { Translator } from '@/i18n/t';
-import type { SiteStats } from '@/lib/types';
 
 /**
- * Cột phải của hero: ô ảnh lớn + ba con số.
+ * Cột phải của hero: ảnh lớn + một thẻ minh hoạ giao diện nổi lên trên.
  *
  * Ảnh là **file tĩnh trong `public/`**, không phải ảnh từ R2 như avatar/gallery KTV:
  * đây là ảnh biên tập của sàn, không do ai tải lên và không đổi theo dữ liệu, nên cho
@@ -19,30 +17,23 @@ import type { SiteStats } from '@/lib/types';
  *
  * `priority` vì đây là **LCP element** của trang chủ — khối lớn nhất trên màn hình đầu
  * tiên của trang có nhiều traffic nhất. Không có nó, Next lazy-load và ảnh chỉ bắt đầu
- * tải sau khi hydrate xong, đẩy LCP thêm cả trăm ms ở chính chỉ số xếp hạng.
+ * tải sau khi hydrate xong, đẩy LCP thêm cả trăm ms ở chính chỉ số xếp hạng. Đây vẫn
+ * phải là ảnh **duy nhất** trên trang mang cờ này.
  *
- * Khối giữ chiều cao cố định 300px và ảnh `object-cover`: hero đổi chiều cao sau khi
- * ảnh tải là điểm trừ CLS, cũng ở đúng trang đó.
+ * Khối giữ chiều cao cố định ở mỗi breakpoint và ảnh `object-cover`: hero đổi chiều
+ * cao sau khi ảnh tải là điểm trừ CLS, cũng ở đúng trang đó.
  *
- * Nhận `locale` + `t` chứ không nhận từng chuỗi qua prop: khối này có bốn chỗ hiển thị
- * chữ (alt + ba nhãn) và ba chỗ định dạng số. Truyền lẻ từng cái là bốn cơ hội để một
- * cái bị quên — và chuỗi tiếng Việt lọt sang trang EN là loại lỗi không lộ ra khi nhìn
- * bằng mắt, vì trang vẫn render bình thường.
+ * **Ba con số cũ đã bỏ** (`<dl>` KTV đã duyệt / điểm trung bình / 0 ₫ phí đặt lịch).
+ * Hai lý do: (a) ô "0 ₫ phí đặt lịch" nói tới một tính năng sàn KHÔNG có — không có
+ * lịch để đặt thì cũng không có phí đặt lịch để miễn, và cả đợt này sinh ra để dọn
+ * đúng lời khai đó; (b) hai con số còn lại không mất, `verifiedKtvCount` vẫn ở huy
+ * hiệu ngay trên H1 và cả hai chuyển xuống `HomeSloganBand` — nơi chúng đứng cạnh
+ * đúng lời hứa mà chúng chứng minh, nên đọc mạnh hơn hẳn khi đứng rời.
  */
-export function HomeHeroMedia({
-  stats,
-  locale,
-  t,
-}: {
-  stats: SiteStats;
-  locale: Locale;
-  t: Translator;
-}) {
-  const cards = buildHomeStats(stats, locale, t);
-
+export function HomeHeroMedia({ t }: { t: Translator }) {
   return (
-    <div className="grid gap-3">
-      <div className="relative h-[300px] overflow-hidden rounded-2xl border border-ink-200 bg-brand-50">
+    <div className="relative">
+      <div className="relative h-[260px] overflow-hidden rounded-2xl border border-ink-200 bg-brand-50 sm:h-[360px]">
         <Image
           src={heroImage}
           alt={t('home.heroImageAlt')}
@@ -54,69 +45,88 @@ export function HomeHeroMedia({
           priority
           className="object-cover"
         />
+
+        {/* Lớp phủ tối dần từ dưới lên: thẻ trắng đặt trên một tấm ảnh sáng ở chỗ
+            nào cũng có thể mất viền. Chỉ có ở breakpoint hiện thẻ. */}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 hidden h-2/3 bg-gradient-to-t from-ink-900/45 to-transparent sm:block"
+        />
       </div>
 
-      {cards.length > 0 && (
-        <dl className="grid gap-3" style={{ gridTemplateColumns: `repeat(${cards.length}, 1fr)` }}>
-          {cards.map((c) => (
-            <div key={c.label} className="rounded-xl border border-ink-200 bg-white p-3.5">
-              <dd className="tabular font-mono text-[22px] font-medium leading-7 text-ink-900">
-                {c.value}
-              </dd>
-              <dt className="mt-0.5 text-caption leading-[18px] text-ink-600">{c.label}</dt>
-            </div>
-          ))}
-        </dl>
-      )}
+      <HeroProfileCardMock t={t} />
     </div>
   );
 }
 
 /**
- * Ba con số dưới ảnh hero.
+ * Thẻ minh hoạ hình dạng của một hồ sơ KTV.
  *
- * Cùng nguyên tắc với `buildStatCards` của trang khu vực: ô nào chưa có dữ liệu
- * thật thì bỏ hẳn chứ không hiện "—" hay số 0. Riêng ở đây lý do mạnh hơn — đây là
- * lời khai về quy mô của sàn đặt ngay dưới H1, nên "0 KTV" hoặc một ô gạch ngang
- * không chỉ thừa mà còn phản tác dụng với đúng thứ hero đang cố chứng minh.
+ * **Cố ý KHÔNG mang tên người, con số hay link.** Bản thiết kế vẽ thẻ này với một cái
+ * tên cụ thể và "4,9 · 128 đánh giá", nhưng dựng lại đúng như vậy là đặt một hồ sơ bịa
+ * ngay dưới H1 của chính trang đang khoe "hồ sơ xác thực" — người đọc không có cách
+ * nào biết đó là minh hoạ, nên nó đọc ra là một lời khai về một KTV có thật. Cùng loại
+ * lỗi với việc backfill `commitment_version` cho hồ sơ cũ: dựng bằng chứng giả cho
+ * chính mình, và ở đây nó rơi vào đúng thứ sàn đang bán.
  *
- * Ô "0 ₫ phí đặt lịch" thì luôn hiện: nó là chính sách, không phải số đo, nên
- * không phụ thuộc vào việc sàn đã có bao nhiêu hồ sơ.
+ * Thay vào đó thẻ chỉ giữ **hình dạng**: ô ảnh đại diện, chip "Đã xác thực", các thanh
+ * giữ chỗ cho tên và chip dịch vụ. Nó nói "đây là thứ bạn sẽ thấy" chứ không nói "đây
+ * là người này". Phần mang thông tin thật là dòng chú thích bên dưới — chữ dịch được,
+ * nói rõ một hồ sơ chứa những gì.
  *
- * **Cả nhãn lẫn con số đều theo locale**, và vế con số là chỗ dễ bỏ sót hơn: bản cũ
- * ghim `toLocaleString('vi-VN')` và `.replace('.', ',')` cho điểm trung bình, nên
- * trang EN hiện "4,6" — đọc thành bốn nghìn sáu chứ không phải bốn phẩy sáu. Đúng
- * cùng bài học với `{min}`/`{max}` của `use-form-validation`: một con số sai quy ước
- * dấu phân cách vẫn trông như một con số hợp lệ, nên không ai báo lỗi.
+ * Muốn thẻ mang dữ liệu thật thì đường đúng là gọi `/search`, và khi đó phải xử lý
+ * việc kết quả đầu gần như luôn là hồ sơ **đang trả phí** (`/search` xếp theo
+ * `boost_points` trước): hoặc lọc bỏ chúng, hoặc thêm băng khai báo + `rel="sponsored"`
+ * như `KtvCard`. Đừng chỉ thay chỗ này bằng `items[0]`.
+ *
+ * Thanh giữ chỗ cố ý **không** `animate-pulse`: đó là ngôn ngữ của skeleton loading, và
+ * một khối "đang tải" vĩnh viễn trên trang chủ đọc như trang hỏng.
+ *
+ * `hidden sm:block` — ẩn hẳn ở mobile. Ở 360px khối này chỉ đẩy ô tìm kiếm (thứ khách
+ * mobile thật sự cần) xuống dưới màn hình đầu, mà nó không mang thông tin nào không có
+ * ở chỗ khác. `display:none` cũng nghĩa là nó không tốn gì cho LCP mobile.
+ *
+ * `absolute` trong `relative` → đóng góp layout bằng 0, tức không thêm CLS. Đó là lý do
+ * thẻ chồng lên ảnh thay vì xếp dưới: xếp dưới thì cột phải cao thêm ~120px và nút tìm
+ * kiếm rơi khỏi màn hình đầu ở laptop 768px.
  */
-function buildHomeStats(
-  stats: SiteStats,
-  locale: Locale,
-  t: Translator,
-): { label: string; value: string }[] {
-  const cards: { label: string; value: string }[] = [];
-  const intl = INTL_LOCALE[locale];
+function HeroProfileCardMock({ t }: { t: Translator }) {
+  return (
+    <div
+      // Cả khối là một hình minh hoạ: trình đọc màn hình nhận đúng một mô tả gọn thay
+      // vì lê thê qua từng thanh giữ chỗ vô nghĩa.
+      role="img"
+      aria-label={t('home.heroCardAria')}
+      // Không bấm được, nên không ai bấm hụt vào một thẻ không dẫn đi đâu.
+      className="pointer-events-none absolute inset-x-4 bottom-4 hidden sm:block"
+    >
+      <div className="max-w-[19rem] rounded-xl border border-ink-200 bg-white/95 p-3.5 shadow-card backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <span className="h-12 w-12 shrink-0 rounded-lg border border-ink-200 bg-brand-100" />
 
-  if (stats.verifiedKtvCount > 0) {
-    cards.push({
-      label: t('home.heroStatVerified'),
-      value: stats.verifiedKtvCount.toLocaleString(intl),
-    });
-  }
+          <div className="min-w-0 flex-1">
+            {/* Chip xác thực dùng token `success-*` như huy hiệu trên H1 — KHÔNG dùng
+                `champagne-*`, thứ chỉ dành cho vị trí trả phí. */}
+            <span className="inline-flex items-center gap-1 rounded-full border border-success-bd bg-success-bg px-2 py-0.5 text-caption font-semibold text-success-fg">
+              <CertifiedIcon size={12} className="h-3 w-3" />
+              {t('home.heroCardVerified')}
+            </span>
 
-  if (stats.ratingAvg !== null) {
-    cards.push({
-      label: t('home.heroStatRating'),
-      // `minimumFractionDigits` để 4.0 vẫn ra "4,0" chứ không rút thành "4": cột này
-      // đứng cạnh hai con số khác, một ô lệch số chữ số thập phân đọc như lỗi hiển thị.
-      value: stats.ratingAvg.toLocaleString(intl, {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }),
-    });
-  }
+            <span className="mt-2 block h-2.5 w-28 rounded-full bg-ink-300" />
+            <span className="mt-1.5 block h-2 w-20 rounded-full bg-ink-200" />
+          </div>
+        </div>
 
-  cards.push({ label: t('home.heroStatFee'), value: formatVnd(0, locale) });
+        <div className="mt-3 flex gap-1.5">
+          <span className="h-5 w-20 rounded-md bg-ink-100" />
+          <span className="h-5 w-16 rounded-md bg-ink-100" />
+          <span className="h-5 w-12 rounded-md bg-ink-100" />
+        </div>
+      </div>
 
-  return cards;
+      <p className="mt-2.5 max-w-[19rem] text-caption font-medium text-white drop-shadow-[0_1px_3px_rgba(13,27,42,0.65)]">
+        {t('home.heroCardCaption')}
+      </p>
+    </div>
+  );
 }

@@ -5,6 +5,7 @@ import verifyImage from '../../../../public/hero-massage-tan-noi-2.jpg';
 
 import { HeroSearch } from '@/components/HeroSearch';
 import { HomeHeroMedia } from '@/components/HomeHeroMedia';
+import { HomeSloganBand, TRUST_KEYS, TrustIcon } from '@/components/HomeSloganBand';
 import { JsonLd } from '@/components/JsonLd';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { AREA_REVALIDATE, api } from '@/lib/api';
@@ -82,26 +83,66 @@ export default async function HomePage({ params }: { params: { locale: string } 
             )}
 
             {/*
-              "người thật có chứng chỉ thật" là lời hứa cụ thể kiểm chứng được ngay
-              trên site, không phải khẩu hiệu: mọi hồ sơ trong kết quả đều đã qua
-              bước đối chiếu mô tả ở khối ngay bên dưới.
+              H1 hai dòng: dòng đầu mang tên sàn, dòng sau nói việc khách đang định làm.
+
+              Vế đầu nói ĐÚNG thứ sàn làm — **kết nối**, không phải "đặt lịch". Hệ thống
+              không có thực thể lịch hẹn nào: khách bấm liên hệ, backend ghi lead rồi trả
+              số điện thoại, và khách tự gọi. Cũng không nhắc "cơ sở, spa" vì chỉ có hồ sơ
+              KTV cá nhân (`ktv_profiles.user_id` UNIQUE), không có thực thể doanh nghiệp.
+
+              Mỗi vế là một `block` riêng ở **mọi** cỡ màn hình, không phải hai chuỗi
+              chảy chung. Để chúng chảy chung thì ở desktop vế đầu tự ngắt giữa chừng
+              ("MasGo — sàn kết / nối massage tận nơi", gãy giữa một từ), còn ở mobile
+              hai vế dính liền nhau thành "…massage tận nơi Tìm đúng dịch vụ…" — đọc ra
+              một câu không có nghĩa. Cả hai đều đã thấy trong trình duyệt thật.
+
+              Cỡ chữ ở `lg` là **32px, đo ra chứ không chọn theo cảm giác**: cột trái của
+              lưới hero rộng 574px, còn vế dài hơn ("MasGo — sàn kết nối massage tận nơi")
+              cần 687px để nằm trọn một dòng ở cỡ 40px — tức 40px là bất khả thi, mọi cách
+              chỉnh `max-w` hay `text-balance` chỉ đổi *chỗ* nó gãy chứ không bỏ được cú
+              gãy. Ai muốn phóng to lại thì phải đo lại bằng cùng phép tính đó, hoặc rút
+              ngắn chính câu chữ.
+
+              Cũng vì vậy KHÔNG dùng `text-balance`: nó cân đều số chữ giữa các dòng, nên
+              với H1 hai vế nó chủ động tạo ra bốn dòng cân nhau — đúng thứ cấu trúc này
+              sinh ra để tránh.
             */}
-            <h1 className="mt-[18px] max-w-[15ch] text-balance text-h1 text-ink-900 sm:text-display lg:text-display-l">
-              {t('home.heroTitle')}
+            <h1 className="mt-[18px] text-h2 text-ink-900 sm:text-[28px] sm:leading-[36px] lg:text-[32px] lg:leading-[42px]">
+              <span className="block">{t('home.heroTitleLine1')}</span>
+              <span className="block text-brand-600">{t('home.heroTitleLine2')}</span>
             </h1>
 
             <p className="mt-5 max-w-[52ch] text-body-l text-ink-700 sm:text-[18px] sm:leading-[30px]">
               {t('home.heroSubtitle')}
             </p>
 
+            {/*
+              Ba lời hứa, bản rút gọn. `<ul>` chứ không ba `<span>`: đây là một danh
+              sách, và khoảng cách giữa các mục là trang trí CSS — trình đọc màn hình
+              không nên phải nghe thêm ký tự phân cách nào.
+
+              Dùng chung `TRUST_KEYS` với dải khẩu hiệu bên dưới, nên hai chỗ không thể
+              nói lệch nhau.
+            */}
+            <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-body-s font-medium text-ink-700">
+              {TRUST_KEYS.map((key) => (
+                <li key={key} className="inline-flex items-center gap-1.5">
+                  <TrustIcon k={key} className="h-4 w-4 shrink-0 text-brand-500" />
+                  {t(`home.trust${key}Title`)}
+                </li>
+              ))}
+            </ul>
+
             <div className="mt-7">
               <HeroSearch services={services} locale={locale} />
             </div>
           </div>
 
-          <HomeHeroMedia stats={stats} locale={locale} t={t} />
+          <HomeHeroMedia t={t} />
         </div>
       </section>
+
+      <HomeSloganBand stats={stats} locale={locale} t={t} />
 
       <section id="cach-duyet-ho-so" className="mt-14 scroll-mt-20">
         <h2 className="text-h2 text-ink-900 sm:text-[28px] sm:leading-[34px]">

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { NearMeIcon } from '@/components/icons';
-import { type Locale } from '@/i18n/config';
+import { type Locale, localePath } from '@/i18n/config';
 import { areaScopeParams, resolveArea } from '@/lib/area-search';
 import { geoErrorMessage, getPosition } from '@/lib/geolocate';
 import { type SavedArea, loadSavedArea, saveArea } from '@/lib/saved-area';
@@ -79,7 +79,7 @@ export function LocationNavButton({
     q.set('lat', latitude.toFixed(6));
     q.set('lon', longitude.toFixed(6));
 
-    startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
+    startTransition(() => router.push(localePath(locale, `/tim-kiem?${q.toString()}`)));
 
     // Dò tên quận chạy song song, chỉ để nhớ nhãn cho lần sau. Hỏng thì thôi —
     // khách vẫn đang xem đúng kết quả cần xem.

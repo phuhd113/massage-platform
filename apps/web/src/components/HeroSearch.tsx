@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { type Locale } from '@/i18n/config';
+import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { useFormValidation } from '@/lib/use-form-validation';
@@ -49,7 +49,7 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
     }
 
     if (service) q.set('service', service);
-    startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
+    startTransition(() => router.push(localePath(locale, `/tim-kiem?${q.toString()}`)));
   }
 
   async function nearMe() {
@@ -76,7 +76,7 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
     q.set('lat', result.coords.latitude.toFixed(6));
     q.set('lon', result.coords.longitude.toFixed(6));
     if (service) q.set('service', service);
-    startTransition(() => router.push(`/tim-kiem?${q.toString()}`));
+    startTransition(() => router.push(localePath(locale, `/tim-kiem?${q.toString()}`)));
   }
 
   const busy = pending || locating;
@@ -99,7 +99,7 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
       */}
       <form
         ref={formRef}
-        action="/tim-kiem"
+        action={localePath(locale, '/tim-kiem')}
         method="GET"
         onSubmit={(e) => {
           e.preventDefault();
@@ -167,6 +167,13 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
           {locating ? t('filters.locating') : t('filters.nearMe')}
         </button>
 
+        {/*
+          Cố ý KHÔNG có lời mời KTV ở đây. Hàng này là công cụ của **khách** đang đi
+          tìm dịch vụ; một nút đổi vai trò đặt xen vào giữa nút GPS và lời hứa quyền
+          riêng tư là mời người ta rời đúng việc họ vừa mở trang để làm. Lối vào phễu
+          KTV nằm ở header (`shell.navForKtv`) trên mọi trang công khai, nên không
+          mất đường nào.
+        */}
         {/*
           Câu này là một cam kết, không phải chú thích: nó trả lời đúng câu hỏi khách
           đang nghĩ khi nhìn thấy nút xin vị trí, ngay tại chỗ họ nghĩ ra nó.

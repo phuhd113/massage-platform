@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { type Locale } from '@/i18n/config';
+import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -126,9 +126,9 @@ export function SearchMapPanel({ items, origin, radiusKm, locale }: Props) {
       next.set('radiusKm', String(target.radiusKm));
       next.set('view', 'map');
       setUserScope(null);
-      startTransition(() => router.push(`/tim-kiem?${next.toString()}`));
+      startTransition(() => router.push(localePath(locale, `/tim-kiem?${next.toString()}`)));
     },
-    [params, router],
+    [params, router, locale],
   );
 
   const showSearchHere = userScope !== null && movedEnough(userScope, baselineRef.current);

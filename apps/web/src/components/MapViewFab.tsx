@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type Locale } from '@/i18n/config';
+import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { useTransition } from 'react';
@@ -32,7 +32,7 @@ export function MapViewFab({ locale }: { locale: Locale }) {
 
     // Đổi cách xem không phải một trang mới trong lịch sử duyệt web: bấm Back sau
     // khi xem bản đồ phải quay về trang trước đó, không phải quay về danh sách.
-    startTransition(() => router.replace(`/tim-kiem?${next.toString()}`, { scroll: false }));
+    startTransition(() => router.replace(localePath(locale, `/tim-kiem?${next.toString()}`), { scroll: false }));
   }
 
   return (
