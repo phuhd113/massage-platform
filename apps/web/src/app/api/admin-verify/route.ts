@@ -35,6 +35,10 @@ const TARGETS: Record<string, (id: string) => string> = {
   certification: (id) => `admin/certifications/${id}/verify`,
   photo: (id) => `admin/photos/${id}/verify`,
   profile: (id) => `admin/ktv/${id}/verify`,
+  // Avatar định danh theo **ktvId**, không phải id của bản ghi ảnh: nó là cột trên
+  // `ktv_profiles`, một hồ sơ nhiều nhất một ảnh đang chờ. Duyệt nó đổi tấm ảnh lớn nhất
+  // trên trang công khai, nên nó bắt buộc phải đi qua đây chứ không phải `/api/proxy`.
+  avatar: (id) => `admin/ktv/${id}/avatar/verify`,
   // Kiểm duyệt đánh giá đổi **hai** thứ trên trang công khai: nội dung đánh giá, và
   // `rating_avg`/`rating_count` được tính lại. Vế thứ hai là lý do nó bắt buộc phải
   // nằm ở đây — điểm sao hiện trên thẻ tìm kiếm lẫn structured data `AggregateRating`,

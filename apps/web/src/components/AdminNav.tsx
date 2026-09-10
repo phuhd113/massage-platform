@@ -21,6 +21,7 @@ export function AdminNav() {
     // trong ngày (KTV gọi tới), còn duyệt hồ sơ là việc làm theo đợt.
     { href: '/admin/ktv', label: 'Quản lý KTV' },
     { href: '/admin/duyet-ktv', label: 'Duyệt hồ sơ KTV' },
+    { href: '/admin/duyet-anh-dai-dien', label: 'Duyệt ảnh đại diện' },
     { href: '/admin/duyet-anh', label: 'Duyệt ảnh hồ sơ' },
     { href: '/admin/duyet-cccd', label: 'Duyệt CCCD' },
     { href: '/admin/duyet-chung-chi', label: 'Duyệt chứng chỉ' },

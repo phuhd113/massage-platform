@@ -78,9 +78,16 @@ public class AdminService(AppDbContext db, MediaUrls urls)
     /// Chỉ chặn chiều **sang VERIFIED**. Từ chối hay gỡ một hồ sơ thì không cần điều kiện
     /// nào, và chặn ở đó sẽ khoá luôn đường gỡ đúng những hồ sơ đáng ngờ nhất.
     /// </summary>
-    public async Task<KtvProfile> DecideProfileAsync(
+    /// <returns>
+    /// Hồ sơ sau quyết định, kèm key ảnh đại diện cũ đã bị thay và cần xoá khỏi storage
+    /// <b>sau khi</b> transaction commit (null khi không có gì để dọn). Service không tự
+    /// xoá file: một lỗi lưu DB sau khi đã xoá sẽ để hồ sơ trỏ tới file không còn tồn tại.
+    /// </returns>
+    public async Task<(KtvProfile Profile, string? OrphanedAvatarKey)> DecideProfileAsync(
         Guid ktvId, Guid adminId, VerifyDecisionDto dto, CancellationToken ct = default)
     {
+        string? orphanedAvatarKey = null;
+
         var profile = await db.KtvProfiles
             .Include(p => p.IdentityDocument)
             .FirstOrDefaultAsync(p => p.Id == ktvId, ct)
@@ -114,8 +121,32 @@ public class AdminService(AppDbContext db, MediaUrls urls)
         profile.VerifiedAt = DateTimeOffset.UtcNow;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
+        // Duyệt hồ sơ thì duyệt luôn avatar đang chờ: admin vừa xem CCCD và toàn bộ hồ sơ
+        // của người này, và avatar nằm ngay trước mắt trong cùng màn hình đó. Bắt nó đi
+        // vòng qua hàng đợi riêng nghĩa là hồ sơ vừa duyệt xong lên sàn mà không có ảnh —
+        // chặn đúng nhóm cần được nhìn thấy nhất, và đó chính là vế đúng của quyết định cũ
+        // ("avatar hiện ngay") mà lần đổi này cố ý giữ lại.
+        //
+        // Chỉ áp dụng cho chiều sang VERIFIED. Từ chối hồ sơ **không** đụng tới avatar: hai
+        // quyết định độc lập, và một hồ sơ bị từ chối vì lý do khác không có nghĩa là tấm
+        // ảnh cũng sai — gộp lại sẽ khiến KTV sửa xong phần bị chê rồi phát hiện mất luôn ảnh.
+        if (dto.Decision == VerificationStatuses.Verified
+            && profile.PendingAvatarKey is not null
+            && profile.AvatarVerifyStatus == VerificationStatuses.Pending)
+        {
+            // Ảnh cũ (nếu có) thành rác. Trả nó ra ngoài để controller dọn sau commit, đúng
+            // quy ước "xoá file sau khi DB commit" — service không tự xoá.
+            orphanedAvatarKey = profile.AvatarKey;
+
+            profile.AvatarKey = profile.PendingAvatarKey;
+            profile.PendingAvatarKey = null;
+            profile.AvatarVerifyStatus = VerificationStatuses.Verified;
+            profile.AvatarRejectionReason = null;
+            profile.AvatarVerifiedBy = adminId;
+        }
+
         await db.SaveChangesAsync(ct);
-        return profile;
+        return (profile, orphanedAvatarKey == profile.AvatarKey ? null : orphanedAvatarKey);
     }
 
     public async Task<Certification> DecideCertificationAsync(
@@ -239,6 +270,39 @@ public class AdminService(AppDbContext db, MediaUrls urls)
         var total = await q.CountAsync(ct);
         var items = await q
             .OrderBy(x => x.CreatedAt)
+            .Skip((page - 1) * limit).Take(limit)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
+    /// <summary>
+    /// Hàng đợi ảnh đại diện chờ duyệt, cũ nhất lên đầu.
+    /// </summary>
+    /// <remarks>
+    /// Hàng đợi <b>riêng</b>, không gộp vào <c>ListPendingPhotosAsync</c>: avatar nằm ở
+    /// cột trên <c>ktv_profiles</c> chứ không phải hàng trong <c>ktv_photos</c>, và nó là
+    /// tấm ảnh lớn nhất trên trang công khai — trộn vào một danh sách ảnh gallery sẽ khiến
+    /// nó trôi lẫn giữa hàng chục ảnh phòng ốc, đúng tấm đáng xem kỹ nhất.
+    ///
+    /// Xếp theo <c>avatar_submitted_at</c> chứ không phải <c>created_at</c> của hồ sơ: hàng
+    /// bị ghi đè tại chỗ, nên xếp theo thời điểm tạo hồ sơ thì người bị từ chối rồi gửi lại
+    /// nằm nguyên chỗ cũ và không bao giờ được xem lại.
+    /// </remarks>
+    public async Task<(List<KtvProfile> Items, int Total)> ListPendingAvatarsAsync(
+        string status, int page, int limit, CancellationToken ct = default)
+    {
+        var q = db.KtvProfiles.AsNoTracking()
+            .Where(x => x.AvatarVerifyStatus == status);
+
+        // Chỉ hàng đợi PENDING mới đòi có ảnh thật; hai trạng thái kia là lịch sử quyết
+        // định, nơi pending_avatar_key đã được nhả và chỉ còn lại kết quả.
+        if (status == VerificationStatuses.Pending)
+            q = q.Where(x => x.PendingAvatarKey != null);
+
+        var total = await q.CountAsync(ct);
+        var items = await q
+            .OrderBy(x => x.AvatarSubmittedAt)
             .Skip((page - 1) * limit).Take(limit)
             .ToListAsync(ct);
 

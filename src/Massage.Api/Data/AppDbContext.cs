@@ -138,6 +138,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.BasePoint).HasColumnName("base_point").HasColumnType("geography (Point, 4326)").IsRequired();
             e.Property(x => x.BaseAddress).HasColumnName("base_address").HasMaxLength(255);
             e.Property(x => x.AvatarKey).HasColumnName("avatar_key").HasMaxLength(255);
+            e.Property(x => x.PendingAvatarKey).HasColumnName("pending_avatar_key").HasMaxLength(255);
+            e.Property(x => x.AvatarVerifyStatus).HasColumnName("avatar_verify_status").HasMaxLength(20);
+            e.Property(x => x.AvatarRejectionReason).HasColumnName("avatar_rejection_reason");
+            e.Property(x => x.AvatarVerifiedBy).HasColumnName("avatar_verified_by");
+            e.Property(x => x.AvatarSubmittedAt).HasColumnName("avatar_submitted_at");
             e.Property(x => x.BaseWardId).HasColumnName("base_ward_id");
             e.Property(x => x.BaseStreet).HasColumnName("base_street").HasMaxLength(255);
             e.Property(x => x.ServiceRadiusKm).HasColumnName("service_radius_km");

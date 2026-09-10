@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { LogoMark } from '@/components/icons';
+import { SiteLogo } from '@/components/SiteLogo';
 import { LogoutButton } from '@/components/LogoutButton';
 import { fontVariables } from '@/lib/fonts';
 import { getSessionRole, getSessionToken } from '@/lib/session';
@@ -40,9 +40,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <Shell>
     <div className="grid min-h-screen bg-brand-50 lg:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="border-b border-ink-200 bg-white px-4 py-5 lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2.5 px-2 pb-5">
-          <LogoMark className="h-7 w-7 shrink-0" />
-          <span className="font-display text-body-l font-bold text-ink-900">Quản trị</span>
+        {/* Xếp dọc, cùng lý do với sidebar dashboard: logo ngang rộng ~136px trong
+            cột 248px không còn chỗ cho nhãn đứng cạnh. */}
+        <div className="px-2 pb-5">
+          <SiteLogo alt="MasGo" className="h-6 w-auto" />
+          <span className="mt-2 block font-display text-body-l font-bold text-ink-900">
+            Quản trị
+          </span>
         </div>
 
         <AdminNav />
@@ -94,7 +98,7 @@ function NotAdminNotice() {
     <div className="flex min-h-screen items-center justify-center bg-brand-50 px-5 py-12">
       <div className="w-full max-w-[440px] rounded-xl border border-ink-200 bg-white p-6 shadow-card">
         <div className="flex items-center gap-2.5">
-          <LogoMark className="h-7 w-7 shrink-0" />
+          <SiteLogo alt="MasGo" className="h-6 w-auto shrink-0" />
           <span className="font-display text-body-l font-bold text-ink-900">Quản trị</span>
         </div>
 

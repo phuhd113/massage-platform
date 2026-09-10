@@ -67,14 +67,46 @@ public class KtvProfile
     public string? BaseAddress { get; set; }
 
     /// <summary>
-    /// Key ảnh đại diện trong object storage. Ảnh công khai — nó nằm trên card tìm kiếm
-    /// và là ảnh lớn nhất trên trang hồ sơ, tức ứng viên LCP của đường đọc SEO.
+    /// Key ảnh đại diện <b>đang hiển thị công khai</b> — nó nằm trên card tìm kiếm và là
+    /// ảnh lớn nhất trên trang hồ sơ, tức ứng viên LCP của đường đọc SEO.
     ///
-    /// Không có trạng thái duyệt riêng như <c>KtvPhoto</c>: avatar hiện ngay để hồ sơ
-    /// mới không phải chờ mới có mặt, và nó đã nằm trong tầm mắt của admin ở chính
-    /// trang duyệt hồ sơ. Ảnh vi phạm gỡ bằng đường gỡ hồ sơ đã có.
+    /// <b>Bất biến: cột này chỉ chứa ảnh đã được duyệt.</b> Mọi đường ghi của KTV đi vào
+    /// <see cref="PendingAvatarKey"/>; chỉ admin mới chuyển được sang đây. Ghi thẳng vào
+    /// cột này từ đường KTV là mở lại đúng lỗ hổng mà việc duyệt avatar sinh ra để bịt —
+    /// và mở nó ở trang công khai của đúng ngành Google phạt nặng nhất khi phân loại
+    /// nhầm, nơi hình phạt rơi lên cả tên miền.
     /// </summary>
     public string? AvatarKey { get; set; }
+
+    /// <summary>
+    /// Ảnh đại diện KTV vừa tải lên, <b>chưa duyệt</b> nên chưa ra trang công khai.
+    ///
+    /// Tách khỏi <see cref="AvatarKey"/> thay vì dùng một cột kèm cờ trạng thái, vì hồ sơ
+    /// đã duyệt phải <b>giữ nguyên ảnh cũ trên sàn</b> trong lúc ảnh mới chờ duyệt. Một
+    /// cột thì đổi ảnh là mất hiển thị vài giờ, và KTV sẽ học được rằng đừng bao giờ đổi
+    /// ảnh — tức tính năng tự vô hiệu hoá chính nó. Bị từ chối cũng không mất gì: ảnh cũ
+    /// vẫn ở đó.
+    ///
+    /// Trước 2026-09-10 avatar hiện ngay không qua duyệt. Lý do cũ ("đã nằm trong tầm mắt
+    /// admin ở trang duyệt hồ sơ") chỉ đúng với hồ sơ mới: hồ sơ <b>đã VERIFIED</b> đổi
+    /// avatar bất cứ lúc nào và không lượt nào lọt vào mắt ai — đúng cái lỗ mà việc duyệt
+    /// ảnh gallery đã bịt từ đầu.
+    /// </summary>
+    public string? PendingAvatarKey { get; set; }
+
+    /// <summary>
+    /// Trạng thái của <see cref="PendingAvatarKey"/>. <c>NULL</c> khi không có ảnh nào
+    /// đang chờ — <b>không</b> phải <c>PENDING</c>: một hồ sơ chưa từng tải avatar mà mang
+    /// trạng thái "đang chờ duyệt" sẽ nằm trong hàng đợi admin vĩnh viễn, không có gì để
+    /// duyệt và không cách nào dọn.
+    /// </summary>
+    public string? AvatarVerifyStatus { get; set; }
+
+    /// <summary>Lý do admin từ chối ảnh đại diện. KTV phải đọc được để biết chụp lại thế nào.</summary>
+    public string? AvatarRejectionReason { get; set; }
+
+    public Guid? AvatarVerifiedBy { get; set; }
+    public DateTimeOffset? AvatarSubmittedAt { get; set; }
 
     /// <summary>
     /// Phường/xã của địa chỉ cơ sở. Lưu ở cấp mịn nhất và suy quận/tỉnh bằng hai bước

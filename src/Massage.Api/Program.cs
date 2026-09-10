@@ -174,6 +174,42 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.FromMinutes(1),
         };
+
+        opt.Events = new JwtBearerEvents
+        {
+            // Chữ ký hợp lệ và còn hạn **không** có nghĩa là tài khoản còn tồn tại. JWT
+            // không thu hồi được, nên một tài khoản bị xoá vẫn thao tác bình thường cho
+            // tới khi hết hạn token — và thứ chặn nó lại là khoá ngoại `verified_by` ở
+            // tầng DB, tức một lỗi 500 với câu "Đã có lỗi xảy ra" mà người thao tác
+            // không suy ra được gì. Đã gặp thật ngày 2026-09-10 ở trang duyệt ảnh.
+            //
+            // Kiểm ở đây biến nó thành **401**, tức frontend đưa người dùng về màn hình
+            // đăng nhập — đúng việc họ cần làm. Cái giá là một truy vấn theo khoá chính
+            // mỗi request đã xác thực; đường công khai (`AllowAnonymous`) không đi qua
+            // đây nên các trang SEO không chịu chi phí này.
+            OnTokenValidated = async context =>
+            {
+                // `TryGetUserId()` chứ không `GetUserId()`: bản kia **ném lỗi** khi claim
+                // hỏng, và một exception ở đây thành 500 — đúng thứ đoạn code này sinh ra
+                // để loại bỏ. Cũng không tự đọc claim: hàm dùng chung đã lo việc "sub" bị
+                // ánh xạ sang NameIdentifier tuỳ cấu hình mapping, và một bản sao thứ hai
+                // sẽ lệch đúng lúc ai đó đổi mapping.
+                var userId = context.Principal?.TryGetUserId();
+
+                if (userId is null)
+                {
+                    context.Fail("Token thiếu định danh người dùng hợp lệ");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+
+                if (!await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId.Value))
+                {
+                    context.Fail("Tài khoản không còn tồn tại");
+                }
+            },
+        };
     });
 
 builder.Services.AddAuthorization();

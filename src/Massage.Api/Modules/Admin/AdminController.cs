@@ -16,7 +16,11 @@ namespace Massage.Api.Modules.Admin;
 [Route("admin")]
 [Tags("Admin")]
 [Authorize(Roles = UserRoles.Admin)]
-public class AdminController(AdminService service, MediaUrls urls) : ControllerBase
+public class AdminController(
+    AdminService service,
+    MediaUrls urls,
+    KtvProfileService profiles,
+    IObjectStorage storage) : ControllerBase
 {
     /// <summary>Danh sách hồ sơ KTV theo trạng thái duyệt.</summary>
     /// <param name="status">PENDING (mặc định), VERIFIED hoặc REJECTED.</param>
@@ -132,7 +136,13 @@ public class AdminController(AdminService service, MediaUrls urls) : ControllerB
     [HttpPatch("ktv/{id:guid}/verify")]
     public async Task<IActionResult> VerifyProfile(Guid id, VerifyDecisionDto dto, CancellationToken ct)
     {
-        var p = await service.DecideProfileAsync(id, User.GetUserId(), dto, ct);
+        var (p, orphanedAvatar) = await service.DecideProfileAsync(id, User.GetUserId(), dto, ct);
+
+        // Duyệt hồ sơ cũng duyệt luôn avatar đang chờ, nên ảnh cũ có thể vừa thành rác.
+        // Xoá sau khi DB commit, đúng quy ước của mọi đường ảnh khác.
+        if (orphanedAvatar is not null)
+            await storage.DeleteAsync(orphanedAvatar, ct);
+
         return Ok(new { p.Id, p.VerificationStatus, p.RejectionReason, p.VerifiedBy, p.VerifiedAt });
     }
 
@@ -296,6 +306,63 @@ public class AdminController(AdminService service, MediaUrls urls) : ControllerB
     {
         var p = await service.DecidePhotoAsync(id, User.GetUserId(), dto, ct);
         return Ok(new { p.Id, p.VerifyStatus, p.RejectionReason, p.VerifiedBy, p.VerifiedAt });
+    }
+
+    /// <summary>Hàng đợi ảnh đại diện chờ duyệt, cũ nhất lên đầu.</summary>
+    /// <remarks>
+    /// Hàng đợi riêng, tách khỏi ảnh gallery: avatar là tấm ảnh lớn nhất trên trang công
+    /// khai và là thứ hiện trên mọi thẻ tìm kiếm, nên trộn nó vào danh sách ảnh phòng ốc
+    /// sẽ khiến đúng tấm đáng xem kỹ nhất trôi lẫn giữa hàng chục tấm khác.
+    /// </remarks>
+    [HttpGet("avatars")]
+    public async Task<IActionResult> ListAvatars(
+        CancellationToken ct,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 50)
+    {
+        status ??= VerificationStatuses.Pending;
+        if (status is not (VerificationStatuses.Pending or VerificationStatuses.Verified or VerificationStatuses.Rejected))
+            throw new BadRequestException("Status phải là PENDING, VERIFIED hoặc REJECTED");
+
+        var (items, total) = await service.ListPendingAvatarsAsync(
+            status, Math.Max(1, page), Math.Clamp(limit, 1, 100), ct);
+
+        return Ok(new
+        {
+            items = items.Select(p => new
+            {
+                KtvId = p.Id,
+                KtvName = p.FullName,
+                KtvSlug = p.Slug,
+                // Cả hai ảnh: admin cần so tấm mới với tấm đang hiển thị để thấy KTV đang
+                // đổi sang cái gì. Chỉ đưa tấm mới thì mọi lượt đổi trông giống nhau.
+                PendingUrl = urls.Public(p.PendingAvatarKey),
+                CurrentUrl = urls.Public(p.AvatarKey),
+                p.AvatarVerifyStatus,
+                p.AvatarRejectionReason,
+                p.AvatarSubmittedAt,
+                ProfileStatus = p.VerificationStatus,
+            }),
+            total,
+            page = Math.Max(1, page),
+            limit = Math.Clamp(limit, 1, 100),
+        });
+    }
+
+    /// <summary>Duyệt hoặc từ chối ảnh đại diện đang chờ của một hồ sơ.</summary>
+    [HttpPatch("ktv/{id:guid}/avatar/verify")]
+    public async Task<IActionResult> VerifyAvatar(Guid id, VerifyDecisionDto dto, CancellationToken ct)
+    {
+        var orphan = await profiles.DecideAvatarAsync(
+            id, User.GetUserId(), dto.Decision, dto.Reason, ct);
+
+        // Xoá file sau khi DB commit — cùng quy ước với mọi đường ảnh khác. Duyệt thì ảnh
+        // cũ thành rác; từ chối thì chính ảnh vừa bị từ chối thành rác.
+        if (orphan is not null)
+            await storage.DeleteAsync(orphan, ct);
+
+        return NoContent();
     }
 
     /// <summary>
