@@ -47,6 +47,19 @@ public class KtvProfileController(
     public async Task<IActionResult> Update(UpdateKtvProfileDto dto, CancellationToken ct) =>
         Ok(ToDto(await service.UpdateAsync(User.GetUserId(), dto, ct)));
 
+    /// <summary>Bật/tắt trạng thái "đang nhận khách".</summary>
+    /// <remarks>
+    /// Endpoint riêng chứ không phải một trường trong <c>PATCH /ktv/profile</c> — lý do
+    /// đầy đủ ở <c>KtvProfileService.SetOnlineAsync</c>: đường sửa hồ sơ đưa hồ sơ đã
+    /// duyệt về PENDING, còn công tắc này thì không được phép làm thế.
+    ///
+    /// Trả về đúng trạng thái vừa ghi để client không phải đoán từ chính thứ nó vừa gửi.
+    /// </remarks>
+    [HttpPut("profile/online")]
+    [Authorize(Roles = UserRoles.Ktv)]
+    public async Task<IActionResult> SetOnline(SetOnlineDto dto, CancellationToken ct) =>
+        Ok(new { IsOnline = await service.SetOnlineAsync(User.GetUserId(), dto.IsOnline, ct) });
+
     /// <summary>Tải lên chứng chỉ hành nghề (multipart: ảnh hoặc PDF ở trường <c>file</c>).</summary>
     [HttpPost("certifications")]
     [Authorize(Roles = UserRoles.Ktv)]
@@ -145,7 +158,10 @@ public class KtvProfileController(
         }
     }
 
-    /// <summary>Đặt ảnh đại diện (multipart: ảnh ở trường <c>file</c>).</summary>
+    /// <summary>
+    /// Gửi ảnh đại diện (multipart: ảnh ở trường <c>file</c>).
+    /// Ảnh vào hàng đợi duyệt; ảnh đang hiển thị giữ nguyên cho tới khi bản mới được duyệt.
+    /// </summary>
     [HttpPut("profile/avatar")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> SetAvatar(IFormFile? file, CancellationToken ct)
@@ -156,22 +172,24 @@ public class KtvProfileController(
         var key = await upload.SaveAvatarAsync(file, ct);
         var previous = await service.SetAvatarAsync(User.GetUserId(), key, ct);
 
-        // Dọn ảnh cũ sau khi DB đã commit. Lỗi ở bước này chỉ để lại một file mồ côi
-        // tốn vài chục KB — không đáng để trả lỗi cho một lượt đổi ảnh đã thành công.
+        // Dọn **bản chờ duyệt cũ** sau khi DB đã commit — không phải ảnh đang hiển thị.
+        // Lỗi ở bước này chỉ để lại một file mồ côi tốn vài chục KB, không đáng để trả lỗi
+        // cho một lượt gửi đã thành công.
         if (previous is not null)
             await storage.DeleteAsync(previous, ct);
 
-        return Ok(new { AvatarUrl = urls.Public(key) });
+        // Cố ý KHÔNG trả `AvatarUrl` của ảnh vừa gửi: nó chưa công khai, và một URL trả về
+        // ở đây đọc như "ảnh đã lên sàn" — frontend sẽ hiển thị nó và KTV tưởng xong việc.
+        return Ok(new { PendingReview = true });
     }
 
-    /// <summary>Gỡ ảnh đại diện.</summary>
+    /// <summary>Gỡ ảnh đại diện — xoá cả ảnh đang hiển thị lẫn ảnh đang chờ duyệt.</summary>
     [HttpDelete("profile/avatar")]
     [Authorize(Roles = UserRoles.Ktv)]
     public async Task<IActionResult> RemoveAvatar(CancellationToken ct)
     {
-        var previous = await service.RemoveAvatarAsync(User.GetUserId(), ct);
-        if (previous is not null)
-            await storage.DeleteAsync(previous, ct);
+        foreach (var key in await service.RemoveAvatarAsync(User.GetUserId(), ct))
+            await storage.DeleteAsync(key, ct);
 
         return NoContent();
     }
@@ -350,6 +368,13 @@ public class KtvProfileController(
             p.IsOnline,
             p.CreatedAt,
             AvatarUrl = urls.Public(p.AvatarKey),
+            // Ảnh đang chờ duyệt — chỉ trả ở đường "hồ sơ của tôi", không bao giờ ra trang
+            // công khai. Chính chủ phải xem lại được tấm mình vừa gửi, nếu không họ không
+            // biết có gửi nhầm ảnh hay không cho tới khi admin từ chối.
+            PendingAvatarUrl = urls.Public(p.PendingAvatarKey),
+            p.AvatarVerifyStatus,
+            p.AvatarRejectionReason,
+            p.AvatarSubmittedAt,
             Photos = p.Photos
                 .OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt)
                 .Select(ToDto),

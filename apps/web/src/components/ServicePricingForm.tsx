@@ -52,7 +52,12 @@ export function ServicePricingForm({
     try {
       // PUT thay toàn bộ danh sách, không phải thêm/xoá từng dòng: bảng chỉ có vài
       // dòng mỗi KTV nên client không cần tự tính diff.
-      const res = await fetch('/api/proxy/ktv/profile/services', {
+      //
+      // Đi qua `/api/ktv-profile`, **không** `/api/proxy`: bảng giá nằm trên trang hồ
+      // sơ công khai (ISR 600 giây), nên thiếu bước xoá cache thì KTV sửa giá xong mở
+      // trang của mình vẫn thấy giá cũ và tưởng lượt lưu vừa rồi hỏng. Tệ hơn: khách
+      // gọi tới theo mức giá đã hết hiệu lực rồi tranh cãi ngay ở cửa nhà.
+      const res = await fetch('/api/ktv-profile?target=services', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: rows }),

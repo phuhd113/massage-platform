@@ -87,15 +87,22 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
     form.append('file', file);
 
     // Không tự đặt Content-Type: trình duyệt phải tự sinh nó kèm boundary multipart.
+    //
+    // Cố ý **không** truyền `path`: từ 2026-09-10 avatar phải qua duyệt, nên lượt gửi này
+    // không đổi một pixel nào trên trang công khai — ảnh cũ vẫn đang hiển thị. Xoá cache
+    // ISR ở đây là trả giá (dựng lại một trang SEO) mà không đổi lại được gì. Cache sẽ
+    // được xoá ở đúng chỗ nó cần: khi admin duyệt, qua `/api/admin-verify`.
     await call(
       'avatar',
-      `/api/ktv-media?target=avatar&path=${encodeURIComponent(publicPath)}`,
+      '/api/ktv-media?target=avatar',
       { method: 'PUT', body: form },
-      'Đã cập nhật ảnh đại diện. Ảnh hiển thị công khai ngay.',
+      'Đã gửi ảnh đại diện. Ảnh hiển thị sau khi quản trị viên duyệt.',
     );
   }
 
   async function removeAvatar() {
+    // Gỡ thì **có** truyền `path`, khác đường gửi: ảnh đang hiển thị công khai biến mất
+    // thật, nên bản dựng sẵn của trang hồ sơ phải bị bỏ đi ngay.
     await call(
       'avatar',
       `/api/ktv-media?target=avatar&path=${encodeURIComponent(publicPath)}`,
@@ -136,6 +143,7 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
   }
 
   const avatar = mediaUrl(profile.avatarUrl);
+  const pendingAvatar = mediaUrl(profile.pendingAvatarUrl);
   const busy = pending !== null;
 
   return (
@@ -155,14 +163,52 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
         <h3 className="text-h4 text-ink-900">Ảnh đại diện</h3>
         <p className="mt-1 text-sm text-ink-600">
           Đây là ảnh khách nhìn thấy đầu tiên trong kết quả tìm kiếm. Ảnh chân dung rõ mặt, ánh
-          sáng tốt. Hiển thị công khai ngay sau khi tải lên.
+          sáng tốt. Ảnh phải được quản trị viên duyệt trước khi hiển thị —{' '}
+          <strong className="font-semibold">ảnh đang hiển thị vẫn giữ nguyên trong lúc chờ</strong>,
+          nên đổi ảnh không bao giờ làm hồ sơ mất ảnh.
         </p>
+
+        {/* Hai ô ảnh khi có bản chờ duyệt: KTV phải thấy được mình đang hiển thị cái gì và
+            đang chờ duyệt cái gì. Một ô duy nhất thì hoặc giấu mất bản chờ (không biết đã
+            gửi thành công chưa), hoặc thay bằng bản chờ (tưởng nó đã lên sàn). */}
+        {pendingAvatar && (
+          <div className="mt-4 flex flex-wrap items-start gap-5 rounded-lg border border-warning-bd bg-warning-bg px-4 py-3">
+            <div>
+              <Image
+                src={pendingAvatar}
+                alt="Ảnh đại diện đang chờ duyệt"
+                width={72}
+                height={72}
+                sizes="72px"
+                className="h-18 w-18 shrink-0 rounded-xl border border-ink-200 object-cover"
+                unoptimized={!isOptimizable(pendingAvatar)}
+              />
+            </div>
+            <p className="min-w-0 flex-1 text-sm text-warning-fg">
+              <strong className="font-semibold">Ảnh mới đang chờ duyệt.</strong>{' '}
+              {profile.avatarUrl
+                ? 'Ảnh cũ vẫn đang hiển thị trên hồ sơ công khai cho tới khi ảnh này được duyệt.'
+                : 'Hồ sơ chưa có ảnh nào hiển thị công khai — ảnh này sẽ lên sau khi được duyệt.'}
+            </p>
+          </div>
+        )}
+
+        {/* Ảnh bị từ chối: nói lý do ngay đây, không để KTV tự đoán vì sao ảnh biến mất
+            khỏi hàng chờ. Chỉ hiện khi không còn bản nào đang chờ — gửi lại rồi thì lời chê
+            đó nói về tấm ảnh đã bị thay. */}
+        {!pendingAvatar && profile.avatarVerifyStatus === 'REJECTED' && (
+          <p className="mt-4 rounded-lg border border-danger-bd bg-danger-bg px-4 py-3 text-sm text-danger-fg">
+            <strong className="font-semibold">Ảnh đại diện bạn gửi bị từ chối</strong>
+            {profile.avatarRejectionReason ? `: ${profile.avatarRejectionReason}` : ''}. Chọn ảnh
+            khác và gửi lại.
+          </p>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           {avatar ? (
             <Image
               src={avatar}
-              alt="Ảnh đại diện hiện tại"
+              alt="Ảnh đại diện đang hiển thị công khai"
               width={96}
               height={96}
               sizes="96px"
@@ -184,7 +230,13 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
                 busy ? 'pointer-events-none opacity-50' : ''
               }`}
             >
-              {pending === 'avatar' ? 'Đang tải lên…' : avatar ? 'Đổi ảnh' : 'Chọn ảnh'}
+              {pending === 'avatar'
+                ? 'Đang gửi…'
+                : pendingAvatar
+                  ? 'Gửi ảnh khác'
+                  : avatar
+                    ? 'Đổi ảnh'
+                    : 'Chọn ảnh'}
               <input
                 type="file"
                 accept={ACCEPT}
@@ -194,7 +246,9 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
               />
             </label>
 
-            {avatar && (
+            {/* Cũng hiện khi chỉ có bản chờ duyệt: gửi nhầm ảnh thì phải rút lại được
+                ngay, không phải đợi admin từ chối hộ. Gỡ xoá cả hai bản. */}
+            {(avatar || pendingAvatar) && (
               <button
                 type="button"
                 disabled={busy}

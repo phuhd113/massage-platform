@@ -9,6 +9,7 @@ import {
   StarIcon,
   VerifiedIcon,
 } from '@/components/icons';
+import { OnlineChip } from '@/components/OnlineToggle';
 import { api } from '@/lib/api';
 import { packageLabel, transactionLabel } from '@/lib/labels';
 import { requireKtvProfile } from '@/lib/require-profile';
@@ -270,21 +271,11 @@ function ProfileCard({
           <div className="flex flex-wrap items-center gap-2.5">
             <h2 className="font-display text-h3 text-ink-900">{profile.fullName}</h2>
             {/* Trạng thái nhận khách nằm cạnh tên vì nó là thứ duy nhất trong thẻ
-                này KTV đổi nhiều lần trong ngày, và nó tác động thẳng lên thứ hạng. */}
-            <span
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold ${
-                profile.isOnline
-                  ? 'bg-success-bg text-success-fg'
-                  : 'bg-ink-100 text-ink-600'
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  profile.isOnline ? 'bg-success-fg' : 'bg-ink-400'
-                }`}
-              />
-              {profile.isOnline ? 'Đang nhận khách' : 'Đang tắt nhận khách'}
-            </span>
+                này KTV đổi nhiều lần trong ngày, và nó tác động thẳng lên thứ hạng.
+                Chính vì vậy nó là một cái nút chứ không phải một cái nhãn: chỗ hiển
+                thị trạng thái và chỗ đổi trạng thái mà tách nhau thì KTV phải đi tìm
+                công tắc ở một trang khác cho việc họ làm nhiều lần nhất. */}
+            <OnlineChip isOnline={profile.isOnline} />
           </div>
         </div>
 
@@ -517,15 +508,16 @@ function TodoPanel({
 }) {
   const todos: { text: string; tone: 'warn' | 'info' | 'idle' }[] = [];
 
-  if (profile && profile.certifications.length === 0)
-    todos.push({
-      text: 'Chưa có chứng chỉ nào. Hồ sơ cần ít nhất một chứng chỉ đã duyệt để hiển thị.',
-      tone: 'warn',
-    });
+  /* Cố ý KHÔNG có mục nhắc chứng chỉ: nó tuỳ chọn ở giai đoạn này, mà một lời khuyên
+     tuỳ chọn thì không bao giờ "xong" nên sẽ nằm đây vĩnh viễn và làm nhờn cả panel.
+     Phần khuyến khích tải chứng chỉ nằm ở /dashboard/ho-so, đúng chỗ KTV làm việc đó. */
 
   if (profile && !profile.isOnline)
     todos.push({
-      text: 'Bật trạng thái "đang nhận khách" vào giờ bạn rảnh để lên đầu danh sách.',
+      // Nói rõ công tắc nằm ngay trên cùng trang này. Trước đây câu này khuyên một
+      // việc mà giao diện không có chỗ nào làm được — mục todo chỉ nên chứa việc làm
+      // xong thì biến mất, và một việc không có nút bấm thì không bao giờ xong.
+      text: 'Bật "đang nhận khách" ở thẻ hồ sơ phía trên vào giờ bạn rảnh để lên đầu danh sách.',
       tone: 'idle',
     });
 

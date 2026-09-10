@@ -70,6 +70,11 @@ public class ApiKtvMediaTests(PostgresFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    /// <remarks>
+    /// Từ 2026-09-10 ảnh vào <c>pending_avatar_key</c> chứ không phải <c>avatar_key</c>:
+    /// avatar phải qua duyệt. Bản chất điều được canh không đổi — cột lưu **key**, không
+    /// lưu URL.
+    /// </remarks>
     public async Task Đặt_ảnh_đại_diện_lưu_key_chứ_không_lưu_URL()
     {
         var (client, ktvId) = await KtvWithProfileAsync();
@@ -81,7 +86,7 @@ public class ApiKtvMediaTests(PostgresFixture fixture) : IAsyncLifetime
 
         await using var db = fixture.CreateContext();
         var key = await db.KtvProfiles.Where(p => p.Id == ktvId)
-            .Select(p => p.AvatarKey).FirstAsync();
+            .Select(p => p.PendingAvatarKey).FirstAsync();
 
         // Cột lưu key, không lưu URL: đổi bucket hay đổi custom domain không được
         // biến thành một lượt backfill toàn bảng.
@@ -101,14 +106,14 @@ public class ApiKtvMediaTests(PostgresFixture fixture) : IAsyncLifetime
         string? first;
         await using (var db = fixture.CreateContext())
             first = await db.KtvProfiles.Where(p => p.Id == ktvId)
-                .Select(p => p.AvatarKey).FirstAsync();
+                .Select(p => p.PendingAvatarKey).FirstAsync();
 
         await client.PutAsync("/api/v1/ktv/profile/avatar",
             ImageForm(TinyPng(), "moi.png", "image/png"));
 
         await using var db2 = fixture.CreateContext();
         var second = await db2.KtvProfiles.Where(p => p.Id == ktvId)
-            .Select(p => p.AvatarKey).FirstAsync();
+            .Select(p => p.PendingAvatarKey).FirstAsync();
 
         second.Should().NotBe(first, "mỗi lượt upload sinh key mới");
 

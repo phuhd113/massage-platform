@@ -54,6 +54,17 @@ public record UpdateKtvProfileDto(
     short? ServiceRadiusKm,
     List<Guid>? CoverageAreaIds);
 
+/// <summary>
+/// Bật/tắt "đang nhận khách".
+///
+/// DTO riêng, <b>không</b> thêm một trường nullable vào <see cref="UpdateKtvProfileDto"/>:
+/// đường sửa hồ sơ đưa hồ sơ đã duyệt về PENDING (xem <c>KtvProfileService.UpdateAsync</c>),
+/// nên gộp vào đó nghĩa là mỗi lần KTV tắt nhận khách buổi tối là một lần hồ sơ rớt khỏi
+/// tìm kiếm chờ admin duyệt lại. Trường <c>bool</c> non-null vì đây là công tắc hai chiều —
+/// "không đổi" không phải là một giá trị có nghĩa ở đây.
+/// </summary>
+public record SetOnlineDto(bool IsOnline);
+
 public record CreateCertificationDto(string Name, string? IssuingOrg, DateOnly? IssuedAt);
 
 /// <summary>

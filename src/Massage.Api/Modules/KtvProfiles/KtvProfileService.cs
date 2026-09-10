@@ -90,6 +90,33 @@ public class KtvProfileService(
         return profile;
     }
 
+    /// <summary>Bật/tắt trạng thái "đang nhận khách" của chính mình.</summary>
+    /// <remarks>
+    /// Cố ý <b>không</b> đi qua <see cref="UpdateAsync"/>, dù cùng ghi lên một hàng.
+    /// Đường sửa hồ sơ đưa hồ sơ đã duyệt về PENDING — đúng cho việc đổi tên hay đổi
+    /// khu vực, nhưng ở đây thì tai hại: KTV tắt nhận khách lúc đi ngủ sẽ rớt khỏi kết
+    /// quả tìm kiếm cho tới khi admin duyệt lại, và không có gì báo cho họ biết. Đây là
+    /// công tắc dùng nhiều lần mỗi ngày, không phải một lượt khai báo lại hồ sơ.
+    ///
+    /// Vì vậy nó cũng không đụng <c>UpdatedAt</c>: cột đó là "hồ sơ đổi nội dung lần
+    /// cuối lúc nào" và sitemap đọc nó (xem <c>SitemapEntryDto</c>). Bật/tắt trong ngày
+    /// không đổi nội dung trang, nên đẩy <c>lastmod</c> lên mỗi lần là khai với Google
+    /// rằng hàng trăm trang vừa được sửa trong khi không trang nào đổi một chữ.
+    ///
+    /// <c>ExecuteUpdate</c> ghi thẳng một cột thay vì nạp cả hồ sơ kèm bốn bảng con chỉ
+    /// để đổi một bit.
+    /// </remarks>
+    public async Task<bool> SetOnlineAsync(Guid userId, bool isOnline, CancellationToken ct = default)
+    {
+        var changed = await db.KtvProfiles
+            .Where(p => p.UserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsOnline, isOnline), ct);
+
+        if (changed == 0) throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
+
+        return isOnline;
+    }
+
     public async Task<KtvProfile> GetByUserIdAsync(Guid userId, CancellationToken ct = default) =>
         await db.KtvProfiles.Include(p => p.Certifications).Include(p => p.Photos)
             .Include(p => p.IdentityDocument)
@@ -340,32 +367,117 @@ public class KtvProfileService(
     /// khi DB đã commit. Đảo lại thì một lỗi lưu DB sẽ để hồ sơ trỏ tới file vừa bị
     /// xoá — ảnh vỡ trên trang công khai, và không có cách nào lấy lại.
     /// </summary>
+    /// <remarks>
+    /// Ảnh vào <b>hàng chờ duyệt</b> (<c>pending_avatar_key</c>), không ghi thẳng vào
+    /// <c>avatar_key</c>. Ảnh đang hiển thị giữ nguyên trên sàn cho tới khi admin duyệt
+    /// bản mới — đổi ảnh không bao giờ làm hồ sơ mất ảnh, kể cả khi bản mới bị từ chối.
+    ///
+    /// Key trả ra để controller dọn là <b>key chờ duyệt cũ</b>, không phải avatar đang
+    /// dùng: gửi lại lần hai thì bản chờ lần một thành rác, còn ảnh công khai thì không
+    /// được đụng tới.
+    /// </remarks>
     public async Task<string?> SetAvatarAsync(Guid userId, string key, CancellationToken ct = default)
     {
         var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
                       ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
 
-        var previous = profile.AvatarKey;
-        profile.AvatarKey = key;
+        var previousPending = profile.PendingAvatarKey;
+
+        profile.PendingAvatarKey = key;
+        profile.AvatarVerifyStatus = VerificationStatuses.Pending;
+        // Xoá lý do từ chối cũ: nó nói về tấm ảnh vừa bị thay, để lại là dán một lời chê
+        // lên tấm ảnh mới mà chưa ai xem.
+        profile.AvatarRejectionReason = null;
+        profile.AvatarVerifiedBy = null;
+        // submitted_at tách khỏi created_at vì hàng bị ghi đè tại chỗ: xếp hàng đợi theo
+        // thời điểm tạo hồ sơ thì người bị từ chối rồi gửi lại nằm nguyên chỗ cũ và không
+        // bao giờ được xem lại (cùng lý do với ktv_identity_documents).
+        profile.AvatarSubmittedAt = DateTimeOffset.UtcNow;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
+
         await db.SaveChangesAsync(ct);
 
         // Cùng key nghĩa là không có gì để dọn — không bao giờ xảy ra với GUID mới mỗi
         // lần upload, nhưng xoá nhầm ở đây là mất đúng ảnh vừa đặt.
-        return previous == key ? null : previous;
+        return previousPending == key ? null : previousPending;
     }
 
-    public async Task<string?> RemoveAvatarAsync(Guid userId, CancellationToken ct = default)
+    /// <summary>Gỡ ảnh đại diện: xoá cả ảnh đang hiển thị lẫn ảnh đang chờ duyệt.</summary>
+    /// <remarks>
+    /// Gỡ là "tôi không muốn có ảnh nào", nên nó dọn cả hai cột. Chỉ xoá bản đang hiển thị
+    /// sẽ để một ảnh chờ duyệt sống sót và tự lên sàn khi admin duyệt — tức ảnh KTV đã chủ
+    /// động gỡ lại xuất hiện, muộn vài giờ, không ai hiểu vì sao.
+    /// </remarks>
+    public async Task<IReadOnlyList<string>> RemoveAvatarAsync(Guid userId, CancellationToken ct = default)
     {
         var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct)
                       ?? throw new NotFoundException("Chưa có hồ sơ KTV cho tài khoản này");
 
-        var previous = profile.AvatarKey;
+        var removed = new[] { profile.AvatarKey, profile.PendingAvatarKey }
+            .Where(k => !string.IsNullOrEmpty(k))
+            .Select(k => k!)
+            .Distinct()
+            .ToList();
+
         profile.AvatarKey = null;
+        profile.PendingAvatarKey = null;
+        profile.AvatarVerifyStatus = null;
+        profile.AvatarRejectionReason = null;
+        profile.AvatarVerifiedBy = null;
+        profile.AvatarSubmittedAt = null;
         profile.UpdatedAt = DateTimeOffset.UtcNow;
+
         await db.SaveChangesAsync(ct);
 
-        return previous;
+        return removed;
+    }
+
+    /// <summary>Quyết định của admin về ảnh đại diện đang chờ duyệt.</summary>
+    /// <returns>Key cần xoá khỏi storage sau khi DB commit, hoặc null.</returns>
+    /// <remarks>
+    /// Duyệt: ảnh chờ thay ảnh đang hiển thị, và <b>ảnh cũ trở thành rác</b> — trả nó ra
+    /// cho controller dọn sau commit, đúng quy ước "xoá file sau khi DB commit".
+    ///
+    /// Từ chối: ảnh chờ bị xoá, <b>avatar đang hiển thị không đụng tới</b>. Lý do từ chối
+    /// phải lưu lại — KTV cần biết chụp lại thế nào, chứ không phải thấy ảnh lặng lẽ biến
+    /// mất khỏi hàng chờ.
+    /// </remarks>
+    public async Task<string?> DecideAvatarAsync(
+        Guid ktvId, Guid adminId, string decision, string? reason, CancellationToken ct = default)
+    {
+        var profile = await db.KtvProfiles.FirstOrDefaultAsync(p => p.Id == ktvId, ct)
+                      ?? throw new NotFoundException("Không tìm thấy hồ sơ KTV");
+
+        if (profile.PendingAvatarKey is null)
+            throw new BadRequestException("Hồ sơ này không có ảnh đại diện nào đang chờ duyệt");
+
+        profile.AvatarVerifiedBy = adminId;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+        string? orphan;
+
+        if (decision == VerificationStatuses.Verified)
+        {
+            orphan = profile.AvatarKey;
+            profile.AvatarKey = profile.PendingAvatarKey;
+            profile.AvatarRejectionReason = null;
+        }
+        else
+        {
+            orphan = profile.PendingAvatarKey;
+            profile.AvatarRejectionReason = reason;
+        }
+
+        // Cả hai nhánh đều dọn hàng chờ: duyệt xong hay từ chối xong thì không còn gì chờ.
+        // Giữ lại status = 'VERIFIED'/'REJECTED' kèm pending_avatar_key = NULL sẽ làm hàng
+        // đợi sạch nhưng để KTV không đọc được kết quả — nên status theo đúng quyết định,
+        // chỉ có key là được nhả.
+        profile.PendingAvatarKey = null;
+        profile.AvatarVerifyStatus = decision;
+
+        await db.SaveChangesAsync(ct);
+
+        return orphan == profile.AvatarKey ? null : orphan;
     }
 
     /// <summary>

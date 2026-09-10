@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { LOCALES, localePath, stripLocale } from '@/i18n/config';
 import { API_BASE, getSessionToken } from '@/lib/session';
 
 /**
@@ -64,9 +65,21 @@ async function handle(request: Request) {
 
   // Chỉ xoá cache khi backend đã nhận thật. Xoá sau một lần gửi hỏng là bỏ đi bản
   // dựng sẵn của một trang SEO mà không đổi lại được gì.
+  //
+  // Xoá cho **mọi ngôn ngữ** trong `LOCALES`. Trước đây route nhận nguyên đường dẫn từ
+  // client, và phía gọi (`ProfileMediaSection`) ghim `'vi'` — nên bản `/en` giữ nội dung
+  // cũ thêm 10 phút, và là nửa ít người mở nên lâu mới lộ. Nay client chỉ nói **có cần
+  // xoá hay không**; đường dẫn do server dựng, nên không còn chỗ nào để quên một locale.
   const path = url.searchParams.get('path');
+
   if (res.ok && path?.startsWith('/') && !path.startsWith('//')) {
-    revalidatePath(path);
+    // `stripLocale` chứ không phải regex tự viết: danh sách locale nằm ở đúng một chỗ,
+    // nên thêm ngôn ngữ thứ ba không để lại một bản sao cần nhớ sửa ở đây.
+    const { path: bare } = stripLocale(path);
+
+    for (const locale of LOCALES) {
+      revalidatePath(localePath(locale, bare));
+    }
   }
 
   return new NextResponse(text || null, {

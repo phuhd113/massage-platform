@@ -59,6 +59,10 @@ export function DashboardNav({
   const items = [
     { href: '/dashboard', label: 'Tổng quan' },
     { href: '/dashboard/ho-so', label: 'Hồ sơ' },
+    // Ngay sau Hồ sơ, trước Ví: đây là hai trang mô tả "tôi là ai / tôi bán gì", còn
+    // ba mục sau đều là chi tiền. Dịch vụ và giá cũng bị khoá khi chưa có hồ sơ như
+    // mọi mục khác — bảng giá treo vào hồ sơ, chưa có hồ sơ thì không có gì để treo.
+    { href: '/dashboard/dich-vu', label: 'Dịch vụ và giá' },
     { href: '/dashboard/vi', label: 'Ví', badge: balanceLabel, tone: 'muted' as const },
     { href: '/dashboard/goi', label: 'Mua gói đẩy tin' },
     {
