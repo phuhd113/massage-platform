@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { CheckIcon, LogoMark } from '@/components/icons';
+import { CheckIcon } from '@/components/icons';
+import { SiteLogo } from '@/components/SiteLogo';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
@@ -139,8 +140,10 @@ export function LoginForm({
       <div className="flex items-center justify-center px-5 py-12 sm:px-12">
         <div className="w-full max-w-[400px]">
           <div className="flex items-center gap-2.5">
-            <LogoMark className="h-[30px] w-[30px] shrink-0" />
-            <span className="font-display text-h4 font-bold text-ink-900">{SITE_NAME[locale]}</span>
+            {/* Bản logo NGANG: nó đã mang sẵn chữ "MasGo", nên KHÔNG kèm thêm một
+                <span>{SITE_NAME}</span> bên cạnh — hai thứ đó cạnh nhau đọc ra "MasGo MasGo".
+                Tên sàn vẫn đọc được bởi trình đọc màn hình qua `alt`. */}
+            <SiteLogo alt={SITE_NAME[locale]} className="h-8 w-auto shrink-0" />
           </div>
 
           <h1 className="mt-8 text-h1 text-ink-900 sm:text-[30px] sm:leading-9">

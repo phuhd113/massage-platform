@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CertificationsSection } from '@/components/CertificationsSection';
 import { CommitmentsSection } from '@/components/CommitmentsSection';
 import { IdentityDocumentSection } from '@/components/IdentityDocumentSection';
+import { ProfileChecklist } from '@/components/ProfileChecklist';
 import { ProfileForm } from '@/components/ProfileForm';
 import { ProfileMediaSection } from '@/components/ProfileMediaSection';
 import { ServicePricingForm } from '@/components/ServicePricingForm';
@@ -52,37 +54,11 @@ export default async function ProfilePage() {
     <div className="pb-24">
       <h1 className="text-h1 text-ink-900">Hồ sơ kỹ thuật viên</h1>
 
-      {profile ? (
-        <StatusBanner profile={profile} />
-      ) : (
-        /* Nói rõ vì sao các mục khác đang khoá: KTV bị đưa về đây từ một trang khác
-           mà không được giải thích sẽ tưởng mình bấm nhầm, rồi bấm lại đúng mục đó.
-           Ba bước liệt kê ra vì đây là màn hình đầu tiên của một quy trình dài hơn
-           chính cái form: hồ sơ xong vẫn chưa hiện, còn CCCD và cam kết nữa — và cả
-           hai khối đó nằm ngoài màn hình đầu tiên, chỉ xuất hiện sau khi tạo xong. */
-        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
-          <p className="text-body text-brand-700">
-            Tạo hồ sơ để bắt đầu — ví, gói đẩy tin và chiến dịch chỉ mở sau bước này.
-          </p>
-          <ol className="mt-3 grid gap-2 text-body-s text-brand-700 sm:grid-cols-3">
-            {[
-              'Khai hồ sơ ở form bên dưới',
-              'Gửi ảnh CCCD và ký cam kết',
-              'Quản trị viên duyệt, hồ sơ lên tìm kiếm',
-            ].map((label, i) => (
-              <li key={label} className="flex items-start gap-2">
-                <span
-                  aria-hidden
-                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500 text-caption font-semibold text-white"
-                >
-                  {i + 1}
-                </span>
-                {label}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+      {/* Checklist thay cho hai khối cũ vốn cùng trả lời "tôi còn thiếu gì?" nhưng ở
+          hai nhánh loại trừ nhau: một danh sách 3 bước tĩnh khi chưa có hồ sơ, và một
+          StatusBanner liệt kê phần thiếu khi đã có. Xem `ProfileChecklist` để biết vì
+          sao nhóm bắt buộc phải khớp đúng `AdminService.DecideProfileAsync`. */}
+      <ProfileChecklist profile={profile} serviceCount={myServices.length} />
 
       <section className="mt-8">
         <ProfileForm profile={profile} coverageLabels={coverageLabels} />
@@ -92,7 +68,9 @@ export default async function ProfilePage() {
         <>
           {/* Ảnh đứng trước chứng chỉ: nó là thứ khách thấy đầu tiên trong kết quả
               tìm kiếm, nên cũng là việc đáng làm trước sau khi khai xong hồ sơ. */}
-          <section className="mt-12">
+          {/* `id` là đích của link trong ProfileChecklist. `scroll-mt` để tiêu đề không
+              dính sát mép trên sau khi nhảy tới. */}
+          <section id="anh" className="mt-12 scroll-mt-6">
             <h2 className="text-h2 text-ink-900">Ảnh hồ sơ</h2>
             <p className="mt-1 text-sm text-ink-600">
               Hồ sơ có ảnh được khách bấm vào nhiều hơn hẳn hồ sơ chỉ có chữ cái đầu tên.
@@ -103,9 +81,10 @@ export default async function ProfilePage() {
           </section>
 
           {/* CCCD và cam kết đứng trước chứng chỉ: đây là hai điều kiện **bắt buộc**
-              để hồ sơ được duyệt, còn chứng chỉ hành nghề thì không. Xếp sau sẽ khiến
+              để hồ sơ được duyệt (xem `AdminService.DecideProfileAsync`), còn chứng chỉ
+              hành nghề thì không — nó tuỳ chọn ở giai đoạn hiện tại. Xếp sau sẽ khiến
               KTV làm xong phần tuỳ chọn trước rồi vẫn không hiểu vì sao chưa duyệt. */}
-          <section className="mt-12">
+          <section id="cccd" className="mt-12 scroll-mt-6">
             <h2 className="text-h2 text-ink-900">Xác minh danh tính (CCCD)</h2>
             <p className="mt-1 text-sm text-ink-600">
               Bắt buộc. Khách mời kỹ thuật viên tới tận nhà, nên hồ sơ chỉ được duyệt khi danh tính
@@ -116,7 +95,7 @@ export default async function ProfilePage() {
             </div>
           </section>
 
-          <section className="mt-12">
+          <section id="cam-ket" className="mt-12 scroll-mt-6">
             <h2 className="text-h2 text-ink-900">Cam kết của kỹ thuật viên</h2>
             <p className="mt-1 text-sm text-ink-600">
               Bắt buộc. Đây là những nghĩa vụ bạn nhận khi hoạt động trên nền tảng.
@@ -131,11 +110,13 @@ export default async function ProfilePage() {
             </div>
           </section>
 
-          <section className="mt-12">
+          <section id="chung-chi" className="mt-12 scroll-mt-6">
             <h2 className="text-h2 text-ink-900">Chứng chỉ hành nghề</h2>
             <p className="mt-1 text-sm text-ink-600">
-              Chỉ chứng chỉ đã được duyệt mới hiển thị trên trang hồ sơ công khai. Đây cũng là hàng
-              rào chất lượng của nền tảng, nên khâu duyệt không bỏ qua được.
+              Không bắt buộc — hồ sơ vẫn được duyệt và hiển thị khi chưa có chứng chỉ nào. Nhưng
+              chứng chỉ đã duyệt hiện thành huy hiệu ngay trên thẻ tìm kiếm và trang hồ sơ công
+              khai, nên đây là thứ giúp bạn nổi bật khi khách so sánh nhiều hồ sơ cùng lúc. Chỉ
+              chứng chỉ đã được duyệt mới hiển thị.
             </p>
             <div className="mt-4">
               <CertificationsSection certifications={profile.certifications} />
@@ -146,7 +127,16 @@ export default async function ProfilePage() {
             <h2 className="text-h2 text-ink-900">Dịch vụ và bảng giá</h2>
             <p className="mt-1 text-sm text-ink-600">
               Giá hiển thị công khai là giá khởi điểm. Khách lọc theo dịch vụ, nên hồ sơ không khai
-              dịch vụ nào sẽ không xuất hiện khi khách lọc.
+              dịch vụ nào sẽ không xuất hiện khi khách lọc. Sửa ở đây hay ở{' '}
+              {/* Cùng một form, hai lối vào — nói ra để KTV biết trang riêng tồn tại,
+                  và biết rằng hai nơi không phải hai bảng giá khác nhau. */}
+              <Link
+                href="/dashboard/dich-vu"
+                className="font-medium text-brand-600 hover:underline"
+              >
+                trang Dịch vụ và giá
+              </Link>{' '}
+              đều được — cùng một bảng giá. Trang đó còn có công tắc bật/tắt nhận khách.
             </p>
             <div className="mt-4">
               <ServicePricingForm catalog={catalog} mine={myServices} />
@@ -155,42 +145,5 @@ export default async function ProfilePage() {
         </>
       )}
     </div>
-  );
-}
-
-function StatusBanner({ profile }: { profile: MyKtvProfile }) {
-  if (profile.verificationStatus === 'VERIFIED') {
-    return (
-      <p className="mt-4 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-700">
-        Hồ sơ đã được duyệt và đang hiển thị công khai tại{' '}
-        <code className="text-xs">/ktv/{profile.slug}-{profile.id}</code>.
-        {' '}Lưu ý: sửa hồ sơ sẽ đưa nó về trạng thái chờ duyệt lại.
-      </p>
-    );
-  }
-
-  // Hai điều kiện backend bắt buộc trước khi duyệt được. Nói ra ở đây vì nếu không,
-  // hồ sơ nằm "chờ duyệt" vô thời hạn mà KTV không biết còn thiếu gì — và phần thiếu
-  // nằm ở hai khối phía dưới, ngoài màn hình đầu tiên.
-  const missing = [
-    profile.identityDocument?.verifyStatus === 'VERIFIED' ? null : 'ảnh CCCD đã xác minh',
-    profile.commitmentsUpToDate ? null : 'bản cam kết kỹ thuật viên',
-  ].filter(Boolean);
-
-  return (
-    <p className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-warning-fg">
-      {profile.verificationStatus === 'PENDING' ? (
-        <>
-          Hồ sơ đang chờ duyệt. Trong lúc chờ, hồ sơ chưa hiện trong tìm kiếm.
-          {missing.length > 0 && <> Còn thiếu: {missing.join(' và ')}.</>}
-        </>
-      ) : (
-        <>
-          Hồ sơ bị từ chối
-          {profile.rejectionReason ? `: ${profile.rejectionReason}` : ''}. Sửa lại rồi lưu để gửi
-          duyệt lần nữa.
-        </>
-      )}
-    </p>
   );
 }

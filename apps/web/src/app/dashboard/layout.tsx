@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { DashboardNav } from '@/components/DashboardNav';
 import { KtvAnnouncement } from '@/components/KtvAnnouncement';
-import { LogoMark } from '@/components/icons';
+import { SiteLogo } from '@/components/SiteLogo';
 import { LogoutButton } from '@/components/LogoutButton';
 import { fontVariables } from '@/lib/fonts';
 import {
@@ -83,16 +83,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {/* Chỉ còn là dòng tiêu đề riêng ở desktop. Ở mobile logo lùi về làm dấu
             nhận diện nhỏ cạnh nút menu — một hàng chữ "Bảng điều khiển" chiếm trọn
             bề ngang điện thoại chỉ để nhắc lại thứ KTV vừa chủ động mở. */}
-        <div className="hidden items-center gap-2.5 px-2 pb-5 lg:flex">
-          <LogoMark className="h-7 w-7 shrink-0" />
-          <span className="font-display text-body-l font-bold text-ink-900">Bảng điều khiển</span>
+        {/* Xếp DỌC, không phải cùng hàng: bản logo ngang tỉ lệ ~5.64:1 rộng ~136px ở
+            `h-6`, mà sidebar chỉ 248px trừ padding — đặt nhãn cạnh nó thì "Bảng điều
+            khiển" bị ép xuống ba dòng ("Bảng / điều / khiển"). Đã thấy trong trình
+            duyệt thật trước khi đổi. */}
+        <div className="hidden px-2 pb-5 lg:block">
+          <SiteLogo alt="MasGo" className="h-6 w-auto" />
+          <span className="mt-2 block font-display text-body-l font-bold text-ink-900">
+            Bảng điều khiển
+          </span>
         </div>
 
         {/* `items-start`, không phải `items-center`: khi menu mở ra, nav cao lên vài
             trăm px và logo canh giữa sẽ trôi xuống lơ lửng giữa danh sách. Nó phải
             đứng yên ngang hàng với nút menu — đó là hàng duy nhất tồn tại khi gập. */}
         <div className="flex items-start gap-2 lg:block">
-          <LogoMark className="mt-2 h-7 w-7 shrink-0 lg:hidden" />
+          <SiteLogo alt="MasGo" className="mt-2.5 h-6 w-auto shrink-0 lg:hidden" />
 
           <div className="min-w-0 flex-1 lg:flex-none">
             <DashboardNav
@@ -178,7 +184,7 @@ function CustomerNotice() {
     <div className="flex min-h-screen items-center justify-center bg-brand-50 px-5 py-12">
       <div className="w-full max-w-[440px] rounded-xl border border-ink-200 bg-white p-6 shadow-card">
         <div className="flex items-center gap-2.5">
-          <LogoMark className="h-7 w-7 shrink-0" />
+          <SiteLogo alt="MasGo" className="h-6 w-auto shrink-0" />
           <span className="font-display text-body-l font-bold text-ink-900">Bảng điều khiển</span>
         </div>
 

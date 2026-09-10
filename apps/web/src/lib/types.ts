@@ -348,8 +348,14 @@ export interface MyKtvProfile {
   ratingCount: number;
   isOnline: boolean;
   createdAt: string;
-  /** URL ảnh đại diện, null khi chưa đặt. */
+  /** URL ảnh đại diện **đang hiển thị công khai** — chỉ chứa ảnh đã duyệt. Null khi chưa có. */
   avatarUrl: string | null;
+  /** Ảnh đại diện vừa gửi, chưa duyệt nên chưa ra trang công khai. Chỉ có ở đường "hồ sơ của tôi". */
+  pendingAvatarUrl: string | null;
+  /** Trạng thái của ảnh đang chờ. `null` = không có ảnh nào đang chờ, **không** phải PENDING. */
+  avatarVerifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+  avatarRejectionReason: string | null;
+  avatarSubmittedAt: string | null;
   /** **Mọi** trạng thái, khác trang công khai — chính chủ phải thấy ảnh đang chờ duyệt
    *  hoặc bị từ chối kèm lý do; nếu không nó chỉ lặng lẽ không xuất hiện. */
   photos: MyKtvPhoto[];
@@ -497,6 +503,34 @@ export interface AdminKtvPhoto {
 
 export interface AdminKtvPhotoList {
   items: AdminKtvPhoto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Ảnh đại diện trong hàng đợi duyệt riêng.
+ *
+ * Định danh theo `ktvId` chứ không có id riêng: avatar là cột trên `ktv_profiles`, một
+ * hồ sơ nhiều nhất một ảnh đang chờ. Mang **cả hai** URL vì admin cần so ảnh mới với
+ * ảnh đang hiển thị để thấy KTV đang đổi sang cái gì.
+ */
+export interface AdminKtvAvatar {
+  ktvId: string;
+  ktvName: string;
+  ktvSlug: string;
+  /** Ảnh đang chờ duyệt. Null ở tab VERIFIED/REJECTED — key đã được nhả sau quyết định. */
+  pendingUrl: string | null;
+  /** Ảnh đang hiển thị công khai. Null khi hồ sơ chưa từng có ảnh nào được duyệt. */
+  currentUrl: string | null;
+  avatarVerifyStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+  avatarRejectionReason: string | null;
+  avatarSubmittedAt: string | null;
+  profileStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+}
+
+export interface AdminKtvAvatarList {
+  items: AdminKtvAvatar[];
   total: number;
   page: number;
   limit: number;

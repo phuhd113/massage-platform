@@ -125,7 +125,7 @@ export function safeNext(next: string | undefined): string | undefined {
 /**
  * Đưa người **đã đăng nhập** ra khỏi màn hình đăng nhập / đăng ký.
  *
- * Vì sao cần: header trỏ "Dành cho KTV" thẳng vào `/dang-nhap`, nên KTV đã có phiên
+ * Vì sao cần: header trỏ "Trở thành KTV MasGo" thẳng vào `/dang-nhap`, nên KTV đã có phiên
  * bấm nút đó lại thấy đúng cái form họ vừa điền xong — đọc như phiên đăng nhập đã
  * mất, trong khi nó còn nguyên. Ba trang này vẽ form vô điều kiện, không hề hỏi xem
  * người đang xem là ai.

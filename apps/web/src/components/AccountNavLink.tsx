@@ -63,7 +63,7 @@ export function AccountNavLink({
     };
   }, []);
 
-  // KTV có bảng điều khiển riêng; "Dành cho KTV" bên cạnh đã dẫn tới đó rồi.
+  // KTV có bảng điều khiển riêng; "Trở thành KTV MasGo" bên cạnh đã dẫn tới đó rồi.
   const isCustomer = session?.authenticated === true && session.role !== 'KTV';
 
   return (
