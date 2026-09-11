@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { compressImage } from '@/lib/image-compress';
 import { mediaUrl } from '@/lib/media';
 import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
@@ -9,7 +10,13 @@ import { formatDate } from '@/lib/site';
 import type { MyCertification } from '@/lib/types';
 
 const MAX_MB = 5;
-const ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf';
+
+/**
+ * Kê `.heic`/`.heif` để trình chọn ảnh của iOS không làm mờ ảnh chụp bằng camera —
+ * `compressImage` đổi chúng sang JPEG trước khi gửi. Giữ `.pdf` và **không** dùng
+ * `image/*` một mình: ô này nhận cả bản scan PDF.
+ */
+const ACCEPT = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.pdf';
 
 export function CertificationsSection({
   certifications,
@@ -31,22 +38,26 @@ export function CertificationsSection({
     e.preventDefault();
     if (!file) return;
 
-    // Chặn ở client trước cho phản hồi tức thì; backend vẫn kiểm lại vì kiểm tra
-    // phía client không phải là ràng buộc, chỉ là tiện lợi.
-    if (file.size > MAX_MB * 1024 * 1024) {
-      setError(`File vượt quá ${MAX_MB}MB.`);
-      return;
-    }
-
     setPending(true);
     setError(null);
     setDone(null);
+
+    // Nén ảnh chụp bằng điện thoại xuống dưới hạn mức; PDF đi thẳng, `compressImage`
+    // không đụng tới file không phải ảnh. Backend vẫn kiểm lại cỡ file — đây là tiện
+    // lợi, không phải ràng buộc.
+    const ready = await compressImage(file);
+
+    if (ready.size > MAX_MB * 1024 * 1024) {
+      setError(`File vượt quá ${MAX_MB}MB và không nén nhỏ lại được. Hãy chọn file khác.`);
+      setPending(false);
+      return;
+    }
 
     const form = new FormData();
     form.append('Name', name);
     if (issuingOrg) form.append('IssuingOrg', issuingOrg);
     if (issuedAt) form.append('IssuedAt', issuedAt);
-    form.append('file', file);
+    form.append('file', ready);
 
     try {
       // Không tự đặt Content-Type: trình duyệt phải tự sinh nó kèm boundary của
@@ -171,7 +182,8 @@ export function CertificationsSection({
               className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-sm"
             />
             <span className="mt-1 block text-xs text-ink-500">
-              JPG, PNG, WEBP hoặc PDF, tối đa {MAX_MB}MB.
+              JPG, PNG, WEBP hoặc PDF. Ảnh chụp bằng điện thoại được tự động nén, không cần
+              lo dung lượng.
             </span>
           </label>
         </div>

@@ -3,13 +3,24 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { compressImage } from '@/lib/image-compress';
 import { initialOf, isOptimizable, mediaUrl } from '@/lib/media';
 import { ktvPath } from '@/lib/site';
 import type { MyKtvPhoto, MyKtvProfile } from '@/lib/types';
 
 const MAX_MB = 3;
 const MAX_PHOTOS = 10;
-const ACCEPT = '.jpg,.jpeg,.png,.webp';
+
+/**
+ * Phải kê cả `.heic`/`.heif`, dù backend không nhận chúng và `compressImage` luôn đổi
+ * sang JPEG trước khi gửi.
+ *
+ * Lý do: `accept` là bộ lọc của **trình chọn file**, chạy trước khi code của ta thấy
+ * file. Thiếu hai đuôi này thì trình chọn ảnh của iOS làm mờ toàn bộ ảnh chụp bằng
+ * camera — KTV mở thư viện ra và không bấm được tấm nào, không có thông báo nào giải
+ * thích. `image/*` cũng bắt được ca đó, và bắt luôn những đuôi lạ mà máy Android đặt ra.
+ */
+const ACCEPT = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
 
 /**
  * Ảnh đại diện và bộ sưu tập ảnh hồ sơ.
@@ -31,6 +42,15 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
   const [done, setDone] = useState<string | null>(null);
 
   /**
+   * Thao tác gần nhất, giữ lại **sau** khi nó chạy xong.
+   *
+   * Tách khỏi `pending` vì `pending` về null ngay khi request kết thúc — đúng lúc
+   * thông báo cần hiện. Không có trường này thì `feedbackFor` không biết nên hiện
+   * thông báo ở khối nào.
+   */
+  const [lastKey, setLastKey] = useState<string | null>(null);
+
+  /**
    * Một chỗ duy nhất gọi API ảnh, để mọi thao tác cùng cách báo lỗi và cùng nhớ
    * `router.refresh()`. Trả về true khi thành công.
    */
@@ -41,6 +61,7 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
     successMessage: string,
   ): Promise<boolean> {
     setPending(key);
+    setLastKey(key);
     setError(null);
     setDone(null);
 
@@ -68,12 +89,25 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
     }
   }
 
-  /** Kiểm cỡ file ở client cho phản hồi tức thì. Backend vẫn kiểm lại — đây là tiện lợi, không phải ràng buộc. */
-  function tooBig(file: File): boolean {
-    if (file.size <= MAX_MB * 1024 * 1024) return false;
-    setError(`Ảnh vượt quá ${MAX_MB}MB. Hãy chọn ảnh nhỏ hơn hoặc giảm chất lượng khi xuất.`);
+  /**
+   * Nén rồi kiểm cỡ. Trả về file gửi được, hoặc null khi vẫn quá lớn.
+   *
+   * `compressImage` đưa ảnh camera (2–5MB) xuống còn vài trăm KB, nên nhánh báo lỗi
+   * dưới đây gần như không bao giờ chạy tới — nó còn ở đây cho ca ảnh không giải mã
+   * được, lúc đó hàm nén trả lại file gốc nguyên vẹn.
+   */
+  async function prepare(file: File, key: string): Promise<File | null> {
+    setPending(key);
+    setLastKey(key);
+    setError(null);
     setDone(null);
-    return true;
+
+    const ready = await compressImage(file);
+    if (ready.size <= MAX_MB * 1024 * 1024) return ready;
+
+    setPending(null);
+    setError(`Ảnh vượt quá ${MAX_MB}MB và không nén nhỏ lại được. Hãy chọn ảnh khác.`);
+    return null;
   }
 
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
@@ -81,10 +115,13 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
     // Reset ngay để chọn lại đúng file vừa chọn vẫn kích hoạt onChange — nếu không,
     // KTV chọn nhầm rồi chọn lại cùng tấm ảnh sẽ thấy giao diện không phản ứng gì.
     e.target.value = '';
-    if (!file || tooBig(file)) return;
+    if (!file) return;
+
+    const ready = await prepare(file, 'avatar');
+    if (!ready) return;
 
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', ready);
 
     // Không tự đặt Content-Type: trình duyệt phải tự sinh nó kèm boundary multipart.
     //
@@ -114,10 +151,13 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
   async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || tooBig(file)) return;
+    if (!file) return;
+
+    const ready = await prepare(file, 'photo');
+    if (!ready) return;
 
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', ready);
 
     // Không kèm `path`: ảnh vào hàng chờ duyệt nên trang công khai chưa đổi gì, và
     // xoá bản dựng sẵn của một trang SEO ở đây là trả giá mà không được gì.
@@ -146,19 +186,40 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
   const pendingAvatar = mediaUrl(profile.pendingAvatarUrl);
   const busy = pending !== null;
 
+  /**
+   * Thông báo hiện **cạnh nút vừa bấm**, không gom lên đỉnh khối.
+   *
+   * Đây là lỗi đã cắn thật: bản cũ render error/done một lần ở trên cùng, phía trên cả
+   * ô "Ảnh đại diện". Nhưng nút "Thêm ảnh" nằm cuối khối thứ hai, cách đó vài màn hình
+   * cuộn trên điện thoại — nên KTV bấm chọn ảnh, ảnh bị chặn vì vượt 3MB, và **màn hình
+   * không đổi một pixel nào** ở chỗ họ đang nhìn. Đọc đúng như nút bị hỏng.
+   *
+   * `feedbackFor` nhận key của thao tác để mỗi khối chỉ hiện thông báo của chính nó:
+   * gỡ một ảnh gallery không nên làm hiện chữ dưới ô avatar.
+   */
+  function feedbackFor(...keys: string[]) {
+    // Thông báo thuộc về thao tác vừa chạy xong, mà lúc đó `pending` đã về null — nên
+    // dùng `lastKey` chứ không phải `pending` để biết nên hiện ở đâu.
+    if (!lastKey || !keys.includes(lastKey)) return null;
+
+    return (
+      <>
+        {error && (
+          <p role="alert" className="mt-3 rounded-md bg-danger-bg px-4 py-3 text-sm text-danger-fg">
+            {error}
+          </p>
+        )}
+        {done && (
+          <p role="status" className="mt-3 rounded-md bg-success-bg px-4 py-3 text-sm text-success-fg">
+            {done}
+          </p>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {error && (
-        <p role="alert" className="rounded-md bg-danger-bg px-4 py-3 text-sm text-danger-fg">
-          {error}
-        </p>
-      )}
-      {done && (
-        <p role="status" className="rounded-md bg-success-bg px-4 py-3 text-sm text-success-fg">
-          {done}
-        </p>
-      )}
-
       <div className="rounded-lg border border-ink-200 bg-white p-5 shadow-card">
         <h3 className="text-h4 text-ink-900">Ảnh đại diện</h3>
         <p className="mt-1 text-sm text-ink-600">
@@ -260,6 +321,8 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
             )}
           </div>
         </div>
+
+        {feedbackFor('avatar')}
       </div>
 
       <div className="rounded-lg border border-ink-200 bg-white p-5 shadow-card">
@@ -271,8 +334,8 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
         </div>
         <p className="mt-1 text-sm text-ink-600">
           Ảnh không gian làm việc, dụng cụ, hoặc chứng nhận. Ảnh hiển thị công khai{' '}
-          <strong className="font-semibold text-ink-700">sau khi được duyệt</strong>, tối đa{' '}
-          {MAX_MB}MB mỗi ảnh.
+          <strong className="font-semibold text-ink-700">sau khi được duyệt</strong>. Ảnh chụp
+          bằng điện thoại được tự động nén, không cần lo dung lượng.
         </p>
 
         {profile.photos.length > 0 && (
@@ -305,6 +368,10 @@ export function ProfileMediaSection({ profile }: { profile: MyKtvProfile }) {
             />
           </label>
         )}
+
+        {/* Khối gallery hiện thông báo của cả lượt thêm lẫn mọi lượt xoá: `photo-<id>`
+            khớp theo tiền tố nên không cần liệt kê từng ảnh. */}
+        {feedbackFor('photo', ...profile.photos.map((p) => `photo-${p.id}`))}
       </div>
     </div>
   );

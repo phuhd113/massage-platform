@@ -4,12 +4,19 @@ import { useFormValidation } from '@/lib/use-form-validation';
 import { viMessages } from '@/lib/validation-messages';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { compressImage } from '@/lib/image-compress';
 import { mediaUrl } from '@/lib/media';
 import { formatDateTime } from '@/lib/site';
 import type { MyIdentityDocument } from '@/lib/types';
 
 const MAX_MB = 3;
-const ACCEPT = '.jpg,.jpeg,.png,.webp';
+
+/**
+ * Kê `.heic`/`.heif` để trình chọn ảnh của iOS không làm mờ ảnh chụp bằng camera.
+ * Đây là khối dính lỗi đó nặng nhất: CCCD là thứ **chỉ** chụp bằng điện thoại, và
+ * thiếu ảnh CCCD thì hồ sơ không bao giờ được duyệt.
+ */
+const ACCEPT = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
 
 /**
  * Ảnh CCCD hai mặt.
@@ -42,21 +49,23 @@ export function IdentityDocumentSection({ doc }: { doc: MyIdentityDocument | nul
     e.preventDefault();
     if (!front || !back) return;
 
-    // Kiểm ở client cho phản hồi tức thì; backend vẫn kiểm lại — đây là tiện lợi,
-    // không phải ràng buộc.
-    const tooBig = [front, back].find((f) => f.size > MAX_MB * 1024 * 1024);
-    if (tooBig) {
-      setError(`Ảnh vượt quá ${MAX_MB}MB. Chụp lại hoặc giảm chất lượng khi xuất.`);
-      return;
-    }
-
     setPending(true);
     setError(null);
     setDone(null);
 
+    // Nén trước: ảnh CCCD chụp bằng điện thoại gần như luôn vượt 3MB ở kích thước gốc.
+    // Backend vẫn kiểm lại — đây là tiện lợi, không phải ràng buộc.
+    const [frontReady, backReady] = await Promise.all([compressImage(front), compressImage(back)]);
+
+    if ([frontReady, backReady].some((f) => f.size > MAX_MB * 1024 * 1024)) {
+      setError(`Ảnh vượt quá ${MAX_MB}MB và không nén nhỏ lại được. Hãy chụp lại.`);
+      setPending(false);
+      return;
+    }
+
     const form = new FormData();
-    form.append('front', front);
-    form.append('back', back);
+    form.append('front', frontReady);
+    form.append('back', backReady);
 
     try {
       // Không tự đặt Content-Type: boundary của multipart do trình duyệt sinh.
@@ -164,7 +173,10 @@ export function IdentityDocumentSection({ doc }: { doc: MyIdentityDocument | nul
           </label>
         </div>
 
-        <p className="mt-2 text-xs text-ink-500">JPG, PNG hoặc WEBP, mỗi ảnh tối đa {MAX_MB}MB.</p>
+        <p className="mt-2 text-xs text-ink-500">
+          JPG, PNG hoặc WEBP. Ảnh chụp bằng điện thoại được tự động nén, không cần lo dung
+          lượng.
+        </p>
 
         <button
           type="submit"
@@ -232,8 +244,12 @@ function FilePreview({ file, label }: { file: File | null; label: string }) {
         alt={label}
         className="h-32 w-full rounded-md border border-ink-200 bg-ink-50 object-contain"
       />
+      {/* Chỉ tên file, không kèm dung lượng: ảnh được nén lúc gửi nên con số ở đây là
+          của bản gốc và sẽ không khớp thứ thật sự rời khỏi máy — một "4.2MB" nằm cạnh
+          dòng chữ "tự động nén" đọc như hai lời khai mâu thuẫn. Tên file vẫn cần để
+          phân biệt mặt trước/mặt sau vừa chọn. */}
       <span className="mt-1 block truncate text-xs text-ink-500" title={file.name}>
-        {file.name} · {(file.size / 1024 / 1024).toFixed(1)}MB
+        {file.name}
       </span>
     </span>
   );

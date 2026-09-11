@@ -1078,6 +1078,63 @@ chối (hiện đúng lý do admin nhập), và đã duyệt (3/3, giữ nguyên
 phải duyệt lại" của `StatusBanner` cũ). Nhóm khuyến nghị kiểm ca hỗn hợp: 1 ảnh gallery đã duyệt
 + 1 chờ duyệt, 2 khu vực, chứng chỉ ở cả ba trạng thái. Neo nhảy đúng section, không lỗi console.
 
+**Ảnh được nén ở trình duyệt trước khi gửi** (2026-09-11, `lib/image-compress.ts`). Sửa một lỗi
+khiến KTV dùng điện thoại **không tải được ảnh nào lên** — cả ảnh hồ sơ lẫn ảnh CCCD, tức chặn
+luôn đường duyệt hồ sơ. Ba lỗi chồng lên nhau, và lỗi thứ ba là thứ làm hai lỗi kia vô hình:
+
+- **Ảnh camera gần như luôn vượt hạn mức 3MB.** Máy hiện tại cho ra 2–5MB mỗi tấm ở kích thước
+  gốc, nên nhánh "vượt quá 3MB" không phải ca biên mà là **đường đi mặc định** của mọi KTV chụp
+  bằng điện thoại. Nay `compressImage` resize cạnh dài về 1600px và xuất JPEG q0.82 trước khi
+  gửi — đo trong trình duyệt thật: ảnh nhiễu 4000×3000 **11,61MB → 665KB (giảm 94%)**, mà ảnh
+  nhiễu là ca xấu nhất cho JPEG nên ảnh chụp thật còn nhỏ hơn.
+- **`accept` lọc theo đuôi file nên iOS làm mờ toàn bộ ảnh chụp.** Ảnh iPhone mặc định là HEIC;
+  thiếu `.heic`/`.heif` trong `accept` thì trình chọn ảnh của iOS **không cho bấm tấm nào**, không
+  kèm thông báo nào. Phải kê chúng **dù backend không nhận HEIC** — `accept` là bộ lọc của trình
+  chọn file, chạy trước khi code của ta thấy file. Kèm `image/*` để bắt các đuôi lạ của Android.
+- **Thông báo lỗi nằm ngoài màn hình, cách nút vừa bấm vài màn hình cuộn.** `ProfileMediaSection`
+  render error/done **một lần ở đỉnh khối**, trong khi nút "Thêm ảnh" nằm cuối khối thứ hai. KTV
+  bấm chọn ảnh, ảnh bị chặn, và màn hình **không đổi một pixel nào** ở chỗ họ đang nhìn — đọc
+  đúng như nút bị hỏng. Nay `feedbackFor(key)` hiện thông báo ngay dưới đúng nút vừa bấm, tách
+  riêng avatar và gallery.
+
+Bốn quyết định trong `compressImage` đừng vô tình đảo ngược:
+
+- **Nén ở client là tiện lợi, KHÔNG phải ràng buộc.** `UploadService.SaveAsync` vẫn kiểm cỡ file
+  và vẫn kiểm **đuôi ↔ MIME phải khớp nhau** — đừng nới lỏng vế đó ở server vì "đã nén ở client":
+  người gửi thẳng vào API không đi qua trình duyệt nào cả. Vì cùng lý do đó, đổi đuôi sang `.jpg`
+  sau khi nén là **bắt buộc**, không phải thẩm mỹ: một blob `image/jpeg` mang tên `IMG_1234.HEIC`
+  vẫn bị 400, và câu lỗi đọc như thể việc nén đã không xảy ra.
+- **Hàm không bao giờ ném lỗi.** Ảnh không giải mã được, canvas bị chặn (chế độ chống
+  fingerprint), `toBlob` trả null — mọi ca đều trả **file gốc** để lượt gửi đi tiếp và backend là
+  bên quyết định. Ném ở đây là đổi một tối ưu lấy một tính năng hỏng hẳn trên trình duyệt lạ.
+  Cũng trả file gốc khi bản nén **không nhỏ hơn**: đã đo, ảnh 200×200 cho ra bản "nén" lớn hơn
+  đúng 1 byte.
+- **JPEG chứ không WebP**, dù WebP nhỏ hơn: Safari cũ âm thầm rơi về PNG khi không xuất được
+  WebP, mà PNG của một tấm ảnh chụp còn **nặng hơn bản gốc** — "nén" xong lại vượt hạn mức, im
+  lặng. Định dạng lưu trữ không phải chỗ cần tối ưu: `next/image` đã chuyển sang AVIF/WebP ở
+  đường đọc (xem mục `sharp`).
+- **Tô nền trắng trước khi vẽ.** PNG trong suốt sang JPEG mà không tô nền ra nền **đen** — đã đo
+  cả hai chiều: không tô cho `rgb(0,0,0)`, có tô cho `rgb(255,255,255)`. Nền đen trông như ảnh
+  hỏng chứ không như một lựa chọn.
+
+Hệ quả về câu chữ: **đừng quảng cáo hạn mức MB trên giao diện nữa.** Cả ba khối đã đổi sang "ảnh
+chụp bằng điện thoại được tự động nén, không cần lo dung lượng" — nêu một con số người dùng không
+còn chạm tới chỉ khiến họ đi nén ảnh bằng tay một cách vô ích. Cùng lý do, preview CCCD bỏ dòng
+hiện dung lượng: sau nén con số đó là của bản gốc, đặt cạnh chữ "tự động nén" thành hai lời khai
+mâu thuẫn.
+
+**Không tăng `MaxImageSizeMb` để "sửa" lỗi này.** Đã cân nhắc và bác: nó không sửa được nguyên
+nhân nào trong ba nguyên nhân trên (HEIC vẫn bị chặn, lỗi vẫn vô hình), chỉ dời ngưỡng — trong khi
+ảnh hồ sơ nằm trên đường đọc SEO và mỗi MB thừa là LCP chậm thêm cho khách 3G, đúng điều comment
+ở `UploadOptions.MaxImageSizeMb` đã ghi.
+
+Đã kiểm chứng trong trình duyệt thật (2026-09-11): bundle trong container thật sự chứa chuỗi
+`accept` mới và `createImageBitmap` (grep trong container, không tin dòng "Built" — xem bẫy ở mục
+R2); nén 11,61MB → 665KB; PDF chứng chỉ **không** bị đưa qua canvas; ảnh nhỏ giữ nguyên bản gốc;
+đổi tên đúng cả 6 ca kể cả `.heic` trần → `anh.jpg` và tên nhiều dấu chấm; 0 lỗi console.
+Typecheck, ESLint và `next build` đều xanh. **Chưa kiểm trên iOS thật** — ca "thư viện ảnh iPhone
+không còn làm mờ" và ca giải mã file HEIC thật chỉ thiết bị thật trả lời được.
+
 Phần Phase 3 còn lại: job delayed `promotion:expire` và Redis read-path — cả hai chỉ trở nên bắt
 buộc khi đường đọc chuyển sang Redis, mà số đo hiện tại (`/search` 28,6ms ở 5.000 hồ sơ) chưa đòi
 hỏi điều đó. `promotion:activate` và `instant-boost:golden-hour` trong roadmap gốc **không còn cần**:
