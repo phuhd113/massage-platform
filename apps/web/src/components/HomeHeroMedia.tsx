@@ -33,7 +33,18 @@ import type { Translator } from '@/i18n/t';
 export function HomeHeroMedia({ t }: { t: Translator }) {
   return (
     <div className="relative">
-      <div className="relative h-[260px] overflow-hidden rounded-2xl border border-ink-200 bg-brand-50 sm:h-[360px]">
+      <div className="relative h-[260px] overflow-hidden rounded-2xl border border-ink-200 bg-brand-50 shadow-card sm:h-[360px]">
+        {/*
+          **KHÔNG có `animate-*` nào trên `<Image>`, và đó là một ràng buộc chứ không
+          phải một chỗ chưa làm.** Trình duyệt đo LCP ở thời điểm ảnh đạt opacity CUỐI,
+          nên một cú fade dù chỉ 300ms cũng dịch đúng chỉ số xếp hạng của trang có nhiều
+          traffic nhất. Cũng không ken-burns: `scale` chạy vô hạn trên một ảnh `fill`
+          buộc trình duyệt vẽ lại một lớp 100vw liên tục, thứ thấy được ngay trên máy 3G.
+
+          Đợt làm sinh động trang chủ (2026-09-12) vì vậy đặt **toàn bộ** chuyển động của
+          hero ra QUANH ảnh: lưới gradient trôi phía sau chữ ở cột trái, và thẻ hồ sơ mẫu
+          bên dưới. Ảnh đứng yên.
+        */}
         <Image
           src={heroImage}
           alt={t('home.heroImageAlt')}
@@ -80,7 +91,9 @@ export function HomeHeroMedia({ t }: { t: Translator }) {
  * như `KtvCard`. Đừng chỉ thay chỗ này bằng `items[0]`.
  *
  * Thanh giữ chỗ cố ý **không** `animate-pulse`: đó là ngôn ngữ của skeleton loading, và
- * một khối "đang tải" vĩnh viễn trên trang chủ đọc như trang hỏng.
+ * một khối "đang tải" vĩnh viễn trên trang chủ đọc như trang hỏng. Đợt thêm chuyển động
+ * cho trang chủ (2026-09-12) không đổi điều này: thẻ vào bằng `card-rise` một lượt rồi
+ * lửng lơ — chuyển động của một thẻ **đã tải xong**, không phải của một thẻ đang tải.
  *
  * `hidden sm:block` — ẩn hẳn ở mobile. Ở 360px khối này chỉ đẩy ô tìm kiếm (thứ khách
  * mobile thật sự cần) xuống dưới màn hình đầu, mà nó không mang thông tin nào không có
@@ -98,35 +111,53 @@ function HeroProfileCardMock({ t }: { t: Translator }) {
       role="img"
       aria-label={t('home.heroCardAria')}
       // Không bấm được, nên không ai bấm hụt vào một thẻ không dẫn đi đâu.
-      className="pointer-events-none absolute inset-x-4 bottom-4 hidden sm:block"
+      //
+      // `card-rise` vào sau H1 và mô tả (520ms): thẻ này là minh hoạ cho lời hứa vừa
+      // đọc, nên nó phải xuất hiện SAU câu nó minh hoạ.
+      className="pointer-events-none absolute inset-x-4 bottom-4 hidden animate-card-rise [animation-delay:520ms] sm:block"
     >
-      <div className="max-w-[19rem] rounded-xl border border-ink-200 bg-white/95 p-3.5 shadow-card backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <span className="h-12 w-12 shrink-0 rounded-lg border border-ink-200 bg-brand-100" />
+      {/*
+        Lửng lơ ±5px, 5.5s. Đặt ở lớp TRONG chứ không trùng với lớp ngoài đang chạy
+        `card-rise`: hai animation cùng ghi `transform` trên một node thì cái khai sau
+        thắng, và cú vào biến mất hoàn toàn — hỏng im lặng vì thẻ vẫn hiện, chỉ là hiện
+        ngay từ đầu. Delay 1.1s để nó bắt đầu sau khi `card-rise` đã kết thúc.
 
-          <div className="min-w-0 flex-1">
-            {/* Chip xác thực dùng token `success-*` như huy hiệu trên H1 — KHÔNG dùng
-                `champagne-*`, thứ chỉ dành cho vị trí trả phí. */}
-            <span className="inline-flex items-center gap-1 rounded-full border border-success-bd bg-success-bg px-2 py-0.5 text-caption font-semibold text-success-fg">
-              <CertifiedIcon size={12} className="h-3 w-3" />
-              {t('home.heroCardVerified')}
-            </span>
+        Dòng chú thích nằm TRONG lớp này cùng thẻ, không ở ngoài: nó giải thích chính
+        thẻ đó, nên hai thứ phải lửng lơ cùng nhau. Để chú thích đứng yên thì khoảng
+        cách giữa nó và thẻ nhấp nháy 5px liên tục — chuyển động duy nhất trên trang mà
+        mắt thật sự bắt được.
+      */}
+      <div className="animate-float-slow [animation-delay:1.1s]">
+        <div className="max-w-[19rem] rounded-xl border border-ink-200 bg-white/95 p-3.5 shadow-card backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <span className="h-12 w-12 shrink-0 rounded-lg border border-ink-200 bg-brand-100" />
 
-            <span className="mt-2 block h-2.5 w-28 rounded-full bg-ink-300" />
-            <span className="mt-1.5 block h-2 w-20 rounded-full bg-ink-200" />
+            <div className="min-w-0 flex-1">
+              {/* Chip xác thực dùng token `success-*` như huy hiệu trên H1 — KHÔNG dùng
+                  `champagne-*`, thứ chỉ dành cho vị trí trả phí.
+                  `pop` sau khi thẻ đã vào (820ms): dấu tích là thứ đáng được nhấn, và
+                  nhấn nó lúc thẻ còn đang bay là nhấn vào chỗ mắt chưa kịp tới. */}
+              <span className="inline-flex animate-pop items-center gap-1 rounded-full border border-success-bd bg-success-bg px-2 py-0.5 text-caption font-semibold text-success-fg [animation-delay:820ms]">
+                <CertifiedIcon size={12} className="h-3 w-3" />
+                {t('home.heroCardVerified')}
+              </span>
+
+              <span className="mt-2 block h-2.5 w-28 rounded-full bg-ink-300" />
+              <span className="mt-1.5 block h-2 w-20 rounded-full bg-ink-200" />
+            </div>
+          </div>
+
+          <div className="mt-3 flex gap-1.5">
+            <span className="h-5 w-20 rounded-md bg-ink-100" />
+            <span className="h-5 w-16 rounded-md bg-ink-100" />
+            <span className="h-5 w-12 rounded-md bg-ink-100" />
           </div>
         </div>
 
-        <div className="mt-3 flex gap-1.5">
-          <span className="h-5 w-20 rounded-md bg-ink-100" />
-          <span className="h-5 w-16 rounded-md bg-ink-100" />
-          <span className="h-5 w-12 rounded-md bg-ink-100" />
-        </div>
+        <p className="mt-2.5 max-w-[19rem] text-caption font-medium text-white drop-shadow-[0_1px_3px_rgba(13,27,42,0.65)]">
+          {t('home.heroCardCaption')}
+        </p>
       </div>
-
-      <p className="mt-2.5 max-w-[19rem] text-caption font-medium text-white drop-shadow-[0_1px_3px_rgba(13,27,42,0.65)]">
-        {t('home.heroCardCaption')}
-      </p>
     </div>
   );
 }

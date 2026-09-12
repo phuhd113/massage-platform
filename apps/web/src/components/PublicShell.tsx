@@ -91,14 +91,22 @@ export function PublicShell({
               Không thu bằng cách bỏ chữ trên nút KTV: nhãn đó là lời mời, còn logo chỉ
               cần đọc được tên sàn.
 
-              Dòng tagline vẫn **chỉ** hiện từ `sm` — thêm nó ở mobile là ép header cao
-              hai dòng trên đúng màn hình hẹp nhất.
+              Dòng tagline **chỉ** hiện từ `md` — thêm nó ở mobile là ép header cao hai
+              dòng trên đúng màn hình hẹp nhất. Mốc là `md` chứ không `sm` vì **bản EN
+              tràn ở đúng dải 640–767px**: đã đo, header 645/640 với tagline
+              "Need a massage - Open MasGo.vn". Nav tiếng Anh dài hơn tiếng Việt
+              ("Become a therapist"), nên `sm` đúng cho vi lại chật với en — và gate
+              theo ngôn ngữ thì hai bản lệch nhau ở cùng một bề rộng.
             */}
             <span className="flex min-w-0 flex-col items-center leading-none">
               <SiteLogo alt={siteName} className="h-5 w-auto shrink-0 sm:h-8" />
+              {/* KHÔNG `uppercase`: chuỗi này là slogan chứa tên sàn, và viết hoa toàn
+                  bộ sẽ biến "MasGo.vn" thành "MASGO.VN" — nghiền mất cách viết thương
+                  hiệu ở đúng chỗ nó đứng cạnh logo. Chữ hoa nay do chính chuỗi trong
+                  `i18n` mang, xem ghi chú ở `shell.logoTagline`. */}
               <span
                 aria-hidden
-                className="mt-1 hidden whitespace-nowrap text-label uppercase text-ink-500 sm:block"
+                className="mt-1 hidden whitespace-nowrap text-label text-ink-500 md:block"
               >
                 {t('shell.logoTagline')}
               </span>

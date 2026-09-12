@@ -36,7 +36,67 @@ h4 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* Phải có `animation-delay` cùng ba dòng trên. Rút duration về 0.01ms mà bỏ
+       delay thì animation khai `animation-fill-mode: both` vẫn giữ trạng thái
+       `from` suốt quãng delay — tức với chuỗi entrance của hero, người tắt chuyển
+       động thấy ô tìm kiếm **vô hình 580ms** rồi mới hiện. Dòng này là chỗ vá của
+       một lỗ vốn vô hại khi codebase chưa dùng delay ở đâu cả. */
+    animation-delay: 0ms !important;
   }
+}
+
+/* --- Reveal khi cuộn tới (xem components/Reveal.tsx) -----------------------
+
+   Ba trạng thái, và **thứ tự của chúng là toàn bộ độ an toàn của cơ chế**:
+   - KHÔNG có attribute (HTML thô, JS chưa chạy / đã lỗi / bị chặn / reduced-motion):
+     không luật nào khớp → khối hiện bình thường. Đây là mặc định.
+   - `pending`: JS đã xác nhận chạy được và khách không tắt chuyển động → mới ẩn.
+   - `in`: observer thấy khối vào màn hình → chạy animation một lượt.
+
+   Vì vậy tuyệt đối KHÔNG viết `[data-reveal] { opacity: 0 }`, và KHÔNG đặt
+   opacity:0 vào một class tĩnh trong JSX: làm vậy là đưa toàn bộ nội dung SEO của
+   trang chủ ra sau một điều kiện JS, đổi lấy đúng vài trăm ms chuyển động. Có
+   assertion canh đúng điều đó: `curl | grep -c 'data-reveal'` trên HTML thô phải
+   bằng 0. */
+[data-reveal='pending'] {
+  opacity: 0;
+}
+
+[data-reveal='in'] {
+  animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--rv-d, 0ms) both;
+}
+
+/* So le các thẻ con trong một khối đã reveal. Dùng nth-child trong CSS chứ không
+   bọc mỗi <li> bằng <Reveal>: cách kia là N client component cho một hiệu ứng
+   thuần trang trí, và mỗi cái lại là một entry nữa trong observer.
+
+   Keyframes `fade-up` và `card-rise` được gọi từ CSS thô ở đây, không qua utility
+   `animate-*`, nên Tailwind không thấy chúng khi quét `content` — `safelist` trong
+   tailwind.config.ts là thứ đảm bảo chúng vẫn được emit. Bỏ safelist thì hai luật
+   này trỏ tới keyframes không tồn tại và mọi thứ đứng im mà không báo lỗi. */
+[data-reveal='in'] .rv-stagger > * {
+  animation: card-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-reveal='in'] .rv-stagger > *:nth-child(2) {
+  animation-delay: 70ms;
+}
+[data-reveal='in'] .rv-stagger > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+[data-reveal='in'] .rv-stagger > *:nth-child(4) {
+  animation-delay: 210ms;
+}
+[data-reveal='in'] .rv-stagger > *:nth-child(5) {
+  animation-delay: 280ms;
+}
+[data-reveal='in'] .rv-stagger > *:nth-child(6) {
+  animation-delay: 350ms;
+}
+/* Chặn trên, không phải làm cho đủ: danh sách dịch vụ do API trả về và có thể là
+   12 mục. Thiếu dòng này thì mục thứ 12 bắt đầu sau mục đầu 840ms — đọc ra là
+   trang hỏng, không phải so le. */
+[data-reveal='in'] .rv-stagger > *:nth-child(n + 7) {
+  animation-delay: 420ms;
 }
 
 /* --- Ghim dạng pill trên bản đồ tìm kiếm -----------------------------------

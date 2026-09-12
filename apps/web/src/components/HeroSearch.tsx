@@ -105,7 +105,14 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
           e.preventDefault();
           submit();
         }}
-        className="rounded-2xl border border-ink-200 bg-white p-2 shadow-card"
+        // Quầng focus trên chính khung ngoài, không trên từng ô: `focus-within` bắt cả
+        // ô khu vực lẫn ô dịch vụ, nên người dùng bàn phím cũng thấy đúng cái họ đang ở
+        // trong. Chỉ `box-shadow` + màu viền nên không đổi kích thước — 0 CLS.
+        //
+        // `transition-shadow` chứ không `transition` trần: khung này chứa một `<select>`
+        // và một nút, và một transition phủ mọi thuộc tính sẽ animate cả những thứ
+        // thuộc hình học khi chúng đổi.
+        className="rounded-2xl border border-ink-200 bg-white p-2 shadow-card transition-shadow duration-300 ease-out-soft focus-within:border-brand-300 focus-within:shadow-focus-brand"
       >
         {/* Ô khu vực rộng hơn ô dịch vụ: tên dịch vụ ngắn và nằm trong tập đóng,
             còn ô khu vực phải chứa được "Phường Bến Nghé, Quận 1" mà không cắt chữ. */}
@@ -161,7 +168,7 @@ export function HeroSearch({ services, locale }: { services: ServiceItem[]; loca
           type="button"
           onClick={nearMe}
           disabled={busy}
-          className="inline-flex items-center gap-[7px] rounded-full border border-ink-200 bg-white px-3.5 py-2 text-body-s font-semibold text-brand-500 transition hover:border-brand-500 hover:bg-brand-50 disabled:opacity-60"
+          className="inline-flex items-center gap-[7px] rounded-full border border-brand-200 bg-white px-3.5 py-2 text-body-s font-semibold text-brand-500 transition duration-200 ease-out-soft hover:-translate-y-px hover:border-brand-500 hover:bg-brand-50 hover:shadow-button disabled:opacity-60"
         >
           <NearMeIcon size={16} className="h-4 w-4 shrink-0" />
           {locating ? t('filters.locating') : t('filters.nearMe')}

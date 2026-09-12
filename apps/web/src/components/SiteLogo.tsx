@@ -10,9 +10,11 @@ import markSrc from '../../public/masgo-mark.webp';
  * logo gốc, chữ "CẦN MASSAGE?" là chữ **trắng**: nó đọc tốt trên nền đen của
  * artboard, nhưng header của site là `bg-white/85` nên trên đó nó gần như tàng
  * hình — chỉ còn lại viền xám mờ. Đã dựng thử trên nền trắng thật trước khi chốt.
- * Tagline vẫn có mặt ở header dưới dạng **text thật** (`shell.logoTagline`), nên
- * không mất thông tin, và text thật thì đọc được bởi cả Google lẫn trình đọc màn
- * hình — thứ mà chữ nằm trong ảnh không bao giờ làm được.
+ * Tagline vẫn có mặt ở header dưới dạng **text thật** (`shell.logoTagline`, từ
+ * 2026-09-12 là đúng câu slogan đó), nên không mất thông tin, và text thật thì đọc
+ * được bởi cả Google lẫn trình đọc màn hình — thứ mà chữ nằm trong ảnh không bao giờ
+ * làm được. Đó cũng là lý do đổi slogan chỉ cần sửa hai chuỗi `i18n`, không phải dựng
+ * lại ảnh cho từng ngôn ngữ.
  *
  * Import tĩnh chứ không phải chuỗi đường dẫn: Next đọc sẵn kích thước thật từ file
  * nên không có ca nào lệch tỉ lệ, và cùng lý do đã ghi cho ảnh hero — ảnh biên tập

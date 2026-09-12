@@ -40,7 +40,14 @@ export const en: Dictionary = {
   },
 
   shell: {
-    logoTagline: 'At-home massage',
+    /* Slogan, không phải nhãn danh mục — đối xứng với bản vi (xem ghi chú ở đó).
+       Giữ nguyên "MasGo.vn": tên sàn và tên miền không dịch, và `PublicShell` đã bỏ
+       `uppercase` nên chữ hoa ở đây là chữ hiện ra.
+
+       Gạch ngang thay dấu hỏi là chủ ý, và cũng ngắn hơn: header tiếng Anh chật hơn
+       hẳn tiếng Việt ở cùng bề rộng vì nhãn nav dài hơn ("Become a therapist"). Câu
+       dài thêm ở đây là đẩy thẳng vào chỗ đã hết. */
+    logoTagline: 'Need a massage - Open MasGo.vn',
     navHome: 'Home',
     navLocation: 'Set location',
     navFindKtv: 'Find a therapist',
@@ -64,14 +71,13 @@ export const en: Dictionary = {
     metaTitle: '{siteName} — verified therapists who come to you',
     metaDescription:
       'Find massage therapists who visit your home in Vietnam. See prices, real reviews and distance before you book.',
-    verifiedBadge: {
-      one: '{count} therapist with verified identity documents',
-      other: '{count} therapists with verified identity documents',
-    },
-    heroTitleLine1: 'MasGo — the at-home massage marketplace',
-    heroTitleLine2: 'The right service, the right person',
-    heroSubtitle:
-      'Unwind at home. Check profiles, prices and real reviews from therapists near you before you book.',
+    /* Vế đầu giữ nguyên tên miền đầy đủ như bản tiếng Việt: đó là phần khách gõ lại ở
+       lần sau, và nó không dịch. Vế sau dịch nghĩa chứ không dịch chữ — bản tiếng Việt
+       là một câu danh ngữ ("Nền tảng kết nối…"), dựng nguyên cấu trúc đó sang tiếng Anh
+       cho ra một mệnh đề cụt. `verifiedBadge` và `heroSubtitle` đã xoá cùng lúc với bản
+       vi; lý do đầy đủ ghi ở `i18n/vi.ts`. */
+    heroTitleLine1: 'Need a massage? Open MasGo.vn',
+    heroTitleLine2: 'The marketplace for massage that comes to you.',
     heroImageAlt:
       'A uniformed therapist giving a back massage to a client on a massage table at home',
     heroCardCaption: 'Every profile shows services, prices, reviews and certificates if any',
@@ -109,8 +115,9 @@ export const en: Dictionary = {
     trustProofVerified: '{n} profiles with identity checked',
     trustProofRating: '{value}/5 average client rating',
 
-    sloganAsk: 'Need a massage?',
-    sloganAnswer: 'Open MasGo',
+    sloganAsk: 'Need a massage -',
+    sloganVerb: 'Open',
+    sloganBrand: 'MasGo.vn',
 
     heroAreaLabel: 'Area',
     heroAreaPlaceholder: 'District, ward…',

@@ -132,6 +132,13 @@ export default {
         button: '0 6px 18px -8px rgba(13,27,42,.3)',
         sheet: '0 8px 24px -12px rgba(13,27,42,.35)',
         sticky: '0 -1px 12px -2px rgba(13,27,42,.12)',
+        // Quầng focus của ô tìm kiếm hero — vòng brand mờ + bóng card, thay cho một
+        // ring cứng 2px. Chỉ `box-shadow` nên không đổi kích thước ô, tức 0 CLS.
+        'focus-brand':
+          '0 0 0 4px rgba(14,90,167,.14), 0 1px 2px rgba(13,27,42,.05), 0 14px 34px -20px rgba(13,27,42,.28)',
+        // Thẻ trên nền tối (section brand-900 ở trang chủ): bóng xanh đen vô hình trên
+        // nền xanh đen, nên vế "nổi lên" đến từ một vạch sáng inset thay cho bóng đổ.
+        'card-inverted': 'inset 0 1px 0 rgba(255,255,255,.08), 0 12px 32px -18px rgba(4,23,41,.7)',
       },
 
       maxWidth: {
@@ -141,11 +148,107 @@ export default {
 
       transitionDuration: { DEFAULT: '150ms' },
 
+      // Đường cong riêng cho chuyển động "nhấc lên": ra nhanh, dừng mềm. `ease`
+      // mặc định của CSS vào-ra đối xứng nên một cú nhấc 3px trông như bị kéo.
+      transitionTimingFunction: {
+        'out-soft': 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+
+      backgroundImage: {
+        // Lưới gradient của hero. Ba đốm radial trong MỘT thuộc tính
+        // `background-image` → đúng 0 DOM node thêm cho mỗi đốm, và animate được
+        // bằng `background-position` mà không bao giờ chạm layout.
+        //
+        // Ba màu là đúng brand-500 / brand-300 / brand-100 ở alpha thấp; không có
+        // họ màu nào mới. Cố ý KHÔNG dùng champagne: nó là tín hiệu "vị trí trả
+        // phí", và một nền trang chủ nhuộm vàng làm loãng đúng thứ KTV đang mua.
+        'hero-mesh':
+          'radial-gradient(38rem 26rem at 12% 8%, rgba(14,90,167,0.14), transparent 60%),' +
+          'radial-gradient(30rem 22rem at 88% 4%, rgba(168,205,241,0.40), transparent 62%),' +
+          'radial-gradient(34rem 24rem at 62% 96%, rgba(232,242,253,0.90), transparent 65%)',
+        // Gradient của vế trả lời khẩu hiệu: ba chặng (brand-600 → 400 → 600) để
+        // `background-position` chạy được thành một lượt sáng qua chữ. Hai chặng
+        // thì lượt quét chỉ đổi hướng đổ màu chứ không đọc ra là ánh sáng.
+        'brand-pan': 'linear-gradient(100deg, #0b4682 0%, #4a8bc9 45%, #0b4682 100%)',
+      },
+
       keyframes: {
         shimmer: { '0%': { opacity: '.55' }, '50%': { opacity: '1' }, '100%': { opacity: '.55' } },
+
+        // --- Một lượt, dùng cho entrance. Luôn `both` trong `animation` bên dưới.
+        //
+        // `translate3d` chứ không `translateY`: ép lớp compositor mà không cần
+        // `will-change`. Codebase có 0 `will-change`, và gắn nó vĩnh viễn cho hàng
+        // chục node trên một trang mobile-heavy là trả bộ nhớ để không đổi lại được gì.
+        'fade-up': {
+          from: { opacity: '0', transform: 'translate3d(0,14px,0)' },
+          to: { opacity: '1', transform: 'translate3d(0,0,0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'fade-right': {
+          from: { opacity: '0', transform: 'translate3d(-10px,0,0)' },
+          to: { opacity: '1', transform: 'translate3d(0,0,0)' },
+        },
+        'card-rise': {
+          from: { opacity: '0', transform: 'translate3d(0,18px,0) scale(.985)' },
+          to: { opacity: '1', transform: 'translate3d(0,0,0) scale(1)' },
+        },
+        pop: {
+          '0%': { opacity: '0', transform: 'scale(.86)' },
+          '62%': { opacity: '1', transform: 'scale(1.045)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+
+        // --- Vô hạn. CHỈ dùng trên lớp trang trí `aria-hidden`, hoặc trên
+        // `background-position` của chữ gradient. Không bao giờ trên hình học của
+        // nội dung: một thứ đang chuyển động thì không đọc được.
+        drift: {
+          '0%,100%': { backgroundPosition: '0% 0%, 100% 0%, 50% 100%' },
+          '50%': { backgroundPosition: '6% 4%, 94% 6%, 44% 94%' },
+        },
+        pan: {
+          '0%,100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        float: {
+          '0%,100%': { transform: 'translate3d(0,0,0)' },
+          '50%': { transform: 'translate3d(0,-5px,0)' },
+        },
       },
-      animation: { skeleton: 'shimmer 1.5s ease-in-out infinite' },
+
+      animation: {
+        skeleton: 'shimmer 1.5s ease-in-out infinite',
+
+        // `both`, không chỉ `forwards`. Với `[animation-delay:220ms]` và chỉ
+        // `forwards`, element vẽ ở trạng thái **cuối** suốt 220ms rồi mới nhảy về
+        // `opacity:0` và chạy vào — một cú nháy thấy rõ. `both` áp trạng thái `from`
+        // ngay trong quãng delay, nên không có khung nào sai.
+        //
+        // Thời lượng nằm trong shorthand chứ không để người gọi tự khai `duration-*`:
+        // để mở thì sáu chỗ dùng sẽ trôi thành sáu nhịp khác nhau.
+        'fade-up': 'fade-up .55s cubic-bezier(0.16,1,0.3,1) both',
+        'fade-in': 'fade-in .5s ease-out both',
+        'fade-right': 'fade-right .45s cubic-bezier(0.16,1,0.3,1) both',
+        'card-rise': 'card-rise .6s cubic-bezier(0.16,1,0.3,1) both',
+        pop: 'pop .45s cubic-bezier(0.16,1,0.3,1) both',
+
+        // 26 giây một vòng là cố ý chậm tới mức không nhận ra đang chuyển động.
+        // Nhanh hơn thì nền thành động và cạnh tranh với H1 ngay cạnh nó.
+        drift: 'drift 26s ease-in-out infinite',
+        pan: 'pan 7s ease-in-out infinite',
+        'float-slow': 'float 5.5s ease-in-out infinite',
+      },
+
     },
   },
+
+  // `.rv-stagger` và `[data-reveal='in']` trong globals.css gọi `card-rise`/`fade-up`
+  // từ CSS thô, không qua utility `animate-*`, nên Tailwind không thấy chúng khi quét
+  // `content`. Thiếu safelist thì `@keyframes` không được emit, hai luật kia trỏ vào
+  // hư không, và mọi thứ đứng im **mà không báo lỗi ở đâu cả**.
+  safelist: ['animate-fade-up', 'animate-card-rise'],
   plugins: [],
 } satisfies Config;

@@ -42,9 +42,15 @@ export const vi = {
   },
 
   shell: {
-    /* Dòng định vị nhỏ dưới tên sàn ở header. Lưu dạng câu thường, CSS lo `uppercase`
-       — giống mọi chuỗi khác trong file, để bản dịch không phải mang theo kiểu chữ. */
-    logoTagline: 'Massage tận nơi',
+    /* Dòng định vị nhỏ dưới tên sàn ở header — nay là **slogan thương hiệu**, không
+       còn là nhãn danh mục.
+
+       Từ 2026-09-12 chuỗi này mang **chữ hoa của riêng nó** và `PublicShell` đã bỏ
+       `uppercase` ở chỗ render: câu chứa tên sàn, và `uppercase` biến "MasGo.vn" thành
+       "MASGO.VN" — tức chính cách viết thương hiệu bị nghiền mất ở đúng chỗ nó nằm
+       cạnh logo. Đây là **ngoại lệ** với quy ước "lưu câu thường, CSS lo kiểu chữ" của
+       file này; thêm chuỗi nhãn mới thì vẫn theo quy ước cũ. */
+    logoTagline: 'Cần Massage - Bật MasGo.vn',
     navHome: 'Trang chủ',
     navLocation: 'Chọn vị trí',
     navFindKtv: 'Tìm KTV',
@@ -71,22 +77,26 @@ export const vi = {
     metaTitle: '{siteName} — massage thư giãn tận nơi, hồ sơ đã xác thực',
     metaDescription:
       'Tìm kỹ thuật viên massage thư giãn tận nơi theo khu vực, xem bảng giá và đánh giá thật trước khi đặt lịch.',
-    /* Con số truyền vào là `verifiedKtvCount` — số hồ sơ đã **duyệt**, không phải số
-       hồ sơ có chứng chỉ. Câu chữ phải nói đúng thứ con số đang đếm. */
-    verifiedBadge: {
-      one: '{count} kỹ thuật viên đã đối chiếu danh tính',
-      other: '{count} kỹ thuật viên đã đối chiếu danh tính',
-    },
     /*
-      H1 tách làm hai dòng: dòng đầu mang tên sàn, dòng sau nói việc khách đang định
-      làm. Vế đầu nói ĐÚNG thứ sàn làm — **kết nối**, không phải "đặt lịch": hệ thống
-      không có thực thể lịch hẹn nào, khách bấm gọi rồi tự gọi cho KTV. Cũng không
-      nhắc "cơ sở, spa" vì chỉ có hồ sơ KTV cá nhân, mỗi tài khoản đúng một hồ sơ.
+      H1 hai dòng: dòng đầu là khẩu hiệu mang tên miền, dòng sau nói sàn là cái gì.
+
+      Vế đầu cố ý giữ nguyên đuôi `.vn`: đây là dòng khách đọc to được và nhớ được, mà
+      thứ họ gõ lại ở lần sau chính là tên miền — cắt đuôi đi là bỏ mất phần duy nhất
+      của khẩu hiệu dẫn người ta quay lại.
+
+      Vế sau nói ĐÚNG thứ sàn làm — **kết nối**, không phải "đặt lịch": hệ thống không
+      có thực thể lịch hẹn nào, khách bấm liên hệ rồi tự gọi cho KTV. Cũng không nhắc
+      "cơ sở, spa" vì chỉ có hồ sơ KTV cá nhân, mỗi tài khoản đúng một hồ sơ.
+
+      **Huy hiệu "{n} kỹ thuật viên đã đối chiếu danh tính" và đoạn mô tả dưới H1 đã bỏ**
+      (2026-09-13, theo artboard) — `verifiedBadge` và `heroSubtitle` xoá hẳn khỏi cả hai
+      bản dịch chứ không để lại key chết. Không nội dung nào mất: lời hứa đối chiếu danh
+      tính vẫn ở chip `trustVerified*` ngay dưới H1 và ở dải khẩu hiệu, còn số hồ sơ đã
+      duyệt vẫn ở `HomeSloganBand`. Đổi lại, hero chỉ còn đúng một việc — khẩu hiệu và ô
+      tìm kiếm — nên ô tìm kiếm lên cao hơn trong màn hình đầu.
     */
-    heroTitleLine1: 'MasGo — sàn kết nối massage tận nơi',
-    heroTitleLine2: 'Tìm đúng dịch vụ, chọn đúng người',
-    heroSubtitle:
-      'Thư giãn ngay tại nhà bạn. Xem hồ sơ, bảng giá và đánh giá thật của kỹ thuật viên gần bạn trước khi đặt lịch.',
+    heroTitleLine1: 'Cần Massage - Bật MasGo.vn',
+    heroTitleLine2: 'Nền tảng kết nối dịch vụ massage tận nơi.',
     heroImageAlt:
       'Kỹ thuật viên mặc đồng phục đang massage thư giãn vùng lưng cho khách trên giường massage tại nhà',
     /* Thẻ minh hoạ giao diện nổi trên ảnh hero. Chú thích mới là phần mang thông tin
@@ -140,11 +150,17 @@ export const vi = {
     trustProofVerified: '{n} hồ sơ đã đối chiếu danh tính',
     trustProofRating: '{value}/5 điểm trung bình từ khách',
 
-    /* Tách hai vế để đặt được nhịp hai phách: vế hỏi nhẹ, vế trả lời nặng và mang
+    /* Tách ba vế để đặt được nhịp hai phách: vế hỏi nhẹ, vế trả lời nặng và mang
        gradient. KHÔNG ghép lại rồi `split('?')` — dấu chấm hỏi là quy ước của riêng
-       tiếng Việt/Anh, bản dịch khác không chắc có nó, và lúc đó vế trả lời rỗng. */
-    sloganAsk: 'Cần massage?',
-    sloganAnswer: 'Bật MasGo',
+       tiếng Việt/Anh, bản dịch khác không chắc có nó, và lúc đó vế trả lời rỗng.
+
+       `sloganVerb` và `sloganBrand` tách rời vì chúng hiển thị ở **hai cỡ chữ khác
+       nhau** (động từ nhỏ, tên miền lớn). Cùng lý do như trên, KHÔNG ghép lại rồi
+       `split(' ')`: động từ của bản dịch khác có thể là hai từ ("Schalte ein"), và
+       lúc đó cắt theo dấu cách sẽ ném nửa động từ vào cỡ chữ của tên miền. */
+    sloganAsk: 'Cần massage -',
+    sloganVerb: 'Bật',
+    sloganBrand: 'MasGo.vn',
 
     heroAreaLabel: 'Khu vực',
     heroAreaPlaceholder: 'Quận, huyện…',

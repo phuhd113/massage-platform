@@ -1135,6 +1135,220 @@ R2); nén 11,61MB → 665KB; PDF chứng chỉ **không** bị đưa qua canvas;
 Typecheck, ESLint và `next build` đều xanh. **Chưa kiểm trên iOS thật** — ca "thư viện ảnh iPhone
 không còn làm mờ" và ca giải mã file HEIC thật chỉ thiết bị thật trả lời được.
 
+**Trang chủ có màu và chuyển động** (2026-09-12, `components/Reveal.tsx` + 7 keyframes trong
+`tailwind.config.ts`). Trước đợt này cả app có **đúng một** keyframe (`shimmer`, dùng cho skeleton):
+không scroll-reveal, không entrance, không stagger ở bất kỳ đâu, và 5 section trang chủ gần như toàn
+bộ là thẻ `bg-white` viền `border-ink-200`. Làm bằng **CSS thuần, +0,34 KB client** (chỉ `Reveal`) —
+không framer-motion, và mọi section vẫn là server component.
+
+Hai quyết định cũ **đã bị đảo có ý thức**, comment được viết lại chứ không xoá lặng lẽ:
+
+- **"Không có animation ở `HomeSloganBand`"** — lý do cũ (khối nằm ngay dưới đường gấp trên trang
+  đang đo LCP) vẫn đúng, nên cách làm mới tôn trọng nó thay vì bỏ: chỉ `opacity`/`transform`/
+  `background-position`, không thuộc tính nào gây layout.
+- **Nhịp "5 section cùng nền sáng"** — nay là nhuộm → nhuộm → **TỐI** (`brand-900`) → trung tính →
+  trung tính.
+
+Hai quyết định **không** bị đảo, và đừng nới ra:
+
+- **Ảnh hero không bao giờ có animation.** Trình duyệt đo LCP ở thời điểm ảnh đạt opacity **cuối**,
+  nên một cú fade dù 300ms cũng dịch đúng chỉ số xếp hạng của trang nhiều traffic nhất. Cũng không
+  ken-burns: `scale` vô hạn trên ảnh `fill` buộc vẽ lại một lớp 100vw liên tục. Toàn bộ chuyển động
+  của hero nằm **quanh** ảnh. Ảnh hero thắng LCP ở cả mobile (390px: ảnh 100vw×260px ≈ 101k px², H1
+  ba dòng ≈ 38k px²), nên chuỗi entrance của chữ không trì hoãn gì — ai đổi bố cục hero phải đo lại.
+- **champagne vẫn chỉ dành cho vị trí trả phí.** Nét khoanh quanh tên miền trong khẩu hiệu là ngoại
+  lệ duy nhất và **cố ý không animate**: một nét vàng chuyển động là đúng tín hiệu "đây là chỗ được
+  mua". Luật này không đổi theo hình dạng của nét — xem mục khẩu hiệu bên dưới, nơi vạch gạch chân
+  phẳng được đổi thành nét vẽ tay mà ngoại lệ vẫn là **một**, không thành hai. `AREA_TINT` và
+  `hero-mesh` cũng không có champagne.
+
+Bảy điều đừng vô tình đảo ngược:
+
+- **`Reveal` đi theo chiều progressive enhancement: HTML server hiện ĐỦ, JS mới gắn thứ làm nó ẩn.**
+  Tuyệt đối không viết `[data-reveal] { opacity: 0 }` hay đặt `opacity:0` vào class tĩnh trong JSX —
+  làm vậy là đưa toàn bộ nội dung SEO của trang chủ ra sau một điều kiện JS. Assertion canh đúng
+  điều đó: `curl | grep -c 'data-reveal'` trên HTML thô phải bằng **0**. Đã kiểm với JS tắt hẳn:
+  cả 5 section opacity 1, đủ 16 link khu vực.
+- **`IntersectionObserver` một mình KHÔNG đủ, và đây là bug đã đo được hai lần.** Nó chỉ phát entry
+  khi trạng thái giao nhau **đổi**; một cú nhảy tức thời xuống đáy (bấm End, kéo thanh cuộn, link
+  `#neo`) đưa khối từ "dưới màn hình" sang "trên màn hình" trong cùng một khung — `isIntersecting`
+  false ở cả hai đầu, **không entry nào được phát**, và section "Tìm theo khu vực" nằm lại `opacity:0`
+  **vĩnh viễn** cho tới khi tải lại trang. Vì vậy có `sweep()` + một `scroll` listener dùng chung tự
+  tháo khi hết khối chờ. Đừng bỏ vế đó để "gọn hoá". Đã kiểm 6 ca (2 locale × jump/steps/anchor).
+- **`rootMargin` âm làm ca trên dễ xảy ra hơn.** Bản đầu dùng `'0px 0px -12% 0px'` cho đẹp nhịp; nay
+  là `threshold: 0` trần. Một khối mở sớm hơn 12% màn hình là điều không ai thấy, còn một khối không
+  bao giờ mở thì ai cũng thấy.
+- **`animation-delay: 0ms !important` trong khối `prefers-reduced-motion`** là dòng ưu tiên cao nhất
+  của đợt này. Khối đó vốn chỉ rút `animation-duration` về 0.01ms; với `animation-fill-mode: both`
+  thì delay vẫn giữ trạng thái `from`, tức người tắt chuyển động thấy ô tìm kiếm **vô hình 660ms**.
+  Lỗ này vô hại khi codebase chưa dùng delay ở đâu — đợt này là lần đầu.
+- **`animation` khai `both`, không chỉ `forwards`.** Với `forwards` + delay, element vẽ ở trạng thái
+  **cuối** suốt quãng delay rồi mới nhảy về `opacity:0` và chạy vào — một cú nháy thấy rõ.
+- **`bg-[length:...]` là điều kiện để `animate-drift`/`animate-pan` thấy được.** `background-position`
+  theo phần trăm chỉ dịch được background lớn hơn hộp của nó, mà radial-gradient mặc định đúng bằng
+  hộp. Thiếu nó thì class vẫn chạy mà không đổi một pixel nào — hỏng im lặng.
+- **`safelist: ['animate-fade-up', 'animate-card-rise']`.** Hai keyframes đó được gọi từ CSS thô
+  trong `globals.css` (`[data-reveal='in']` và `.rv-stagger`), không qua utility, nên Tailwind không
+  thấy khi quét `content`. Bỏ safelist thì `@keyframes` không được emit và mọi thứ đứng im, không báo
+  lỗi ở đâu cả. Kiểm bằng `grep '@keyframes' .next/static/css/*.css` **trong container**.
+- **`.rv-stagger` phải có chặn trên `nth-child(n+7)`.** Danh sách dịch vụ do API trả về và có thể là
+  12 mục; thiếu dòng đó thì mục thứ 12 bắt đầu sau mục đầu 840ms — đọc ra là trang hỏng.
+
+Hai điều chỉnh sau khi **đo trong trình duyệt thật**, không suy ra được từ code:
+
+- **Ba thẻ lời hứa ở dải khẩu hiệu chỉ đóng khung từ `sm:`.** Bản đóng khung ở mọi cỡ đẩy dải này từ
+  683px lên **769px ở 390px** (+86px, gần 1/10 màn hình điện thoại) cho một đường viền không phân
+  biệt thêm gì — ở mobile ba mục đã xếp dọc nên chúng vốn tách nhau rõ. Nay delta = 0.
+- **Pill giá ở thẻ dịch vụ dùng `bg-brand-100`, không `brand-50`.** `brand-50` là `#f7fbff` trên thẻ
+  `#ffffff` — chênh nhau không thấy được, nên pill đọc ra vẫn chỉ là dòng chữ mono cũ.
+
+**Số bước và tiêu đề cùng một hàng — nhưng chỉ từ `lg`** (2026-09-12, theo yêu cầu "icon và title
+trên cùng 1 hàng"). Ba điều là số đo, không phải sở thích:
+
+- **Ở section tối, lưới đổi hình ở `lg`**: `sm:grid-cols-3` xếp ba thẻ cạnh nhau (768px → mỗi thẻ
+  chỉ còn 190px bên trong), `lg:grid-cols-1` xếp dọc nên thẻ rộng hẳn. Tiêu đề dài nhất "Đối chiếu
+  danh tính và ký cam kết" cần **306px** cho một dòng, nên ở 768px nó ngắt nhiều dòng dù có hàng
+  ngang hay không — thêm 28px icon + gap chỉ biến 2 dòng thành 3. Vì vậy dưới `lg` giữ số nằm trên.
+  Đã kiểm: 1024/1440px cả vi và en cho cả ba tiêu đề **một dòng**; 360/390/768px số dòng bằng bản gốc.
+- **Dải khẩu hiệu thì KHÔNG đổi, và đây là một xung đột không giải được trong bố cục hai cột.** Cột
+  thẻ ở đó rộng **181px** (lưới `0.9fr / 1.6fr`, ba thẻ chia nửa phải), tiêu đề dài nhất "Chủ động
+  lựa chọn" cần **175px**. Icon 40px cùng hàng để lại 129px → cả ba tiêu đề ngắt hai dòng
+  ("Hồ sơ / xác thực"). Nới cột phải đủ rộng (`0.65fr / 2.5fr`) thì cột trái còn 221px, mà chính
+  khẩu hiệu "Bật MasGo" cần **244px** — khẩu hiệu bị ngắt thay. Không cỡ icon nào thoát được.
+  Muốn đổi thì phải **đổi bố cục dải** (khẩu hiệu lên một hàng riêng, ba thẻ chiếm hết 1128px),
+  không phải chỉ đổi hàng của icon. Hai khối vì vậy cố ý khác kiểu.
+- **`shrink-0` trên ô icon/số là bắt buộc** khi nó ở cùng hàng: thiếu nó thì tiêu đề dài bóp hình
+  vuông thành hình chữ nhật. Và `items-center` chứ không `items-baseline` — căn một hình vuông theo
+  đường chân chữ đẩy nó lên cao hơn khối chữ và trông như bị lệch.
+
+Và một điều giữ nguyên vì lý do trái ngược với trực giác: **ô icon thẻ dịch vụ hover sáng LÊN
+(`brand-200`), không đảo sang `brand-500`.** Mỗi `ServiceIcon` mang một điểm champagne cố định
+(`ACCENT` `#c2952f`), chỉ còn ~1,9:1 trên nền `brand-500` — dấu nhận diện của sản phẩm biến mất đúng
+lúc khách đang trỏ vào. Đã kiểm: sau hover điểm đó vẫn là `#c2952f`.
+
+`drift` gate ở `sm:` nên mobile nhận lưới **tĩnh**: ở 390px đốm rộng 38rem trên màn 24rem gần như
+không thấy được, không đáng trả một lượt composite vô hạn. Đã kiểm ở 360 và 390: `animationName`
+là `none`.
+
+Đã kiểm chứng trong trình duyệt thật trên bản build production trong container (2026-09-12): 16
+assertion HTML thô đạt ở cả hai locale (`data-reveal`=0, `opacity:0`=0, JSON-LD=2, anchor=1, link
+khu vực và dịch vụ đầy đủ); 7 keyframes mới có trong CSS của container; 6/6 ca cuộn không sót khối
+nào; reduced-motion cho `revealAttrs`=0, 0/10 element vô hình, `animationDelay`=0s; JS tắt cho 0
+section ẩn; 360px và 390px không scroll ngang, thẻ mẫu `display:none`; hover chip quận cho chữ trắng
+trên `brand-500` với số đếm `brand-200` đọc được; focus glow có vòng `rgba(14,90,167)`; 0 lỗi
+hydration. Lỗi console duy nhất (`/en/vi?_rsc=` 404 từ prefetch của `LanguageFlags`) **có trên cả
+baseline** — bug sẵn có, không thuộc đợt này.
+
+**Khẩu hiệu đổi thành "Cần massage - / Bật MasGo.vn"** (2026-09-12, `HomeSloganBand`). Yêu cầu ban
+đầu là **thay cả khối chữ bằng một file ảnh**; việc đó đã được bác và làm theo cách khác — chữ vẫn
+là chữ thật, phần "hình ảnh" là một SVG trang trí. Sáu điều đừng vô tình đảo ngược:
+
+- **KHÔNG thay khẩu hiệu bằng `<img>`.** Ba lý do, cả ba là ràng buộc riêng của khối này: nó nằm
+  trong HTML thô của trang chủ (thành ảnh thì Google chỉ đọc được `alt`, trên đúng trang của kênh
+  acquisition chính); nó song ngữ nên ảnh nghĩa là hai file phải tự giữ khớp nhau mãi mãi; và nó nằm
+  ngay dưới đường gấp trên trang đang đo LCP. SVG inline giải quyết cả ba — đã đo: **0 byte JS
+  client**, path không có trong `/app/.next/static`.
+- **Khẩu hiệu tách làm BA key** (`sloganAsk` / `sloganVerb` / `sloganBrand`), không một. Động từ và
+  tên miền hiển thị ở hai cỡ chữ khác nhau: trọng âm nằm ở tên sàn, không ở động từ. Vẫn không cắt
+  chuỗi bằng JS để chia vai trò — dấu nối và dấu cách đều là quy ước của riêng vi/en.
+- **Dấu nối nằm TRONG chuỗi, không dựng cứng ở JSX.** Trước đợt này vế dẫn kết bằng "?"; đổi sang
+  "-" chỉ phải sửa đúng một chỗ chính vì nó ở trong dictionary. Bản dịch khác có thể muốn bỏ hẳn.
+- **Nét champagne là GẠCH CHÂN, không phải vòng khoanh — và ngoại lệ vẫn là MỘT.** Bản đầu vẽ ellipse
+  bao quanh tên miền; `preserveAspectRatio="none"` kéo nó dẹt nên hai cạnh dài **cắt ngang thân chữ**,
+  và một tia nhấn đè lên chữ "n" ở 390px. Số đo không bắt được (hộp vẫn ôm đúng bề rộng chữ, 290,6px
+  ở 1440) — **chỉ ảnh chụp mới thấy**. Nét vẫn **cố ý không animate**, đúng luật champagne.
+- **Biên độ cong trong `viewBox` phải phóng đại, và `vectorEffect="non-scaling-stroke"` là bắt buộc.**
+  Hộp 40 đơn vị cao bị nén xuống 0,3em nên mọi độ lệch dọc co theo: bản vẽ lệch 4–6 đơn vị ra một
+  đường **thẳng tắp**, đọc thành `border-bottom` — đúng thứ nét vẽ tay sinh ra để tránh. Nay lệch ~20
+  đơn vị. Thiếu `non-scaling-stroke` thì độ dày nét cũng co theo hộp và mobile ra nét mảnh hơn desktop.
+- **Dấu chấm tên miền phải siết bằng margin âm, KHÔNG bằng `letter-spacing`.** Đã đo từng ký tự ở
+  60px: "." chiếm **23,2px** — gần bằng chữ "s" (29,2px) — trong khi mực thật chỉ ~8px. Font display
+  đặt dấu chấm giữa một ô rộng, mà `letter-spacing` chỉ thêm khoảng **giữa** các ký tự chứ không thu
+  hẹp chính ô đó; "MasGo.vn" vì vậy đọc ra thành "MasGo . vn". `BrandDomain` tách dấu chấm thành span
+  riêng với `-mx-[0.12em]` — đơn vị `em` chứ không `px` vì cỡ chữ đổi giữa 48px và 60px. Đây **không**
+  phải ngoại lệ với luật "không cắt chuỗi bằng JS": luật đó cấm cắt để chia **vai trò hiển thị**, còn
+  ở đây mọi mảnh giữ nguyên cỡ chữ, màu và thứ tự, và chuỗi đọc ra không đổi một ký tự nào (đã kiểm:
+  `textContent` = "MasGo.vn" ở cả 6 ca).
+
+Đã kiểm chứng trên bản build production trong container (2026-09-12), 6 ca (2 locale × 1440/768/390):
+`brandText` nguyên vẹn "MasGo.vn" ở cả sáu; nét ôm đúng bề rộng chữ (chênh <2px) và không animate;
+gradient `pan` chạy trên tên miền; không scroll ngang; **0 lỗi console**; reduced-motion cho 0 element
+vô hình. HTML thô cả hai locale giữ `data-reveal`=0 và `opacity:0`=0. Chuỗi mới và path SVG có thật
+trong container (grep trong container, không tin dòng "Built"). Typecheck và ESLint xanh.
+
+Lưu ý vận hành gặp trong đợt này: **buildkit không ra được Internet** nên `next/font` fail với
+`ETIMEDOUT` khi tải Google Fonts, trong khi host và `docker run` thường thì vào được. Đường vòng đã
+dùng là `DOCKER_BUILDKIT=0 docker compose build web`.
+
+**Gỡ tên mã tiếng Anh khỏi mặt người dùng** (2026-09-12). "VIP Pin" → **Ghim đầu trang**,
+"Instant Boost" → **Đẩy hạng theo giờ**; "Beta Phase", "Founder Member", "(Daily Maintenance Fee)"
+và "đẩy Top" trong thông báo chương trình thử nghiệm đều chuyển sang tiếng Việt. Người đọc bảng giá
+là KTV người Việt đang quyết định trả tiền, mà "Pin" đọc ra là *cục pin* chứ không phải *ghim*.
+Bốn điều đừng vô tình đảo ngược:
+
+- **Tên hiển thị có HAI nguồn, phải đổi cả hai.** `lib/labels.ts` dựng nhãn từ `type` (dùng ở
+  dashboard KTV, chiến dịch, ví và trang doanh thu admin), còn thẻ mua gói render thẳng `pkg.name`
+  — chuỗi lưu trong `promotion_packages.name`. Sửa mình `labels.ts` thì đúng bốn trang đổi còn
+  chính màn hình bán gói vẫn hiện tên cũ.
+- **Sửa `PromotionPackageSeeder` một mình là không đủ, phải kèm migration.** Seeder idempotent theo
+  `code` và **bỏ qua** hàng đã tồn tại, nên nó chỉ có tác dụng với DB rỗng — đúng dạng lỗi im lặng:
+  seed báo "thêm mới 0/4" và thành công, trong khi tên cũ nằm nguyên. `VietnamesePackageNames` là
+  migration data-only, mệnh đề `AND name = <chuỗi cũ>` làm nó chạy lại được và không ghi đè tên đã
+  sửa tay.
+- **`code` và `type` giữ nguyên, chỉ đổi `name`.** `package_type` nằm trong
+  `UNIQUE (area_id, package_type, window_start, slot_index)` và trong mọi campaign đã bán; `code`
+  là khoá idempotency của seeder. Đổi chúng là sửa dữ liệu đang tính tiền để đổi một nhãn. Campaign
+  đã bán không cần backfill — chúng không sao chép tên gói, nhãn dựng từ `type` ở frontend.
+- **Tên hạng trong comment code giữ nguyên tên mã.** Comment nói về `VIP_PIN`/`INSTANT_BOOST` là
+  ngữ cảnh kỹ thuật; dịch chúng sang tên hiển thị sẽ làm mất đường lần từ comment về hằng số thật.
+
+Cùng đợt, **gỡ lời hứa "không thu hoa hồng cuốc" khỏi chương trình thử nghiệm** và viết thường
+"kỹ thuật viên" trong hai tiêu đề. Hai điều đi kèm:
+
+- **Gỡ một quyền lợi phải gỡ ở CẢ HAI chỗ.** Câu chữ nằm ở `BetaAnnouncementDialog`, nhưng
+  `KtvBetaAside` giữ bản rút gọn riêng (`HIGHLIGHTS`) — bỏ mình cột phải chỉ giấu lời hứa khỏi màn
+  đăng ký trong khi hộp thoại vẫn hứa nguyên văn, tức KTV bấm "Xem chi tiết" vẫn đọc được đúng thứ
+  vừa bị gỡ. `HIGHLIGHTS` phải luôn là **tập con** của quyền lợi trong hộp thoại.
+- **Điều khoản sử dụng (`terms.s1p2`) GIỮ NGUYÊN câu "MasGo không thu hoa hồng trên từng cuốc".**
+  Đó không phải câu marketing mà là vế chống đỡ cho mục 1 — "MasGo không phải một bên trong hợp
+  đồng dịch vụ giữa bạn và kỹ thuật viên", lập luận pháp lý mà mọi điều khoản miễn trừ trách nhiệm
+  phía dưới dựa vào. Gỡ nó là chuyện khác hẳn việc bỏ một gạch đầu dòng trong thông báo, và phải
+  là quyết định có chủ ý về mô hình thu phí.
+
+`KtvCommitments.Items` không nhắc hoa hồng nên không có mâu thuẫn với bản cam kết đã ký.
+
+**Tagline dưới logo là slogan, và KHÔNG còn `uppercase`** (2026-09-12, `shell.logoTagline`).
+Trước đó là nhãn danh mục "Massage tận nơi" viết hoa toàn bộ. Ba điều đừng vô tình đảo ngược:
+
+- **Bỏ `uppercase` ở `PublicShell` là điều kiện để slogan đọc đúng.** Câu chứa tên sàn, và viết
+  hoa toàn bộ biến "MasGo.vn" thành "MASGO.VN" — nghiền mất cách viết thương hiệu ở đúng chỗ nó
+  đứng cạnh logo. Đây là **ngoại lệ** với quy ước "lưu câu thường, CSS lo kiểu chữ" của `i18n`:
+  chuỗi này mang chữ hoa của riêng nó. Nhãn mới thì vẫn theo quy ước cũ (xem "Khu vực"/"Dịch vụ"
+  ở ô tìm kiếm, vẫn `uppercase`).
+- **Tagline hiện từ `md`, không phải `sm`.** Bản EN dài hơn và nav tiếng Anh cũng dài hơn
+  ("Become a therapist"), nên ở dải 640–767px header **tràn 5px** — đã đo (645/640). Gate theo
+  ngôn ngữ thì hai bản lệch nhau ở cùng một bề rộng, nên nâng mốc cho cả hai.
+- **Header EN @360 tràn 20px và đó là nợ SẴN CÓ**, không do tagline (ở cỡ đó tagline ẩn). Đã đo
+  trên bản gốc trước khi sửa: 380/360. Nguyên nhân là bề ngang nav tiếng Anh.
+
+Đổi slogan chỉ cần sửa hai chuỗi `i18n` vì tagline là **text thật**, không phải chữ trong ảnh
+logo — xem ghi chú ở `SiteLogo.tsx` về lý do không dùng bản logo có sẵn tagline.
+
+Đã đo trong trình duyệt thật ở 360/390/640/767/768/1280 cho cả hai locale: `textTransform: none`,
+tagline đúng chuỗi, và không cỡ nào tràn ngoài ca EN @360 nói trên.
+
+Đợt này cũng **sửa một nợ sẵn có**: `AppDbContextModelSnapshot` thiếu 5 cột avatar mà migration
+`KtvAvatarModeration` đã thêm bằng raw SQL, nên `dotnet ef migrations add` sinh ra diff giả bù lại
+đúng 5 cột đó — chạy được thì migration sẽ vỡ vì cột đã tồn tại. Snapshot nay khớp DB. `dotnet format
+--verify-no-changes` vẫn đỏ ở `AreaService`/`ReviewService`/`SearchService`/`TestData` — nợ sẵn có,
+không thuộc đợt này.
+
+Đã kiểm chứng (2026-09-12): migration up → down → up trên Postgres thật, và up đổi đúng ba hàng
+mang tên cũ; `GET /promotions/packages` trả tên tiếng Việt với `code`/`type` nguyên vẹn; HTML thô
+của `/dang-ky-ktv` và `/en/dang-ky-ktv` không còn chuỗi tiếng Anh nào; chunk hộp thoại trong
+container chứa đủ câu chữ mới (grep **trong container**, không tin dòng "Built"). 439 test xanh,
+typecheck/ESLint/`next build` xanh.
+
 Phần Phase 3 còn lại: job delayed `promotion:expire` và Redis read-path — cả hai chỉ trở nên bắt
 buộc khi đường đọc chuyển sang Redis, mà số đo hiện tại (`/search` 28,6ms ở 5.000 hồ sơ) chưa đòi
 hỏi điều đó. `promotion:activate` và `instant-boost:golden-hour` trong roadmap gốc **không còn cần**:
