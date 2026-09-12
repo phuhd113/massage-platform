@@ -1,13 +1,26 @@
 import type { PackageType, WalletTransaction } from './types';
 
+/**
+ * Tên hạng gói **đọc ra hiểu ngay bằng tiếng Việt**, không giữ tên mã tiếng Anh.
+ *
+ * Trước đây là "VIP Pin" và "Instant Boost" — tên nội bộ lọt ra mặt KTV. Người đọc
+ * bảng giá là kỹ thuật viên người Việt đang quyết định trả tiền, mà "Pin" đọc ra là
+ * *cục pin* chứ không phải *ghim*, còn "Instant Boost" không nói được nó bán theo
+ * **giờ**: đúng cái lỗi đã ghi trong quy ước — gói theo giờ mà hiển thị như gói theo
+ * ngày là bán sai thứ khách trả tiền.
+ *
+ * Tên mã (`VIP_PIN`, `INSTANT_BOOST`, ...) **giữ nguyên** ở DB, API và URL: chúng nằm
+ * trong khoá `UNIQUE (area_id, package_type, window_start, slot_index)` và trong mọi
+ * campaign đã bán. Chỉ lớp chữ hiển thị đổi, và chỉ đổi ở đúng một chỗ này.
+ */
 export function packageLabel(type: PackageType | string) {
   switch (type) {
     case 'VIP_PIN':
-      return 'VIP Pin';
+      return 'Ghim đầu trang';
     case 'FEATURED_BADGE':
       return 'Huy hiệu nổi bật';
     case 'INSTANT_BOOST':
-      return 'Instant Boost';
+      return 'Đẩy hạng theo giờ';
     default:
       return type;
   }

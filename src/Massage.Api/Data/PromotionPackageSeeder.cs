@@ -9,7 +9,7 @@ namespace Massage.Api.Data;
 ///
 /// Giá và số slot ở đây là tham số kinh doanh, không phải hằng số kỹ thuật — sửa
 /// chúng là sửa vào doanh thu. Số slot càng nhỏ thì gói càng đắt giá và càng dễ
-/// bán hết; đặt quá lớn thì "ghim VIP" mất ý nghĩa vì ai mua cũng được ghim.
+/// bán hết; đặt quá lớn thì "ghim đầu trang" mất ý nghĩa vì ai mua cũng được ghim.
 /// </summary>
 public static class PromotionPackageSeeder
 {
@@ -18,7 +18,11 @@ public static class PromotionPackageSeeder
         new()
         {
             Code = "vip-pin-7d",
-            Name = "VIP Pin 7 ngày",
+            // Tên hiển thị bằng tiếng Việt, không giữ tên mã ("VIP Pin"): chuỗi này
+            // hiện nguyên văn trên thẻ mua gói mà KTV người Việt đọc để quyết định trả
+            // tiền, và "Pin" đọc ra là *cục pin* chứ không phải *ghim*. `Code` giữ
+            // nguyên — nó là khoá idempotency của seeder và khoá tra gói của API.
+            Name = "Ghim đầu trang 7 ngày",
             Type = PackageTypes.VipPin,
             Description = "Ghim hồ sơ lên đầu kết quả tìm kiếm trong khu vực đã chọn, 7 ngày.",
             Price = 500_000m,
@@ -29,7 +33,7 @@ public static class PromotionPackageSeeder
         new()
         {
             Code = "vip-pin-30d",
-            Name = "VIP Pin 30 ngày",
+            Name = "Ghim đầu trang 30 ngày",
             Type = PackageTypes.VipPin,
             Description = "Ghim hồ sơ lên đầu kết quả tìm kiếm trong khu vực đã chọn, 30 ngày.",
             Price = 1_800_000m,
@@ -55,7 +59,7 @@ public static class PromotionPackageSeeder
         new()
         {
             Code = "instant-boost-1d",
-            Name = "Instant Boost khung giờ vàng",
+            Name = "Đẩy hạng theo giờ (khung giờ vàng)",
             Description = "Đẩy hạng trong 3 khung giờ liên tiếp kể từ giờ kế tiếp, "
                           + "đảm bảo đứng trên các KTV không mua gói trong khu vực đã chọn.",
             Type = PackageTypes.InstantBoost,

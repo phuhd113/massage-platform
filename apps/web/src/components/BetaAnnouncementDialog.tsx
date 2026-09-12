@@ -78,7 +78,7 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
           <div className="min-w-0 flex-1">
             <p className="text-label uppercase text-brand-200">Thông báo từ Ban quản trị</p>
             <h2 id="ktv-announcement-title" className="mt-1 text-h4 text-white sm:text-h3">
-              Chương trình trải nghiệm đặc quyền dành cho Kỹ thuật viên tiên phong
+              Chương trình trải nghiệm đặc quyền dành cho kỹ thuật viên tiên phong
             </h2>
           </div>
           <button
@@ -110,9 +110,7 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
 
           <p className="mt-3 text-body text-ink-600">
             Hiện tại, Masgo.vn đang trong{' '}
-            <strong className="font-semibold text-ink-800">
-              giai đoạn chạy thử nghiệm (Beta Phase)
-            </strong>{' '}
+            <strong className="font-semibold text-ink-800">giai đoạn chạy thử nghiệm</strong>{' '}
             nhằm hoàn thiện hệ thống kết nối và mang lại lượng khách hàng ổn định nhất cho KTV. Ban
             quản trị trân trọng gửi đến bạn chương trình đồng hành trải nghiệm:
           </p>
@@ -122,13 +120,9 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
               KTV được mở tài khoản, đăng tải thông tin dịch vụ, bằng cấp và hiển thị nhận khách hoàn
               toàn miễn phí trong suốt thời gian chạy thử nghiệm.
             </Benefit>
-            <Benefit title="Tặng gói đẩy Top &amp; Ghim vị trí">
+            <Benefit title="Tặng gói đẩy hạng và ghim đầu trang">
               Hồ sơ của các KTV tham gia sớm sẽ được ưu tiên hiển thị ở những vị trí đẹp nhất trong
               khu vực hoạt động để đón những lượt khách đầu tiên.
-            </Benefit>
-            <Benefit title="Không thu hoa hồng cuốc">
-              Bạn nhận trực tiếp 100% thu nhập từ khách hàng, Masgo.vn không can thiệp và không giữ
-              tiền ca làm.
             </Benefit>
           </ul>
 
@@ -146,23 +140,23 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
             </p>
             <ul className="mt-3 space-y-2.5">
               <li className="text-body text-ink-700">
-                <strong className="font-semibold text-ink-900">Phí duy trì hồ sơ mỗi ngày</strong>{' '}
-                <span className="text-ink-500">(Daily Maintenance Fee)</span> — một khoản phí nhỏ
-                theo ngày để giữ hồ sơ của bạn luôn hoạt động và xuất hiện trên hệ thống tìm kiếm khu
-                vực, tương tự phí treo biển hay duy trì tin đăng.
+                <strong className="font-semibold text-ink-900">Phí duy trì hồ sơ mỗi ngày</strong> —
+                một khoản phí nhỏ theo ngày để giữ hồ sơ của bạn luôn hoạt động và xuất hiện trên hệ
+                thống tìm kiếm khu vực, tương tự phí treo biển hay duy trì tin đăng.
               </li>
               <li className="text-body text-ink-700">
-                <strong className="font-semibold text-ink-900">Gói đẩy Top theo nhu cầu</strong> —
+                <strong className="font-semibold text-ink-900">Gói đẩy hạng theo nhu cầu</strong> —
                 dành cho KTV muốn tăng tốc doanh thu, ghim vị trí đầu trang tại Quận/Huyện của mình.
               </li>
             </ul>
           </section>
 
           {/* Champagne dành riêng cho vị trí trả phí / đặc quyền mua được — xem ghi
-              chú token trong tailwind.config.ts. Quyền lợi Founder đúng là loại đó. */}
+              chú token trong tailwind.config.ts. Quyền lợi của nhóm tham gia sớm đúng
+              là loại đó. */}
           <section className="mt-4 rounded-xl border border-champagne-200 bg-champagne-50 p-4">
             <h3 className="text-body-l font-semibold text-champagne-600">
-              Quyền lợi dành riêng cho KTV Tiên phong (Founder Member)
+              Quyền lợi dành riêng cho KTV tham gia sớm
             </h3>
             <p className="mt-1.5 text-body text-ink-700">
               Toàn bộ KTV đăng ký, hoàn thiện hồ sơ và gửi phản hồi trải nghiệm trong giai đoạn này

@@ -24,11 +24,18 @@ import { CheckIcon } from '@/components/icons';
  * duy nhất KTV biết tới chương trình — dashboard vẫn tự hiện đầy đủ trên mọi cỡ màn.
  */
 
-/** Ba quyền lợi rút gọn từ thông báo. Câu đầy đủ nằm trong hộp thoại. */
+/**
+ * Quyền lợi rút gọn từ thông báo. Câu đầy đủ nằm trong hộp thoại.
+ *
+ * Danh sách này phải là **tập con** của các quyền lợi trong `BetaAnnouncementDialog`,
+ * không bao giờ hứa thêm thứ hộp thoại không nói: người đọc ở đây đang quyết định có
+ * tạo tài khoản hay không, còn hộp thoại là bản đầy đủ họ xem sau đó. Gỡ một lời hứa
+ * thì phải gỡ ở **cả hai** — bỏ mình chỗ này chỉ giấu nó khỏi màn đăng ký, trong khi
+ * hộp thoại vẫn hứa nguyên văn.
+ */
 const HIGHLIGHTS = [
   'Miễn phí 100% phí duy trì hồ sơ trong suốt giai đoạn thử nghiệm.',
-  'Tặng gói đẩy Top và ghim vị trí cho KTV tham gia sớm.',
-  'Không thu hoa hồng cuốc — bạn nhận trực tiếp 100% thu nhập.',
+  'Tặng gói đẩy hạng và ghim đầu trang cho KTV tham gia sớm.',
 ] as const;
 
 export function KtvBetaAside() {
@@ -37,20 +44,20 @@ export function KtvBetaAside() {
 
   return (
     <>
-      {/* Champagne dành riêng cho đặc quyền — cùng token với khối Founder Member
-          trong chính hộp thoại, để hai nơi đọc như một chương trình chứ không phải
-          hai thứ khác nhau. */}
+      {/* Champagne dành riêng cho đặc quyền — cùng token với khối quyền lợi KTV tham
+          gia sớm trong chính hộp thoại, để hai nơi đọc như một chương trình chứ không
+          phải hai thứ khác nhau. */}
       <div className="rounded-2xl border border-champagne-200 bg-champagne-50 p-6">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-100 px-3 py-1 text-label font-semibold uppercase tracking-wide text-champagne-600">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-champagne-600" />
           Đang chạy thử nghiệm
         </span>
         <h2 className="mt-3 font-display text-2xl font-bold leading-8 tracking-[-0.02em] text-ink-900">
-          Đặc quyền cho Kỹ thuật viên tiên phong
+          Đặc quyền cho kỹ thuật viên tiên phong
         </h2>
         <p className="mt-2 text-body text-ink-600">
-          Masgo.vn đang trong giai đoạn Beta. KTV đăng ký lúc này nhận trọn quyền lợi Founder
-          Member.
+          Masgo.vn đang trong giai đoạn chạy thử nghiệm. KTV đăng ký lúc này nhận trọn quyền lợi
+          dành cho nhóm tham gia sớm.
         </p>
 
         <ul className="mt-4 grid gap-3">
