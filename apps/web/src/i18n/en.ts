@@ -58,6 +58,7 @@ export const en: Dictionary = {
     navForKtvShort: 'Become a therapist',
     footerBlurb:
       '{siteName} — connecting clients with relaxation and body-care massage therapists who come to your home. Every profile shown has had its identity documents checked.',
+    footerEmailLabel: 'Contact:',
     languageLabel: 'Language',
     switchToEnglish: 'English',
     switchToVietnamese: 'Tiếng Việt',

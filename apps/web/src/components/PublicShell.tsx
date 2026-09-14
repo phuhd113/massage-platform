@@ -3,11 +3,11 @@ import { Suspense } from 'react';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LEGAL_PAGES } from '@/components/LegalPage';
-import { LocationNavButton } from '@/components/LocationNavButton';
 import { SiteLogo } from '@/components/SiteLogo';
 import { type Locale, localePath } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
+import { ADMIN_EMAIL, mailtoHref } from '@/lib/contact';
 import { SITE_NAME, areaPath } from '@/lib/site';
 
 /**
@@ -39,7 +39,7 @@ export function PublicShell({
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/85 backdrop-blur">
         {/* Đệm ngang và khoảng cách logo↔nav thu lại dưới `sm`: sau khi cụm cờ vào
             thanh này, 16px mỗi bên là khoảng trống lớn nhất còn cắt được mà không
-            đụng tới bất kỳ chữ nào. Đo ở 360px trước và sau — xem ghi chú ở nút vị trí. */}
+            đụng tới bất kỳ chữ nào. Đo ở 360px trước và sau — xem ghi chú ở nút KTV. */}
         <div className="mx-auto flex max-w-shell items-center justify-between gap-2 px-3 py-3.5 sm:gap-4 sm:px-4">
           {/*
               Khối logo: logo MasGo ở trên, một dòng định vị nhỏ ở dưới. Header cao
@@ -84,9 +84,10 @@ export function PublicShell({
 
               Cỡ **đo ra chứ không chọn theo cảm giác**. Bản ngang tỉ lệ ~5.64:1 nên
               chiều cao quyết định bề ngang: `h-7` cho logo rộng 159px, và ở 360px thì
-              159 + 96 (nút vị trí) + 103 (nút KTV) + đệm = 399px, tức **tràn 39px** —
-              đã đo trong trình duyệt thật ở 360px và 390px, cả hai đều tràn. `h-5` đưa
-              logo về ~113px và cả ba cỡ đều vừa.
+              159 + 96 (nút vị trí, nay đã bỏ) + 103 (nút KTV) + đệm = 399px, tức
+              **tràn 39px** — đã đo trong trình duyệt thật ở 360px và 390px, cả hai đều
+              tràn. `h-5` đưa logo về ~113px và cả ba cỡ đều vừa. Chỗ nút vị trí nhả ra
+              nay dành cho link "Trang chủ" ở mobile, nên `h-5` vẫn giữ nguyên.
 
               Không thu bằng cách bỏ chữ trên nút KTV: nhãn đó là lời mời, còn logo chỉ
               cần đọc được tên sàn.
@@ -113,58 +114,49 @@ export function PublicShell({
             </span>
           </Link>
 
-          {/* Hai mục, cố ý.
+          {/* Hai mục, cố ý: Trang chủ · Dành cho KTV.
 
               Trước đây có bảy: thêm TP.HCM, Hà Nội, "Cách duyệt hồ sơ" và lời mời
               đăng nhập của khách. Cả bốn đều vào được từ chỗ khác — hai thành phố
               nằm trong khối khu vực ở trang chủ và trong breadcrumb của mọi trang
               quận, khối ba bước có link ngay trên trang chủ, còn khách cần đăng nhập
               thì gần như luôn đang đứng ở một hồ sơ để viết đánh giá, nơi `ReviewForm`
-              đã mời họ đúng lúc. Không đường nào của Google mất đi. */}
+              đã mời họ đúng lúc. Không đường nào của Google mất đi.
+
+              **Mục vị trí (`LocationNavButton`) đã gỡ khỏi header.** Nó hiện tên quận
+              dò được của khách ngay cạnh logo, mà cái nhãn đó là "gần tâm nhất" chứ
+              không phải "nằm trong ranh giới" (xem `GET /areas/resolve` trong rules) —
+              đứng một mình trên mọi trang, nó đọc như một khẳng định về vị trí khách
+              chứ không như một nút bấm. Không mất đường đi nào: "Tìm quanh tôi" ở
+              `HeroSearch` vẫn dò GPS, `SearchFilters` vẫn đổi khu vực ngay trên trang
+              kết quả, và footer vẫn có link `/tim-kiem` không phụ thuộc GPS cho cả
+              khách từ chối định vị lẫn Googlebot.
+
+              Component và `lib/saved-area.ts` **giữ lại trong repo** dù tạm không
+              route nào render — cùng lý do với `LoginForm` (bản OTP) và
+              `AccountNavLink`: mở lại chỉ là đặt lại một thẻ vào đây, còn xoá đi là
+              mất hết các quyết định đã ghi trong comment ở đó. */}
           <nav className="flex min-w-0 items-center gap-0.5 text-body-s sm:gap-1">
-            {/* Trang chủ đứng trước mục vị trí: nó là đường lui chung cho khách đáp
-                thẳng từ Google xuống một hồ sơ hay một trang quận — ở đó breadcrumb
-                chỉ dẫn ngược lên trang khu vực chứ không về trang chủ.
+            {/* Trang chủ là đường lui chung cho khách đáp thẳng từ Google xuống một
+                hồ sơ hay một trang quận — ở đó breadcrumb chỉ dẫn ngược lên trang
+                khu vực chứ không về trang chủ.
 
                 Logo vốn đã trỏ về cùng đích, nhưng "logo bấm được" là quy ước người
                 dùng phải **biết trước** mới dùng được; một link có chữ thì không.
                 Hai link cùng đích trong một trang không phải trùng lặp SEO — Google
                 gộp chúng lại.
 
-                Ẩn dưới `sm`: ở 360px thanh này đã phải chứa logo, cụm cờ, nút vị trí
-                và nút KTV. Mobile không mất đường về — logo vẫn ở đó, và footer có
-                nguyên hàng link. */}
+                **Hiện ở MỌI cỡ màn hình, kể cả 360px.** Trước đây nó `hidden` dưới
+                `sm` vì thanh này còn phải chứa nút vị trí (rộng tới 9rem); nút đó đã
+                bỏ, nên chỗ trống đủ cho một nhãn hai chữ. Mobile là nơi lối về này
+                cần nhất — ở đó tagline dưới logo cũng bị ẩn, nên logo chỉ còn là một
+                hình không kèm lời mời bấm nào. */}
             <Link
               href={localePath(locale, '/')}
-              className="hidden shrink-0 rounded-md px-2.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:block"
+              className="shrink-0 whitespace-nowrap rounded-md px-2 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 sm:px-2.5"
             >
               {t('shell.navHome')}
             </Link>
-
-            {/* Mục thứ hai là vị trí: câu hỏi đầu tiên của khách luôn là "ai đang ở
-                gần tôi", và đây là màn hình mà mọi trang công khai đều có. */}
-            <LocationNavButton
-              locale={locale}
-              labels={{
-                choose: t('shell.navLocation'),
-                locating: t('filters.locating'),
-                failed: t('filters.geoFailed'),
-                unsupported: t('filters.geoUnsupported'),
-                denied: t('filters.geoDenied'),
-                dismiss: t('filters.geoDismiss'),
-              }}
-              // `max-w` ba bậc, **đo ra chứ không chọn theo cảm giác**. Cụm cờ thêm
-              // vào thanh này 64px, và ở 360px thì logo 114 + vị trí 119 + KTV 103 +
-              // cờ 64 + đệm = 400px trên 345px khả dụng, tức **tràn 99px** (đã đo
-              // trong trình duyệt thật trước khi thu). Nút vị trí là mục duy nhất co
-              // được mà không mất thông tin: nhãn của nó đã `truncate`, nên thu
-              // `max-w` chỉ cắt ngắn tên quận chứ không bỏ mất chữ nào khác.
-              //
-              // Không thu bằng cách bỏ hẳn chữ để còn icon: một dấu ống ngắm trần
-              // không nói được rằng nó đang giữ **tên quận đã lưu** của khách — mà
-              // đó chính là lý do nhãn này hiện tên chứ không hiện "Chọn vị trí".
-              className="flex min-w-0 max-w-[4.75rem] shrink items-center gap-1 rounded-md px-1.5 py-1.5 text-ink-600 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-60 sm:max-w-[9rem] sm:gap-1.5 sm:px-2.5 lg:max-w-[12rem]"
-            />
             {/* Trỏ vào `/dang-nhap` chứ không `/dang-ky-ktv`: phần lớn KTV bấm nút
                 này là người **đã có** hồ sơ và đang muốn vào làm việc, nên đưa họ
                 thẳng tới ô đăng nhập. Người chưa có tài khoản đi tiếp một bước qua
@@ -288,6 +280,28 @@ export function PublicShell({
           </nav>
 
           <p className="mt-4 max-w-prose">{t('shell.footerBlurb', { siteName })}</p>
+
+          {/* Email đứng riêng một dòng dưới blurb, KHÔNG nhét vào hai hàng nav ở trên:
+              hai hàng đó trả lời "đi đâu tiếp" và "sàn này cam kết gì", còn một địa chỉ
+              liên hệ không thuộc câu nào — chen vào là buộc người quét hàng link phải
+              đọc qua nó để tới thứ họ tìm.
+
+              Vẫn để ở footer chứ không chỉ ở `/lien-he`: footer nằm trong HTML của
+              **mọi** trang công khai, nên đây là chỗ duy nhất địa chỉ này tới được tay
+              người đang đứng ở một trang hồ sơ và cần viết cho Ban quản trị ngay lúc đó
+              — bắt họ đi tìm trang liên hệ trước là thêm một bước để rơi rụng.
+
+              Điều kiện để nó ở đây vẫn là điều kiện đã ghi ở `lib/contact.ts`: hộp thư
+              có người đọc. Ngừng đọc thì gỡ khỏi **cả hai** chỗ. */}
+          <p className="mt-2">
+            {t('shell.footerEmailLabel')}{' '}
+            <a
+              href={mailtoHref(ADMIN_EMAIL)}
+              className="break-all font-medium text-ink-700 underline underline-offset-4 transition hover:text-brand-700"
+            >
+              {ADMIN_EMAIL}
+            </a>
+          </p>
         </div>
       </footer>
     </div>

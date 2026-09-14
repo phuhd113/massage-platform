@@ -71,6 +71,9 @@ export const vi = {
        và bản cam kết đã ký; chứng chỉ hành nghề tuỳ chọn, nên không hứa thay nó được. */
     footerBlurb:
       '{siteName} — nền tảng kết nối khách với kỹ thuật viên massage thư giãn, chăm sóc cơ thể tận nơi. Mọi hồ sơ hiển thị đều đã được đối chiếu danh tính.',
+    /* Nhãn đứng trước địa chỉ, không để địa chỉ trần: giữa một đoạn văn xuôi, một
+       chuỗi có @ đọc ra như thông tin kỹ thuật chứ không như lời mời liên hệ. */
+    footerEmailLabel: 'Liên hệ:',
     languageLabel: 'Ngôn ngữ',
     switchToEnglish: 'English',
     switchToVietnamese: 'Tiếng Việt',

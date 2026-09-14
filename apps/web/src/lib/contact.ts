@@ -48,6 +48,11 @@ export const zaloHref = (raw: string) => `https://zalo.me/${raw}`;
  * Cùng lý do đã ghi ở `/lien-he` về việc **cố ý không làm form liên hệ**. Trước khi
  * đổi địa chỉ này, kiểm hộp thư mới nhận được thư thật đã.
  *
+ * Hiển thị ở **hai** chỗ: mục riêng trên `/lien-he`, và một dòng dưới blurb ở footer
+ * (`PublicShell`) — footer nằm trong HTML của mọi trang công khai nên đó là chỗ duy
+ * nhất địa chỉ này tới được tay người đang đứng ở một trang hồ sơ. Hộp thư ngừng được
+ * đọc thì gỡ khỏi **cả hai**, và vì cả hai cùng đọc hằng số này nên đó là một lần sửa.
+ *
  * Tách khỏi <see cref="ADMIN_CONTACTS"/> vì nó không phải một kênh song song với hai số
  * kia: Zalo là kênh nhanh, email là kênh cho việc cần văn bản (yêu cầu dữ liệu cá nhân,
  * khiếu nại có kèm ảnh chụp màn hình) và cho người không nói tiếng Việt — viết thì dịch

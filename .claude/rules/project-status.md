@@ -858,6 +858,13 @@ Hộp thư thật trên Email Server P.A, tạo trên trang quản trị `:1000`
 - **KHÔNG dùng `lienhe@` làm `Notifications:FromEmail`.** Người gửi thông báo tự động vẫn là
   `thong-bao@masgo.vn`: trộn thư máy vào hộp thư khách hàng viết tới là cách chắc chắn để một
   thư thật trôi mất giữa hàng chục thông báo hồ sơ chờ duyệt.
+- **Hiển thị ở HAI chỗ, cùng đọc một hằng số.** Mục riêng trên `/lien-he`, và một dòng dưới
+  blurb ở footer (`PublicShell`) — footer nằm trong HTML của **mọi** trang công khai nên đó là
+  chỗ duy nhất địa chỉ này tới được tay người đang đứng ở một trang hồ sơ và cần viết ngay lúc
+  đó. Ở footer nó đứng **riêng một dòng dưới blurb**, không nhét vào hai hàng nav: hai hàng đó
+  trả lời "đi đâu tiếp" và "sàn này cam kết gì", một địa chỉ liên hệ không thuộc câu nào, và
+  chen vào là buộc người quét hàng link phải đọc qua nó. Gỡ thì gỡ cả hai — cùng đọc
+  `ADMIN_EMAIL` nên đó là một lần sửa.
 
 Bản EN dẫn bằng vế ngôn ngữ chứ không bằng vế "cần văn bản" như bản VI: với người không nói
 tiếng Việt, email là kênh **thật sự dùng được**, vì chữ viết qua được công cụ dịch. Câu
@@ -868,6 +875,15 @@ tiếng Việt, email là kênh **thật sự dùng được**, vì chữ viết
 "Write to us", "2 ngày làm việc" / "2 working days"); 6/6 ca đo trong trình duyệt thật
 (2 locale × 360/390/768) **không tràn ngang**, địa chỉ nằm trong khung; đã gửi thư thật tới
 hộp thư và Resend nhận (id trả về). Typecheck và ESLint xanh.
+
+Footer kiểm riêng cùng ngày: `mailto:` có trên **6/6 loại trang** (trang chủ vi/en, `/tim-kiem`,
+`/an-toan`, trang khu vực, `/en/dieu-khoan`), nhãn đúng ngôn ngữ ("Liên hệ:" / "Contact:"),
+6/6 ca đo bố cục không tràn ngang; `/lien-he` có đúng **2** link (mục riêng + footer), trang
+khác có **1**.
+
+Một bẫy đo lường gặp trong đợt này: **`grep -c` đếm số DÒNG khớp, không phải số lần khớp** —
+HTML của Next nén thành một dòng nên nó luôn trả `1` dù có bao nhiêu link. Suýt kết luận nhầm
+là mục email trên `/lien-he` đã biến mất. Đếm số lần khớp phải là `grep -o ... | wc -l`.
 
 **Chứng chỉ hành nghề là TUỲ CHỌN** (2026-09-09). Điều kiện để hồ sơ sang VERIFIED chỉ có hai,
 và cả hai nằm ở `AdminService.DecideProfileAsync`: **CCCD đã xác minh + cam kết đúng phiên bản**.
