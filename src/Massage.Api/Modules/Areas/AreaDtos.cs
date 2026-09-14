@@ -1,4 +1,38 @@
+using FluentValidation;
+
 namespace Massage.Api.Modules.Areas;
+
+/// <summary>
+/// Nội dung biên tập admin gửi lên cho một khu vực.
+///
+/// Null hoặc chuỗi rỗng nghĩa là **gỡ** nội dung, không phải "bỏ qua, giữ nguyên" — khác
+/// với <c>UpdateKtvProfileDto</c> nơi null nghĩa là không đổi. Ở đây chỉ có một trường,
+/// nên không có thao tác nào khác để nhầm lẫn với việc gỡ, và việc gỡ phải làm được:
+/// thiếu nó thì mở index là một chiều.
+/// </summary>
+/// <remarks>
+/// Khai thuộc tính tường minh chứ **không** dùng positional record
+/// (<c>record SetEditorialNoteDto(string? EditorialNote)</c>). Với record một tham số,
+/// <c>System.Text.Json</c> cố dựng đối tượng từ chính giá trị JSON thay vì từ object bọc
+/// ngoài, nên <c>{"editorialNote":"..."}</c> trả 400 "The JSON value could not be
+/// converted". Đã cắn: lỗi đọc như body sai định dạng chứ không như lỗi khai kiểu.
+/// </remarks>
+public record SetEditorialNoteDto
+{
+    public string? EditorialNote { get; init; }
+}
+
+public class SetEditorialNoteDtoValidator : AbstractValidator<SetEditorialNoteDto>
+{
+    public SetEditorialNoteDtoValidator()
+    {
+        // Chỉ chặn trần trên ở đây. Ngưỡng **tối thiểu** nằm ở service
+        // (`AreaService.MinEditorialNoteLength`) chứ không ở đây, vì nó chỉ áp cho việc
+        // ghi chứ không áp cho việc gỡ — diễn đạt "rỗng thì được, mà ngắn thì không"
+        // bằng một rule FluentValidation sẽ tối nghĩa hơn là một câu if ở service.
+        RuleFor(x => x.EditorialNote).MaximumLength(4000);
+    }
+}
 
 /// <param name="KtvCount">Số KTV đã duyệt phủ khu vực này.</param>
 /// <param name="Indexable">
@@ -49,6 +83,45 @@ public record AreaDetailDto(
     List<AreaNodeDto> Children,
     List<AreaNodeDto> Siblings,
     AreaStatsDto Stats);
+
+/// <summary>
+/// Một dòng trong trang biên tập nội dung khu vực của admin.
+///
+/// Mang **cả hai vế** của điều kiện index (<paramref name="KtvCount"/> và nội dung) chứ
+/// không chỉ cờ tổng: người viết cần biết mình đang thiếu vế nào. Một trang "chưa index"
+/// vì thiếu KTV thì viết bao nhiêu chữ cũng không đổi được trạng thái, còn thiếu nội dung
+/// thì đúng là việc của họ — gộp hai ca đó vào một chữ "chưa" là giấu mất sự khác biệt
+/// duy nhất có ích trên màn hình này.
+/// </summary>
+/// <param name="ParentName">NULL khi chính nó là tỉnh. Dùng để phân biệt mười "Huyện Châu Thành".</param>
+/// <param name="Indexable">Cờ đã gộp cả hai vế, tính ở server — frontend không tự so ngưỡng.</param>
+public record AreaEditorialRowDto(
+    Guid Id,
+    string Name,
+    string Slug,
+    string Level,
+    string? ParentName,
+    string? ParentSlug,
+    int KtvCount,
+    string? EditorialNote,
+    bool Indexable);
+
+/// <summary>
+/// Kết quả sau khi ghi nội dung biên tập.
+///
+/// Trả về <paramref name="ProvinceSlug"/> và <paramref name="DistrictSlug"/> vì lớp gọi
+/// cần dựng đúng đường dẫn công khai để xoá cache ISR — trang khu vực dựng sẵn 600 giây
+/// và không tự biết nội dung vừa đổi. Không trả hai slug này thì frontend phải tự ghép
+/// từ dữ liệu nó đang có, và đó chính là chỗ cặp slug tỉnh/quận từng bị gửi thiếu vế.
+/// </summary>
+public record AreaEditorialUpdatedDto(
+    Guid Id,
+    string Name,
+    string ProvinceSlug,
+    string? DistrictSlug,
+    int KtvCount,
+    bool Indexable,
+    string? EditorialNote);
 
 /// <summary>
 /// Phường/xã. Cố ý không dùng lại <see cref="AreaNodeDto"/>: phường chỉ là nhãn cho

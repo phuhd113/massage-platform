@@ -379,6 +379,158 @@ public class AreaService(AppDbContext db)
     }
 
     /// <summary>
+    /// Độ dài tối thiểu của nội dung biên tập để được coi là "có nội dung riêng".
+    ///
+    /// Ngưỡng tồn tại vì <see cref="IsIndexable"/> chỉ kiểm chuỗi có rỗng hay không, và
+    /// một dấu chấm cũng qua được vế đó — tức mở index cho một trang vẫn là bản sao của
+    /// ~760 trang cùng mẫu. Đây đúng là thứ Google gọi là doorway page và phạt cả tên
+    /// miền, nên chặn ở đường ghi rẻ hơn nhiều so với gỡ ra sau khi đã bị hạ hạng.
+    ///
+    /// 120 ký tự ≈ hai câu. Không đặt cao hơn: người viết sẽ độn chữ cho đủ, và văn độn
+    /// còn tệ hơn văn ngắn.
+    /// </summary>
+    public const int MinEditorialNoteLength = 120;
+
+    /// <summary>
+    /// Danh sách khu vực cho trang biên tập của admin.
+    ///
+    /// **Chỉ tỉnh và quận/huyện, không bao giờ phường** — phường không có trang riêng
+    /// nên nội dung biên tập cho nó không hiển thị ở đâu cả, cùng lý do với
+    /// <see cref="GetTreeAsync"/>.
+    ///
+    /// Sắp xếp mặc định đặt khu vực **sắp đủ điều kiện index** lên đầu: đó là nơi một
+    /// đoạn văn vừa viết đổi được trạng thái của trang ngay, còn khu vực 0 KTV thì viết
+    /// xong vẫn `noindex` và công sức nằm chờ vô thời hạn.
+    /// </summary>
+    /// <param name="onlyReady">
+    /// Chỉ khu vực đã đủ ngưỡng KTV mà **chưa** có nội dung — tức danh sách việc cần làm
+    /// để mở index, đúng nghĩa đen.
+    /// </param>
+    public async Task<(List<AreaEditorialRowDto> Items, int Total)> ListForEditorialAsync(
+        bool onlyReady,
+        string? q,
+        int page,
+        int limit,
+        CancellationToken ct = default)
+    {
+        // Đếm KTV bằng subquery tương quan chứ không join + GroupBy: cùng lý do đã ghi ở
+        // module Reports — EF không dịch được left-join tới `GroupBy`, và khu vực 0 KTV
+        // (phần lớn trong 759 dòng) phải xuất hiện với số 0 chứ không được biến mất.
+        // `CoverageArea` cố ý không có navigation property tới KtvProfile (xem entity),
+        // nên điều kiện "đã duyệt" đi qua một subquery trên `KtvProfiles` thay vì `c.Ktv`.
+        var baseQuery =
+            from a in db.AdministrativeAreas.AsNoTracking()
+            where a.Level != AreaLevels.Ward
+            let ktvCount = db.CoverageAreas
+                .Count(c => c.AreaId == a.Id &&
+                    db.KtvProfiles.Any(k => k.Id == c.KtvId &&
+                        k.VerificationStatus == VerificationStatuses.Verified))
+            select new { Area = a, KtvCount = ktvCount };
+
+        if (onlyReady)
+        {
+            baseQuery = baseQuery.Where(x =>
+                x.KtvCount >= MinKtvForIndex &&
+                (x.Area.EditorialNote == null || x.Area.EditorialNote.Trim() == ""));
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            // Khớp theo `name_ascii` (trigger trong DB dựng) để gõ không dấu vẫn ra —
+            // cùng đường khớp với ô gợi ý, nên hai chỗ không thể cho kết quả khác nhau.
+            var needle = NormalizeQuery(q);
+            baseQuery = baseQuery.Where(x => x.Area.NameAscii != null && x.Area.NameAscii.Contains(needle));
+        }
+
+        var total = await baseQuery.CountAsync(ct);
+
+        var rows = await baseQuery
+            // Sắp xếp **trước** projection sang record: EF không dịch được `OrderBy` trên
+            // thuộc tính của record vừa dựng trong `Select`, và nó nổ lúc chạy chứ không
+            // lúc biên dịch. Đã cắn một lần ở trang doanh thu.
+            .OrderByDescending(x => x.KtvCount)
+            .ThenBy(x => x.Area.Name)
+            .Skip((page - 1) * limit)
+            .Take(limit)
+            .Select(x => new AreaEditorialRowDto(
+                x.Area.Id,
+                x.Area.Name,
+                x.Area.Slug,
+                x.Area.Level,
+                x.Area.Parent != null ? x.Area.Parent.Name : null,
+                x.Area.Parent != null ? x.Area.Parent.Slug : null,
+                x.KtvCount,
+                x.Area.EditorialNote,
+                // Cờ tính ở server, **không** để frontend tự so sánh: ngưỡng có hai vế và
+                // hai tầng hiểu khác nhau là đúng cách trang gần rỗng lọt vào index.
+                x.KtvCount >= MinKtvForIndex &&
+                    x.Area.EditorialNote != null && x.Area.EditorialNote.Trim() != ""))
+            .ToListAsync(ct);
+
+        return (rows, total);
+    }
+
+    /// <summary>
+    /// Ghi nội dung biên tập cho một khu vực.
+    ///
+    /// Trả về slug tỉnh + quận để lớp gọi xoá cache ISR đúng đường dẫn — trang khu vực
+    /// dựng sẵn và không tự biết mình vừa đổi nội dung. Đây là lý do hàm trả về nhiều
+    /// hơn một <c>bool</c>.
+    /// </summary>
+    /// <param name="note">
+    /// Chuỗi rỗng hoặc null nghĩa là **gỡ** nội dung — hợp lệ và có chủ ý: đó là đường
+    /// đưa một trang ra khỏi index khi nội dung hoá ra sai, và nó phải tồn tại vì
+    /// không có nó thì việc mở index là một chiều.
+    /// </param>
+    public async Task<AreaEditorialUpdatedDto> SetEditorialNoteAsync(
+        Guid id,
+        string? note,
+        CancellationToken ct = default)
+    {
+        var area = await db.AdministrativeAreas
+            .Include(a => a.Parent)
+            .FirstOrDefaultAsync(a => a.Id == id, ct)
+            ?? throw new NotFoundException("Không tìm thấy khu vực");
+
+        if (area.Level == AreaLevels.Ward)
+            throw new BadRequestException("Phường/xã không có trang riêng nên không nhận nội dung biên tập");
+
+        var trimmed = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+
+        // Ngưỡng độ dài chỉ áp cho việc **ghi** nội dung, không áp cho việc gỡ. Chặn ở
+        // đây chứ không chỉ ở FluentValidation phía form: khu vực cũng sửa được bằng SQL
+        // tay và bằng lời gọi API trực tiếp, và một dòng ba chữ lọt qua sẽ mở index cho
+        // một trang thin content mà không có gì báo đỏ.
+        if (trimmed is not null && trimmed.Length < MinEditorialNoteLength)
+        {
+            throw new BadRequestException(
+                $"Nội dung biên tập cần ít nhất {MinEditorialNoteLength} ký tự (đang có {trimmed.Length}). " +
+                "Nội dung quá ngắn không phân biệt được trang này với hàng trăm trang khu vực cùng mẫu.");
+        }
+
+        area.EditorialNote = trimmed;
+        await db.SaveChangesAsync(ct);
+
+        var ktvCount = await db.CoverageAreas
+            .CountAsync(c => c.AreaId == area.Id &&
+                db.KtvProfiles.Any(k => k.Id == c.KtvId &&
+                    k.VerificationStatus == VerificationStatuses.Verified), ct);
+
+        // Tỉnh thì chính nó là vế tỉnh của đường dẫn; quận thì vế tỉnh nằm ở cha.
+        var provinceSlug = area.Level == AreaLevels.Province ? area.Slug : area.Parent?.Slug;
+        var districtSlug = area.Level == AreaLevels.District ? area.Slug : null;
+
+        return new AreaEditorialUpdatedDto(
+            area.Id,
+            area.Name,
+            provinceSlug ?? area.Slug,
+            districtSlug,
+            ktvCount,
+            IsIndexable(ktvCount, area.EditorialNote),
+            area.EditorialNote);
+    }
+
+    /// <summary>
     /// Đưa từ khoá về đúng dạng đã lưu ở <c>name_ascii</c>: bỏ dấu, thường hoá, gộp
     /// khoảng trắng. Dùng lại <see cref="SlugHelper.ToSlug"/> để hai bên không thể lệch
     /// nhau — chuỗi lưu trong cột cũng sinh từ chính quy tắc bỏ dấu đó.

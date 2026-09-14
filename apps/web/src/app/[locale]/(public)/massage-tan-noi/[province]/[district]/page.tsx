@@ -108,6 +108,22 @@ export default async function DistrictPage({ params }: Props) {
         </dl>
       )}
 
+      {/*
+        Nội dung biên tập riêng — vế thứ hai của điều kiện index, và nó **phải xuất hiện
+        trên trang**. Dùng nó chỉ để bật cờ `indexable` mà không render là mở index cho
+        đúng cái trang thin content mà cơ chế này sinh ra để ngăn. Đã đo được ca đó trước
+        khi sửa: cờ bật, sitemap có URL, HTML thô không có một chữ nào của đoạn văn.
+
+        Giữ nguyên tiếng Việt ở bản `/en` và bọc `lang="vi"` tại chính element chứa chữ,
+        cùng luật với nội dung do người dùng viết: đây là văn bản do người biên tập viết
+        tay, và dịch máy hàng loạt là thứ Google phạt trên cả tên miền.
+      */}
+      {area.editorialNote && (
+        <section className="mt-6 max-w-prose" lang="vi">
+          <p className="whitespace-pre-line text-body-l text-ink-700">{area.editorialNote}</p>
+        </section>
+      )}
+
       {!area.indexable && area.ktvCount > 0 && (
         <p className="mt-4 rounded-lg border border-warning-bd bg-warning-bg px-4 py-3 text-body-s text-warning-fg">
           {t('areaDistrict.thinNotice')}

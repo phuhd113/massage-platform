@@ -91,6 +91,14 @@ export default async function ProvincePage({ params }: Props) {
         </dl>
       )}
 
+      {/* Xem ghi chú ở trang quận: nội dung biên tập là vế thứ hai của điều kiện index
+          và phải được render, không chỉ dùng để bật cờ. */}
+      {area.editorialNote && (
+        <section className="mt-6 max-w-prose" lang="vi">
+          <p className="whitespace-pre-line text-body-l text-ink-700">{area.editorialNote}</p>
+        </section>
+      )}
+
       <section className="mt-9">
         <h2 className="text-h2 text-ink-900">{t('areaProvince.pickDistrict')}</h2>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

@@ -25,6 +25,17 @@ export interface AreaDetail extends Omit<AreaNode, 'children'> {
   children: AreaNode[];
   siblings: AreaNode[];
   stats: AreaStats;
+  /**
+   * Nội dung biên tập riêng, viết ở `/admin/noi-dung-khu-vuc`.
+   *
+   * **Phải được render trên trang**, không chỉ dùng để bật cờ `indexable`. Backend vẫn
+   * trả trường này từ trước nhưng type không khai nên không nơi nào đọc — kết quả là
+   * nội dung mở khoá index cho một trang mà chính nó không xuất hiện ở đâu, tức Google
+   * index đúng cái trang thin content mà cơ chế này sinh ra để ngăn. Đã đo trong trình
+   * duyệt thật trước khi sửa: `indexable` bật lên, sitemap có URL, mà HTML thô không
+   * chứa một chữ nào của đoạn văn.
+   */
+  editorialNote: string | null;
 }
 
 /**
@@ -387,6 +398,39 @@ export interface AdminCollaborator {
   createdAt: string;
   referredCount: number;
   verifiedCount: number;
+}
+
+/**
+ * Một khu vực nhìn từ trang biên tập nội dung của admin.
+ *
+ * `indexable` tính ở **server** và gộp cả hai vế của điều kiện index (đủ KTV + có nội
+ * dung). Frontend không tự so `ktvCount` với một ngưỡng của riêng mình: hai tầng hiểu
+ * ngưỡng khác nhau là đúng cách để trang gần rỗng lọt vào index, và Google phạt cả tên
+ * miền chứ không riêng trang đó.
+ */
+export interface AdminAreaEditorial {
+  id: string;
+  name: string;
+  slug: string;
+  level: 'PROVINCE' | 'DISTRICT';
+  parentName: string | null;
+  parentSlug: string | null;
+  ktvCount: number;
+  editorialNote: string | null;
+  indexable: boolean;
+}
+
+/**
+ * Hai ngưỡng đi kèm danh sách, lấy từ backend thay vì ghi cứng ở frontend — cùng lý do
+ * với `indexable`: một bản sao ở đây sẽ trôi khỏi `AreaService` mà không có gì báo đỏ.
+ */
+export interface AdminAreaEditorialList {
+  items: AdminAreaEditorial[];
+  total: number;
+  page: number;
+  limit: number;
+  minKtv: number;
+  minNoteLength: number;
 }
 
 /**
