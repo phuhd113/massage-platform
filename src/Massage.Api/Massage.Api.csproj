@@ -17,6 +17,12 @@
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <!--
+      MailKit chứ không phải System.Net.Mail.SmtpClient: bản kia bị .NET đánh dấu
+      obsolete (SYSLIB0014) và không nói được SSL implicit trên port 465 — nó chỉ
+      biết STARTTLS, nên cấu hình 465 sẽ treo tới timeout thay vì báo lỗi.
+    -->
+    <PackageReference Include="MailKit" Version="4.8.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

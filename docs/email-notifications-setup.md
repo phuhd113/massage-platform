@@ -31,8 +31,19 @@ Không có cờ `UseResend` nào cả. `EmailSenderSetup` chọn theo thứ tự
 | Điều kiện | Adapter | Hành vi |
 |---|---|---|
 | `Notifications:StubEnabled=true` | `LogEmailSender` | Ghi nội dung email ra log |
+| Có `Smtp:Host` + `Smtp:Username` | `SmtpEmailSender` | Gửi qua SMTP |
 | Có `Resend:ApiKey` | `ResendEmailSender` | Gửi thật qua Resend |
 | Còn lại | `LogEmailSender` | Ghi log |
+
+**SMTP thắng Resend khi cả hai cùng khai**, vì SMTP gửi từ một hộp thư có thật trên domain
+nên tới được bất kỳ ai, còn Resend chưa verify domain thì chỉ gửi được tới chính email chủ
+tài khoản — tổ hợp "có cả hai" gần như luôn nghĩa là Resend đang làm bản dự phòng.
+
+**Hiện tại dùng Resend** (`SMTP_HOST` để trống): SMTP của P.A Việt Nam đã thử và **không
+xác thực được** — máy chủ trả `535 authentication failed` với cả hai mật khẩu được cấp, ở
+cả `PLAIN` lẫn `LOGIN`, cả port 465 lẫn 587. Kết nối, TLS và cơ chế AUTH đều đúng; chỉ
+credential bị từ chối, nên đó là vấn đề ở tài khoản phía P.A chứ không phải ở code. Đường
+SMTP giữ nguyên để bật lại bằng một dòng `.env` khi có mật khẩu đúng.
 
 **Stub luôn thắng khi được bật**, kể cả khi đã có API key thật — cùng luật với `Otp:StubEnabled`.
 Nếu không, một máy dev có `.env` thật sẽ gửi email thật, im lặng, vì lượt gửi vẫn thành công.
@@ -57,7 +68,14 @@ thái bình thường trên máy dev.
 Chọn Resend thay SMTP vì VPS thường chặn port outbound 25/587, và việc đó hỏng **im lặng** — kết
 nối treo tới lúc timeout, đọc như lỗi cấu hình chứ không như lỗi mạng.
 
-### 2. Verify domain masgo.vn
+### 2. Verify domain masgo.vn — ĐÃ LÀM (2026-09-15)
+
+> Domain `masgo.vn` đã verify xong, người gửi là `thong-bao@masgo.vn`, và hệ thống gửi
+> được tới **bất kỳ địa chỉ nào**. Phần dưới giữ lại để làm lại khi đổi domain.
+>
+> **Đừng đụng vào SPF ở gốc `@`** (`v=spf1 include:spf.maychuemail.com ~all`) — đó là của
+> hộp thư P.A và sửa đè sẽ làm thư gửi từ hộp thư đó vào spam. Bản ghi của Resend nằm ở
+> subdomain `send`, tách biệt hẳn.
 
 Vào **Domains → Add Domain**, nhập `masgo.vn`. Resend đưa ra vài bản ghi DNS (SPF, DKIM, và
 tuỳ chọn DMARC).

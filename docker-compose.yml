@@ -80,6 +80,11 @@ services:
       Notifications__AdminBaseUrl: ${NOTIFICATIONS_ADMIN_BASE_URL:-http://localhost:3000}
       Notifications__StubEnabled: ${NOTIFICATIONS_STUB_ENABLED:-true}
       Resend__ApiKey: ${RESEND_API_KEY:-}
+      # SMTP thắng Resend khi cả hai cùng khai — xem EmailSenderSetup.
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-465}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
     ports:
       - '5080:8080'
     volumes:

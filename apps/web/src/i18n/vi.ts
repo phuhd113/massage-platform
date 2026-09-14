@@ -52,13 +52,16 @@ export const vi = {
        file này; thêm chuỗi nhãn mới thì vẫn theo quy ước cũ. */
     logoTagline: 'Cần Massage - Bật MasGo.vn',
     navHome: 'Trang chủ',
+    /* GIỮ LẠI dù không route nào đọc: `LocationNavButton` đã gỡ khỏi header
+       (2026-09-14) nhưng component còn nguyên trong repo. Cùng lý do với
+       `login.crossLink*` — mở lại chỉ là đặt lại một thẻ vào `PublicShell`. */
     navLocation: 'Chọn vị trí',
     navFindKtv: 'Tìm KTV',
     navHcm: 'TP.HCM',
     navHanoi: 'Hà Nội',
     navHowWeVerify: 'Cách chúng tôi duyệt hồ sơ',
-    /* Hai biến thể vì header ở 360px đã chật: nav chứa nút vị trí (rộng tới 9rem)
-       ngay cạnh nút này và cả hai đều `whitespace-nowrap`. Bản ngắn hiện dưới `sm`,
+    /* Hai biến thể vì header ở 360px đã chật: nav còn chứa link "Trang chủ" và cụm
+       cờ ngôn ngữ, và mọi mục đều `whitespace-nowrap`. Bản ngắn hiện dưới `sm`,
        bản đủ từ `sm` trở lên. Hai key riêng chứ KHÔNG cắt chuỗi bằng JS — cắt theo
        số ký tự sẽ gãy giữa từ ở bản EN và ở mọi bản dịch thêm sau. */
     navForKtv: 'Trở thành KTV MasGo',
@@ -68,6 +71,9 @@ export const vi = {
        và bản cam kết đã ký; chứng chỉ hành nghề tuỳ chọn, nên không hứa thay nó được. */
     footerBlurb:
       '{siteName} — nền tảng kết nối khách với kỹ thuật viên massage thư giãn, chăm sóc cơ thể tận nơi. Mọi hồ sơ hiển thị đều đã được đối chiếu danh tính.',
+    /* Nhãn đứng trước địa chỉ, không để địa chỉ trần: giữa một đoạn văn xuôi, một
+       chuỗi có @ đọc ra như thông tin kỹ thuật chứ không như lời mời liên hệ. */
+    footerEmailLabel: 'Liên hệ:',
     languageLabel: 'Ngôn ngữ',
     switchToEnglish: 'English',
     switchToVietnamese: 'Tiếng Việt',
@@ -430,6 +436,7 @@ export const vi = {
     navSafety: 'An toàn và quy tắc cộng đồng',
     navTerms: 'Điều khoản sử dụng',
     navPrivacy: 'Chính sách bảo vệ dữ liệu cá nhân',
+    navContact: 'Liên hệ',
     /* Chỉ hiện khi lib/legal.ts còn placeholder, và chỉ ngoài production. Câu chữ
        nói với người phát triển chứ không với khách — nhưng vẫn phải có bản EN vì
        nó nằm trong dictionary, và người dev có thể đang mở bản /en. */
@@ -682,6 +689,82 @@ export const vi = {
     s9Title: '9. Thay đổi chính sách',
     s9p1:
       'Khi chính sách này thay đổi, ngày hiệu lực ở đầu trang được cập nhật. Với thay đổi ảnh hưởng đáng kể tới quyền của bạn, chúng tôi sẽ thông báo trực tiếp.',
+  },
+
+  /**
+   * Trang /lien-he.
+   *
+   * Nguyên tắc của trang này: **mỗi mục phải dẫn tới một luồng đã tồn tại**, không
+   * phải một lời mời gọi điện thay cho luồng đó. Sàn có sẵn nút báo cáo trên từng hồ
+   * sơ và trang hồ sơ KTV trong dashboard; một trang liên hệ khuyên "gọi cho chúng
+   * tôi" trong cả hai trường hợp là đẩy việc đã tự phục vụ được lên một đường dây chỉ
+   * có hai người nghe, và làm mất luôn dấu vết mà hai luồng kia ghi lại được.
+   *
+   * Số điện thoại **không** nằm ở đây mà ở `lib/contact.ts` — cùng lý do với
+   * `LEGAL_ENTITY`: số không dịch, và để trong dictionary là mời một bản đổi cách
+   * nhóm chữ số đi vào đúng chỗ phải bấm gọi được nguyên văn.
+   */
+  contactPage: {
+    metaTitle: 'Liên hệ',
+    metaDescription:
+      'Liên hệ Ban quản trị MasGo qua điện thoại hoặc Zalo. Hướng dẫn báo cáo hồ sơ vi phạm, hỗ trợ kỹ thuật viên và yêu cầu về dữ liệu cá nhân.',
+    h1: 'Liên hệ',
+    lead:
+      'Ban quản trị MasGo trực tiếp nhận phản ánh, góp ý và yêu cầu hỗ trợ. Trước khi gọi, bạn xem giúp mục dưới đây — phần lớn việc xử lý nhanh hơn qua đúng luồng có sẵn trên hệ thống.',
+
+    channelsTitle: 'Gọi hoặc nhắn Zalo',
+    channelsBody:
+      'Hai số dưới đây đều nhận cuộc gọi và tin nhắn Zalo, trong giờ hành chính từ thứ Hai đến thứ Bảy. Ngoài giờ, bạn nhắn Zalo và chúng tôi trả lời vào buổi làm việc kế tiếp.',
+    channelCall: 'Gọi',
+    channelZalo: 'Zalo',
+    /* Nói trước rằng đây không phải tổng đài đặt lịch. Không nói ra thì khách gọi
+       vào để đặt massage — mà sàn không đặt lịch hộ, việc đó nằm ở nút liên hệ trên
+       từng hồ sơ. Một cuộc gọi sai địa chỉ tốn thời gian của cả hai bên. */
+    channelsNote:
+      'Đây là đầu mối của Ban quản trị nền tảng, không phải tổng đài đặt lịch massage. Để đặt lịch, bạn vào hồ sơ kỹ thuật viên và bấm nút liên hệ ở đó — số điện thoại của họ hiện ra ngay.',
+
+    /* Email đặt SAU hai số Zalo, có chủ ý: Zalo có người trực và trả lời trong
+       ngày làm việc, email thì chậm hơn. Nói rõ "trong vòng 2 ngày làm việc" thay
+       vì để trống — một hộp thư không hứa gì thì người viết không biết nên chờ hay
+       nên gọi, và họ sẽ làm cả hai. */
+    channelEmailTitle: 'Gửi email',
+    channelEmailBody:
+      'Dùng email khi việc cần kèm ảnh chụp màn hình hoặc cần lưu lại bằng văn bản — chẳng hạn khiếu nại, yêu cầu về dữ liệu cá nhân, hoặc đề nghị hợp tác. Chúng tôi trả lời trong vòng 2 ngày làm việc.',
+    channelEmailCta: 'Soạn email',
+
+    routesTitle: 'Bạn đang cần việc gì?',
+    routesLead:
+      'Bốn việc dưới đây có luồng riêng trên hệ thống và được xử lý nhanh hơn hẳn so với gọi điện, vì chúng tôi nhận được đầy đủ thông tin ngay từ đầu.',
+
+    routeBookTitle: 'Đặt lịch với một kỹ thuật viên',
+    routeBookBody:
+      'Chọn kỹ thuật viên phù hợp rồi bấm nút liên hệ trên hồ sơ của họ. Số điện thoại hiện ra để bạn gọi hoặc nhắn Zalo trực tiếp. Ban quản trị không đặt lịch thay.',
+    routeBookCta: 'Tìm kỹ thuật viên',
+
+    routeReportTitle: 'Báo cáo một hồ sơ vi phạm',
+    routeReportBody:
+      'Mỗi trang hồ sơ đều có nút báo cáo và bạn không cần đăng nhập. Báo cáo gửi từ đó đi thẳng vào hàng đợi xử lý kèm đúng hồ sơ bạn đang xem, nên nhanh hơn việc mô tả lại qua điện thoại.',
+    routeReportCta: 'Quy tắc cộng đồng và cách báo cáo',
+
+    routeKtvTitle: 'Hỗ trợ kỹ thuật viên',
+    routeKtvBody:
+      'Hồ sơ chưa được duyệt, căn cước bị từ chối, hoặc thắc mắc về gói đẩy tin và ví: bạn đăng nhập rồi vào trang hồ sơ trong bảng điều khiển — trạng thái từng bước và lý do bị từ chối hiện ở đó. Còn vướng thì gọi cho chúng tôi.',
+    routeKtvCta: 'Đăng nhập dành cho kỹ thuật viên',
+
+    /* Dẫn về đúng đầu mối dữ liệu cá nhân trong chính sách. Nghị định 13/2023 buộc
+       nêu rõ đầu mối tiếp nhận, nên trang liên hệ không được trở thành đầu mối thứ
+       hai mô tả một quy trình khác. */
+    routeDataTitle: 'Yêu cầu về dữ liệu cá nhân',
+    routeDataBody:
+      'Truy cập, chỉnh sửa, xoá dữ liệu hoặc rút lại sự đồng ý: quyền của bạn và cách thực hiện được nêu trong chính sách bảo vệ dữ liệu cá nhân. Chúng tôi phản hồi trong vòng 72 giờ kể từ khi nhận được yêu cầu hợp lệ.',
+    routeDataCta: 'Chính sách bảo vệ dữ liệu cá nhân',
+
+    /* Khối khẩn cấp lặp lại từ /an-toan, và đó là chủ ý: người đang hoảng sẽ mở
+       trang tên là "Liên hệ" chứ không phải trang tên là "An toàn". Số 113 phải
+       nằm trước mọi kênh của sàn — chúng tôi không xử lý được việc đang xảy ra. */
+    urgentTitle: 'Trường hợp khẩn cấp',
+    urgentBody:
+      'Nếu bạn đang gặp nguy hiểm hoặc chứng kiến hành vi phạm tội, hãy gọi 113 trước. Ban quản trị MasGo không thể can thiệp vào việc đang diễn ra; sau khi bạn đã an toàn, hãy báo lại để chúng tôi xử lý tài khoản liên quan.',
   },
 
   search: {

@@ -62,3 +62,49 @@ public class ResendOptions
 
     public bool Enabled => !string.IsNullOrWhiteSpace(ApiKey);
 }
+
+/// <summary>
+/// Cấu hình SMTP (hiện dùng Email Server của P.A Việt Nam). Adapter chọn theo sự có mặt
+/// của <see cref="Host"/> + <see cref="Username"/>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Ưu điểm so với Resend cho trường hợp này: người gửi là một hộp thư <c>@masgo.vn</c> có
+/// thật, nên gửi được tới **bất kỳ ai** mà không cần verify domain riêng ở một nhà cung
+/// cấp thứ hai — P.A đã quản DNS mail của domain.
+/// </para>
+/// <para>
+/// <b>Rủi ro phải nhớ:</b> nhiều nhà cung cấp VPS chặn port outbound 25/465/587 để chống
+/// spam, và việc đó hỏng <b>im lặng</b> — kết nối treo tới timeout, đọc như lỗi cấu hình
+/// chứ không như lỗi mạng. Đã kiểm trên máy dev (cả 465 và 587 đều mở); <b>VPS production
+/// là môi trường khác và phải kiểm riêng trước khi deploy</b>. Resend giữ nguyên làm
+/// phương án dự phòng chính vì lý do đó — nó đi qua HTTPS 443 nên không bao giờ bị chặn.
+/// </para>
+/// </remarks>
+public class SmtpOptions
+{
+    public const string Section = "Smtp";
+
+    /// <summary>Máy chủ SMTP, ví dụ <c>mail92231.maychuemail.com</c>.</summary>
+    public string Host { get; set; } = "";
+
+    /// <summary>
+    /// 465 = SSL implicit (khuyến nghị), 587 = STARTTLS. Cổng 25 không mã hoá và bị chặn
+    /// ở hầu hết nhà cung cấp — đừng dùng.
+    /// </summary>
+    public int Port { get; set; } = 465;
+
+    /// <summary>Tên đăng nhập, thường là chính địa chỉ email đầy đủ.</summary>
+    public string Username { get; set; } = "";
+
+    public string Password { get; set; } = "";
+
+    /// <summary>
+    /// Số giây chờ trước khi bỏ cuộc. Ngắn có chủ ý: lượt gửi nằm trên đường request đồng
+    /// bộ của KTV đang nộp hồ sơ, và ca hỏng điển hình (port bị chặn) là **treo** chứ
+    /// không phải từ chối — để mặc định 2 phút nghĩa là KTV nhìn spinner suốt quãng đó.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 15;
+
+    public bool Enabled => !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(Username);
+}

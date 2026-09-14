@@ -73,10 +73,23 @@ function BrandDomain({ value }: { value: string }) {
       {parts.map((part, i) => (
         <Fragment key={i}>
           {i > 0 && (
-            /* `-mx-[0.12em]` cắt bớt đúng phần ô thừa hai bên dấu chấm. Dùng `em` chứ
-               không `px`: cỡ chữ đổi giữa mobile (48px) và desktop (60px), nên một giá
-               trị px sẽ siết đúng ở một cỡ và sai ở cỡ kia. */
-            <span className="-mx-[0.12em] inline-block">.</span>
+            /* Cắt bớt đúng phần ô thừa hai bên dấu chấm. Dùng `em` chứ không `px`: cỡ
+               chữ đổi giữa mobile (48px) và desktop (60px), nên một giá trị px sẽ siết
+               đúng ở một cỡ và sai ở cỡ kia.
+
+               Nhưng `em` một mình vẫn **chưa đủ**, và đây là lỗi đã thấy trên máy thật
+               (iPhone, 2026-09-14): ở mobile dấu chấm **biến mất hẳn** — "MasGo.vn" đọc
+               ra "MasGo vn". Lý do là hai lượt siết cộng dồn, còn phần mực thì không co
+               theo cùng tỉ lệ. Ở 48px: `tracking-[-0.045em]` của span cha lấy đi 2,16px
+               mỗi khe, `-mx-[0.12em]` lấy thêm 5,76px mỗi bên — tổng ~15,8px siết quanh
+               một glyph chỉ có ~6,4px mực, nên chữ "o" và "v" phủ kín lên nó. Ở 60px
+               cùng công thức đó còn chừa lại đủ chỗ, nên desktop trông vẫn đúng và lỗi
+               chỉ lộ ra trên điện thoại.
+
+               Vì vậy giá trị gate theo cỡ chữ: nửa biên độ ở mobile, giữ nguyên ở `sm:`.
+               Đừng gộp lại thành một giá trị duy nhất "cho gọn" — một trong hai cỡ sẽ
+               sai, và cỡ sai là cỡ phần lớn khách đang xem. */
+            <span className="-mx-[0.06em] inline-block sm:-mx-[0.12em]">.</span>
           )}
           {part}
         </Fragment>
@@ -277,8 +290,20 @@ export function HomeSloganBand({
     >
       <div className="mx-auto grid max-w-shell items-center gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)] lg:gap-14">
         <p className="text-balance font-display">
-          <span className="block text-h3 font-semibold text-ink-700 sm:text-h2">
-            {t('home.sloganAsk')}
+          {/*
+            Vế dẫn và động từ nằm CÙNG một hàng ("Cần massage - Bật"), tên miền xuống
+            dòng dưới. Trước 2026-09-14 vế dẫn là `block` riêng nên khối đọc thành ba
+            dòng: dẫn / động từ / tên miền — và dòng giữa chỉ có đúng một từ ("Bật"),
+            treo lơ lửng giữa hai vế dài. Hai vế này là **một câu** bị dấu nối cắt làm
+            đôi, nên chúng thuộc về nhau hơn là thuộc về tên miền.
+
+            `inline` chứ không `block`, và khoảng cách giữa hai vế là dấu cách thật
+            trong luồng chữ: `flex` + `gap` ở đây sẽ khoá luôn khả năng xuống dòng của
+            chính vế dẫn khi bản dịch dài hơn (bản EN dài hơn bản vi ở cùng bề rộng cột
+            181px của lưới `0.9fr`).
+          */}
+          <span className="text-h3 font-semibold text-ink-700 sm:text-h2">
+            {t('home.sloganAsk')}{' '}
           </span>
           {/*
             Vế trả lời có HAI cỡ chữ, không một: động từ nhỏ, tên miền lớn.
@@ -286,30 +311,27 @@ export function HomeSloganBand({
             Đây là thứ trước đây một `sloganAnswer` duy nhất không diễn đạt được. Trọng
             âm của câu nằm ở **tên sàn**, không ở động từ — "Bật" chỉ là lời dẫn, còn
             masgo.vn là thứ cần đọng lại. Cho cả hai cùng cỡ `display` thì động từ chiếm
-            đúng phần sức nặng thị giác mà nó không cần đến, và trên bố cục hai cột hẹp
-            này nó còn đẩy tên miền xuống dòng thứ hai.
+            đúng phần sức nặng thị giác mà nó không cần đến.
 
-            `items-baseline` chứ không `items-center`: hai cỡ chữ khác nhau phải đứng
-            chung một đường chân chữ, đúng như khi chúng nằm trong cùng một dòng văn.
-            Căn giữa sẽ nâng động từ nhỏ lên lơ lửng giữa thân chữ của tên miền.
-
-            `flex-wrap` để bản dịch có động từ dài (hoặc màn hình rất hẹp) xuống dòng
-            thay vì tràn ra khỏi cột.
+            Động từ ở cỡ `h3/h2` nên nó khớp liền với vế dẫn ngay trước và hai vế đọc
+            thành một dòng dẫn duy nhất, còn tên miền ở cỡ `display` tự xuống dòng dưới.
           */}
-          <span className="mt-1 flex flex-wrap items-baseline gap-x-2">
-            <span className="text-h3 font-semibold text-ink-700 sm:text-h2">
-              {t('home.sloganVerb')}
-            </span>
+          <span className="text-h3 font-semibold text-ink-700 sm:text-h2">
+            {t('home.sloganVerb')}
+          </span>
 
-            {/* Nét khoanh bám đúng bề rộng tên miền chứ không bề rộng cả dòng — đã đo:
-                hộp này rộng đúng bằng chữ (290,6px ở 1440, 234,3px ở 390), nét thừa đều
-                12px mỗi bên. Bề rộng co theo chữ vì đây là **flex item**, không phải vì
-                một class `inline-block` (flex item luôn bị blockify, nên class đó không
-                có tác dụng ở đây — đừng thêm lại vì tưởng nó đang giữ bố cục).
+          {/* Nét khoanh bám đúng bề rộng tên miền chứ không bề rộng cả dòng.
 
-                Nét nằm ở lớp dưới (`SloganMark` không có `z-10`) nên nó chạy **sau** chữ
-                chứ không đè lên, đúng như vết bút khoanh vào chữ đã in. */}
-            <span className="relative">
+              `block w-fit` là **bắt buộc**, và lý do đổi so với bản trước: khối này từng
+              là flex item, mà flex item luôn bị blockify nên bề rộng tự co theo chữ mà
+              không cần class nào. Nay vế dẫn và động từ chảy inline, nên `block` là thứ
+              đẩy tên miền xuống dòng riêng — còn `w-fit` là thứ giữ hộp co đúng bề rộng
+              chữ. Thiếu `w-fit` thì hộp rộng hết cột và `SloganMark` (`inset-x-0`) kéo
+              nét gạch chân chạy hết bề rộng cả dòng thay vì ôm lấy tên miền.
+
+              Nét nằm ở lớp dưới (`SloganMark` không có `z-10`) nên nó chạy **sau** chữ
+              chứ không đè lên, đúng như vết bút khoanh vào chữ đã in. */}
+          <span className="relative mt-1 block w-fit">
               {/* `bg-[length:200%_100%]` là **điều kiện** để `animate-pan` thấy được:
                   `background-position` theo phần trăm chỉ dịch được một background rộng
                   hơn hộp của nó. Bỏ nó thì class `animate-pan` vẫn chạy mà không đổi một
@@ -347,7 +369,6 @@ export function HomeSloganBand({
                   luật trên đang bảo vệ. Đợt thêm chuyển động cho trang chủ không nới
                   ngoại lệ này ra thành hai. */}
               <SloganMark />
-            </span>
           </span>
         </p>
 

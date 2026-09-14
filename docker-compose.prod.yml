@@ -146,6 +146,37 @@ services:
       # khách vừa trả tiền.
       VnPay__ReturnUrl: ${SITE_URL}/nap-tien/ket-qua
 
+      # Thông báo cho ban quản trị khi có hồ sơ KTV chờ duyệt.
+      #
+      # Khác file dev ở hai chỗ, cả hai đều quan trọng:
+      #
+      # 1. `StubEnabled` mặc định **false** ở đây (dev mặc định true). Mặc định true trên
+      #    production nghĩa là mọi thông báo chỉ đi vào log và không ai biết — đúng kiểu
+      #    hỏng im lặng mà tính năng này sinh ra để tránh. Vẫn để đổi được qua biến, cho
+      #    trường hợp cần tắt gấp mà không phải sửa file.
+      #
+      # 2. `AdminBaseUrl` dựng từ `SITE_URL` chứ không phải một hằng số riêng — cùng lý do
+      #    với `VnPay__ReturnUrl` ngay trên: hai giá trị khai riêng sẽ có lúc lệch nhau, và
+      #    lệch ở đây nghĩa là email dẫn admin tới localhost, tức mọi link trong thư đều
+      #    chết khi mở trên điện thoại.
+      #
+      # Thiếu `NOTIFICATIONS_ADMIN_EMAILS` thì app vẫn chạy bình thường và chỉ ghi log
+      # Debug — xem `AdminNotifier`. Nhưng trên production đó là "không ai được báo", nên
+      # kiểm bằng `docker compose ... exec api printenv | grep Notifications__` sau deploy.
+      Notifications__AdminEmails: ${NOTIFICATIONS_ADMIN_EMAILS:-}
+      Notifications__FromEmail: ${NOTIFICATIONS_FROM_EMAIL:-}
+      Notifications__FromName: ${NOTIFICATIONS_FROM_NAME:-MasGo}
+      Notifications__AdminBaseUrl: ${SITE_URL}
+      Notifications__StubEnabled: ${NOTIFICATIONS_STUB_ENABLED:-false}
+      Resend__ApiKey: ${RESEND_API_KEY:-}
+      # SMTP thắng Resend khi cả hai cùng khai (xem EmailSenderSetup). Để trống thì dùng
+      # Resend — đó là lựa chọn đúng cho production trừ khi đã kiểm port 465/587 không bị
+      # nhà cung cấp VPS chặn: việc chặn đó hỏng **im lặng**, kết nối treo tới timeout.
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-465}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+
     # Không publish cổng ra host: Caddy tới được qua mạng nội bộ. Mở 5080 ra ngoài nghĩa
     # là có một đường HTTP thuần vào API, bỏ qua toàn bộ TLS lẫn Caddy — và cùng lúc bỏ
     # qua X-Forwarded-For, nên mọi request qua đường đó tự chọn được phân vùng rate limit.

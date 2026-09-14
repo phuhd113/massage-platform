@@ -800,6 +800,91 @@ Chưa làm, và cố ý: `/gioi-thieu` và `/cach-hoat-dong` (SEO informational)
 backend** chứ không viết tay vào JSX — cùng lý do với `KtvCommitments`: bản chép tay sẽ trôi
 khỏi `PackageTypes` và logic hoàn tiền thật, và bản lệch chỉ lộ ra khi có KTV khiếu nại về tiền.
 
+**Trang liên hệ `/lien-he`** (2026-09-14) là trang thứ tư trong `LEGAL_PAGES`, nên footer,
+sitemap và cụm liên kết chéo của ba trang kia tự có nó — đúng như comment ở `LegalPage.tsx`
+đã hứa. Năm điều đừng vô tình đảo ngược:
+
+- **Mỗi mục dẫn tới một luồng đã có, KHÔNG thay thế nó.** Bốn thẻ trỏ sang `/tim-kiem` (đặt
+  lịch — số KTV hiện ở nút liên hệ trên hồ sơ), `/an-toan#bao-cao`, `/dang-nhap` (hỗ trợ KTV)
+  và `/chinh-sach-bao-mat#muc-5` (quyền về dữ liệu). Một trang liên hệ khuyên "gọi cho chúng
+  tôi" ở những ca đó là đẩy việc vốn tự phục vụ được lên đường dây chỉ có hai người nghe, và
+  làm mất luôn dấu vết mà các luồng kia ghi lại: báo cáo gắn đúng hồ sơ, lead được đếm (cơ sở
+  tính tiền từ Phase 2), quyết định duyệt ghi lại ai quyết định.
+- **Cố ý KHÔNG có form gửi tin nhắn.** Một form đòi bảng + endpoint + rate limit + trang admin
+  đọc tin **và** mục sidebar; thiếu vế cuối là đúng lỗi "endpoint không có đường vào giao diện"
+  đã cắn bốn lần — khách bấm gửi, nhận câu "đã ghi nhận", không ai đọc. Hai số Zalo đang có
+  người trực là kênh thật; một form không ai mở thì tệ hơn không có vì nó hứa hẹn thay kênh thật.
+- **Số Ban quản trị ở `lib/contact.ts`, dùng chung với `BetaAnnouncementDialog`.** Trang này là
+  chỗ **thứ hai** hiển thị chúng, và đó là lúc phải tách — hai bản chép tay sẽ trôi khỏi nhau,
+  và bản lệch chỉ lộ ra khi có người gọi vào số đã ngừng dùng rồi kết luận là sàn không ai trực.
+  Cố ý không nằm trong `i18n/*.ts`, cùng lý do với `LEGAL_ENTITY`: số không dịch.
+- **Namespace i18n là `contactPage`, KHÔNG phải `contact`.** `contact` đã là namespace của nút
+  liên hệ trên trang hồ sơ (`priceFrom`, `callNow`, `zalo`…). Đây là lỗi đã cắn trong chính đợt
+  này và nó **im lặng**: `createTranslator` cố ý trả về nguyên key khi tra trượt, nên typecheck,
+  lint và build đều xanh trong khi trang hiện `contactPage.channelsTitle` cho khách. Kiểm bằng
+  cách grep `<h2>` trong HTML thô, không bằng việc build chạy được.
+- **Khối khẩn cấp lặp lại từ `/an-toan`, có chủ ý.** Người đang hoảng mở trang tên là "Liên hệ",
+  không mở trang tên là "An toàn". Dùng token `warning` chứ không `danger` — cùng lý do đã ghi
+  ở `/an-toan`: sắc đỏ ở đó mang nghĩa "vi phạm", mượn cho nghĩa "gọi 113" làm nhoè cả hai.
+
+Bản EN thêm một câu mà bản VI không có: đường dây **chỉ trả lời tiếng Việt**, nên khuyên nhắn
+Zalo thay vì gọi. Chữ viết còn qua được công cụ dịch, cuộc gọi thì không — mời một người nói
+tiếng Anh gọi vào số không ai giúp được họ là hứa một kênh không tồn tại.
+
+Đã kiểm chứng trên container thật (2026-09-14): `/lien-he` và `/en/lien-he` trả 200 và
+**prerender tĩnh** (`●`, như ba trang kia); tiêu đề hiện đúng chuỗi ở cả hai locale (không còn
+key thô); hai số + link `tel:`/`zalo.me` có trong HTML thô; canonical + hreflang đủ ba thẻ đối
+xứng; `BreadcrumbList` hợp lệ; footer có link ở cả `/` và `/en`; sitemap có cả hai `<loc>`;
+`/dieu-khoan` hiện link chéo còn `/lien-he` không tự trỏ chính nó; cả bốn link mục đúng prefix
+locale và hai neo đích (`#bao-cao`, `#muc-5`) có thật; robots.txt không chặn. Trang hồ sơ KTV
+vẫn render đúng chuỗi của namespace `contact` cũ sau lần đổi tên.
+
+**Thêm `lienhe@masgo.vn` vào trang liên hệ** (2026-09-15, `ADMIN_EMAIL` trong `lib/contact.ts`).
+Hộp thư thật trên Email Server P.A, tạo trên trang quản trị `:1000`. Bốn điều đừng vô tình
+đảo ngược:
+
+- **Điều kiện để đăng một địa chỉ là hộp thư có người đọc**, và đã kiểm bằng SMTP trước khi
+  thêm (`RCPT TO` trả 250, trong khi địa chỉ giả trả 550 — nên phép thử đáng tin). Một địa chỉ
+  không ai mở **tệ hơn không có**: khách viết vào đó rồi chờ, trong khi hai số Zalo bên cạnh
+  đang có người trực. Hộp thư ngừng được đọc thì **gỡ khỏi trang**, đừng để lại. Đây là cùng
+  một luật với lý do `/lien-he` **cố ý không có form**, chỉ khác ở chỗ email không cần dựng
+  đường đọc — nó đã có sẵn.
+- **Email là mục RIÊNG, đặt SAU hai số Zalo**, không phải thẻ thứ ba trong cùng lưới. Hai lý
+  do: tốc độ phản hồi khác nhau (Zalo trong ngày làm việc, email 2 ngày), và nó cần một đoạn
+  nói rõ *khi nào* nên dùng. Gộp chung lưới sẽ đọc ra như ba kênh tương đương, khiến người
+  đang cần gấp chọn đúng kênh chậm nhất.
+- **Hứa thời gian phản hồi tường minh** ("trong vòng 2 ngày làm việc"). Một hộp thư không hứa
+  gì thì người viết không biết nên chờ hay nên gọi — và họ sẽ làm cả hai.
+- **KHÔNG dùng `lienhe@` làm `Notifications:FromEmail`.** Người gửi thông báo tự động vẫn là
+  `thong-bao@masgo.vn`: trộn thư máy vào hộp thư khách hàng viết tới là cách chắc chắn để một
+  thư thật trôi mất giữa hàng chục thông báo hồ sơ chờ duyệt.
+- **Hiển thị ở HAI chỗ, cùng đọc một hằng số.** Mục riêng trên `/lien-he`, và một dòng dưới
+  blurb ở footer (`PublicShell`) — footer nằm trong HTML của **mọi** trang công khai nên đó là
+  chỗ duy nhất địa chỉ này tới được tay người đang đứng ở một trang hồ sơ và cần viết ngay lúc
+  đó. Ở footer nó đứng **riêng một dòng dưới blurb**, không nhét vào hai hàng nav: hai hàng đó
+  trả lời "đi đâu tiếp" và "sàn này cam kết gì", một địa chỉ liên hệ không thuộc câu nào, và
+  chen vào là buộc người quét hàng link phải đọc qua nó. Gỡ thì gỡ cả hai — cùng đọc
+  `ADMIN_EMAIL` nên đó là một lần sửa.
+
+Bản EN dẫn bằng vế ngôn ngữ chứ không bằng vế "cần văn bản" như bản VI: với người không nói
+tiếng Việt, email là kênh **thật sự dùng được**, vì chữ viết qua được công cụ dịch. Câu
+`channelsNote` của bản EN cũng sửa từ "write to us on Zalo" thành "on Zalo or by email".
+
+Đã kiểm chứng trên bản build production trong container (2026-09-15): `lienhe@masgo.vn` và
+`mailto:` có trong HTML thô của **cả hai** locale; chuỗi đúng bản ngôn ngữ ("Soạn email" /
+"Write to us", "2 ngày làm việc" / "2 working days"); 6/6 ca đo trong trình duyệt thật
+(2 locale × 360/390/768) **không tràn ngang**, địa chỉ nằm trong khung; đã gửi thư thật tới
+hộp thư và Resend nhận (id trả về). Typecheck và ESLint xanh.
+
+Footer kiểm riêng cùng ngày: `mailto:` có trên **6/6 loại trang** (trang chủ vi/en, `/tim-kiem`,
+`/an-toan`, trang khu vực, `/en/dieu-khoan`), nhãn đúng ngôn ngữ ("Liên hệ:" / "Contact:"),
+6/6 ca đo bố cục không tràn ngang; `/lien-he` có đúng **2** link (mục riêng + footer), trang
+khác có **1**.
+
+Một bẫy đo lường gặp trong đợt này: **`grep -c` đếm số DÒNG khớp, không phải số lần khớp** —
+HTML của Next nén thành một dòng nên nó luôn trả `1` dù có bao nhiêu link. Suýt kết luận nhầm
+là mục email trên `/lien-he` đã biến mất. Đếm số lần khớp phải là `grep -o ... | wc -l`.
+
 **Chứng chỉ hành nghề là TUỲ CHỌN** (2026-09-09). Điều kiện để hồ sơ sang VERIFIED chỉ có hai,
 và cả hai nằm ở `AdminService.DecideProfileAsync`: **CCCD đã xác minh + cam kết đúng phiên bản**.
 Chứng chỉ không phải điều kiện, `SearchService` cũng không lọc theo nó — hồ sơ 0 chứng chỉ vẫn
@@ -1477,12 +1562,38 @@ Bảy điều đừng vô tình đảo ngược:
   hành**, không theo tài khoản đăng nhập. Để trống thì không gửi cho ai và chỉ ghi log `Debug`:
   đó là trạng thái bình thường trên máy dev, không đáng làm bẩn log mọi lượt nộp hồ sơ.
 
-Adapter chọn theo **credential** chứ không theo cờ riêng (`Resend:ApiKey` có thì gửi thật), và
-`Notifications:StubEnabled` **thắng** mọi credential — cùng luật và cùng lý do với
-`Otp:StubEnabled`: máy dev có key thật trong `.env` mà không có luật này sẽ gửi email thật, im
-lặng, vì lượt gửi vẫn thành công. Thiếu cấu hình **không** chặn app khởi động (khác `Jwt:Secret`):
-thiếu kênh thông báo chỉ làm chậm việc phát hiện hồ sơ mới, còn `/admin/duyet-ktv` vẫn là nguồn
-sự thật đầy đủ.
+Adapter chọn theo **credential** chứ không theo cờ riêng, và `Notifications:StubEnabled`
+**thắng** mọi credential — cùng luật và cùng lý do với `Otp:StubEnabled`: máy dev có key thật
+trong `.env` mà không có luật này sẽ gửi email thật, im lặng, vì lượt gửi vẫn thành công. Thiếu
+cấu hình **không** chặn app khởi động (khác `Jwt:Secret`): thiếu kênh thông báo chỉ làm chậm việc
+phát hiện hồ sơ mới, còn `/admin/duyet-ktv` vẫn là nguồn sự thật đầy đủ.
+
+**Hai kênh gửi, SMTP thắng Resend khi cả hai cùng khai.** Lý do: SMTP gửi từ hộp thư có thật trên
+domain nên tới được bất kỳ ai, còn Resend **chưa verify domain** thì chỉ gửi được tới chính email
+chủ tài khoản (403 `validation_error`) — nên tổ hợp "có cả hai" gần như luôn nghĩa là Resend đang
+làm dự phòng. Đổi thứ tự này là âm thầm thu hẹp danh sách người nhận xuống còn một người.
+
+**Đang dùng Resend với domain `masgo.vn` đã verify** (2026-09-15), người gửi `thong-bao@masgo.vn`.
+SMTP của P.A Việt Nam đã thử và **không xác thực được**: `535 authentication failed` với cả hai
+mật khẩu được cấp, ở cả `PLAIN` lẫn `LOGIN`, cả 465 lẫn 587 — trong khi kết nối, TLS, cơ chế AUTH
+và DNS (MX/SPF/CNAME của P.A đều đúng) đều bình thường, tức lỗi nằm ở tài khoản phía P.A. Đường
+SMTP giữ nguyên trong code để bật lại bằng một dòng `.env`.
+
+**Bản ghi SPF của Resend nằm ở subdomain `send`, KHÔNG ở gốc `@`.** Gốc đang giữ SPF của P.A
+(`include:spf.maychuemail.com`) cho hộp thư nhận thư; sửa đè nó để "gộp cho gọn" sẽ làm thư gửi
+từ hộp thư P.A vào spam. Hai nhà cung cấp, hai bản ghi tách biệt, cùng tồn tại được.
+
+**`SmtpEmailSender` dùng MailKit, không dùng `System.Net.Mail.SmtpClient`**: bản kia bị .NET đánh
+dấu obsolete và **không nói được SSL implicit** trên port 465 — nó chỉ biết STARTTLS, nên cấu hình
+465 sẽ treo tới timeout thay vì báo lỗi. Kiểu bảo mật suy từ **số cổng** (465 → SslOnConnect,
+còn lại → StartTls) chứ không thành một cờ cấu hình thứ ba mà người khai đặt lệch với cổng được.
+Mở kết nối mới mỗi lượt gửi: `SmtpClient` của MailKit **không thread-safe**, và lượt gửi ở đây quá
+thưa để việc giữ kết nối sống đáng giá.
+
+**Rủi ro phải nhớ khi deploy SMTP:** nhiều nhà cung cấp VPS chặn port outbound 25/465/587 để chống
+spam, và việc đó hỏng **im lặng** (kết nối treo tới timeout, đọc như lỗi cấu hình). Đã kiểm trên
+máy dev — cả 465 và 587 đều mở — nhưng **VPS production là môi trường khác và phải kiểm riêng**.
+Resend không vướng điều này vì nó đi qua HTTPS 443.
 
 `ResendEmailSender` đọc **body** chứ không chỉ status code, và đặt header `Authorization` trên
 **request** chứ không trên `client.DefaultRequestHeaders` — `IHttpClientFactory` tái sử dụng
@@ -1494,7 +1605,10 @@ việc đó cần thêm cột + migration + sửa form đăng ký + xử lý h�
 Đã kiểm chứng trên app thật trong container (2026-09-14): ký cam kết một mình → 0 email; gửi CCCD
 sau đó → **1** email đúng nội dung kèm số điện thoại và link tới `/admin/duyet-cccd` +
 `/admin/duyet-ktv`; gửi lại CCCD → email **thứ hai**; ký lại cam kết → **không** sinh thêm.
-Migration up → down → up trên Postgres thật. 452 test xanh.
+Migration up → down → up trên Postgres thật.
+
+Kiểm chứng lại sau khi verify domain (2026-09-15): gửi **thật** từ `thong-bao@masgo.vn` tới **hai**
+người nhận trong một lượt, log xác nhận "tới 2 người nhận" kèm id Resend, không lỗi. 458 test xanh.
 
 **Đăng nhập bằng số điện thoại + mật khẩu** (2026-09-07, `POST /auth/register`, `POST /auth/login`,
 `PATCH /auth/password`). Đây là lối vào **đang dùng**: Zalo ZNS đòi giấy phép kinh doanh mà dự án
