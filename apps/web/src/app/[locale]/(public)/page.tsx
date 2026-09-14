@@ -14,6 +14,7 @@ import { translateAreaName } from '@/i18n/area-name';
 import { INTL_LOCALE, localePath, normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
+import { SHOW_AGGREGATE_PRICE } from '@/lib/pricing-display';
 import { serviceName, serviceDescription } from '@/lib/service-i18n';
 import { SITE_NAME, absolute, areaPath, formatVnd } from '@/lib/site';
 
@@ -456,8 +457,10 @@ export default async function HomePage({ params }: { params: { locale: string } 
                     thẻ này là #ffffff — đã đo trong trình duyệt, chênh nhau không thấy
                     được, nên pill đọc ra vẫn chỉ là dòng chữ mono cũ. `brand-100` là bậc
                     đầu tiên thật sự tách khỏi nền trắng.
+
+                    **Đang TẮT** qua `SHOW_AGGREGATE_PRICE` — xem `lib/pricing-display.ts`.
                   */}
-                  {s.priceFrom !== null && (
+                  {SHOW_AGGREGATE_PRICE && s.priceFrom !== null && (
                     <span className="tabular mt-2 inline-block rounded-md bg-brand-100 px-2 py-0.5 font-mono text-caption font-medium text-brand-700 transition group-hover:bg-brand-200">
                       {t('common.from')} {formatVnd(s.priceFrom, locale)}
                     </span>

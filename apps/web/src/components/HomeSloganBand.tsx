@@ -206,7 +206,29 @@ function SloganMark() {
  * chỉ gắn vào đúng lời hứa mà nó thật sự chứng minh — số hồ sơ đã đối chiếu chứng cho
  * "hồ sơ xác thực", điểm trung bình chứng cho "chủ động lựa chọn". "Giá cả minh bạch"
  * cố ý không có số: sàn không thu phí nào để mà khoe một con số ở đó.
+ *
+ * **Hai con số đó đang TẮT** — xem `SHOW_TRUST_PROOF`.
  */
+
+/**
+ * Có hiện hai dòng số dưới thẻ lời hứa hay không.
+ *
+ * **Đang tắt vì số lượng KTV còn nhỏ trong giai đoạn đầu.** Một con số nhỏ đặt ngay
+ * dưới một lời hứa làm yếu chính lời hứa đó: "5 hồ sơ đã đối chiếu danh tính" dưới
+ * "Hồ sơ xác thực" đọc ra là *sàn này gần như chưa có ai*, tức bằng chứng quay sang
+ * chứng minh điều ngược lại. Cùng lý do với luật "ô chưa có dữ liệu thật thì bỏ hẳn"
+ * ngay dưới — chỉ khác ở chỗ ngưỡng không phải 0 mà là "đủ nhiều để khoe".
+ *
+ * **Tắt bằng một hằng số chứ không xoá code**, vì đây là trạng thái tạm: khi số hồ sơ
+ * đã duyệt lên tới mức đáng khoe thì bật lại là sửa đúng một dòng. Xoá đi thì cả phần
+ * định dạng theo `INTL_LOCALE` (bản EN phải ra "4.6", không phải "4,6") lẫn luật bỏ ô
+ * rỗng đều phải dựng lại từ đầu, và bản dựng lại sẽ thiếu đúng những chỗ đó.
+ *
+ * Hai key `home.trustProofVerified` / `home.trustProofRating` ở `i18n` **giữ nguyên**,
+ * cùng lý do với `login.asideTitleKtv` và `login.crossLink*`: chúng chờ được bật lại,
+ * không phải chuỗi chết.
+ */
+const SHOW_TRUST_PROOF = false;
 export function HomeSloganBand({
   stats,
   locale,
@@ -228,13 +250,13 @@ export function HomeSloganBand({
   */
   const proof: Partial<Record<TrustKey, string>> = {};
 
-  if (stats.verifiedKtvCount > 0) {
+  if (SHOW_TRUST_PROOF && stats.verifiedKtvCount > 0) {
     proof.Verified = t('home.trustProofVerified', {
       n: stats.verifiedKtvCount.toLocaleString(intl),
     });
   }
 
-  if (stats.ratingAvg !== null) {
+  if (SHOW_TRUST_PROOF && stats.ratingAvg !== null) {
     proof.Choice = t('home.trustProofRating', {
       value: stats.ratingAvg.toLocaleString(intl, {
         minimumFractionDigits: 1,

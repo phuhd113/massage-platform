@@ -1,5 +1,6 @@
 import { type Locale } from '@/i18n/config';
 import type { Translator } from '@/i18n/t';
+import { SHOW_AGGREGATE_PRICE } from '@/lib/pricing-display';
 import { formatRating, formatVnd } from '@/lib/site';
 import type { AreaStats } from '@/lib/types';
 
@@ -20,7 +21,11 @@ export function buildStatCards(
 ): { label: string; value: string }[] {
   const cards: { label: string; value: string }[] = [];
 
-  if (stats.priceFromMin !== null) {
+  // Ô giá đang TẮT trong giai đoạn đầu — xem `SHOW_AGGREGATE_PRICE`. Khối vẫn tự rỗng
+  // đúng cách khi tắt: `cards` chỉ còn rating và dịch vụ phổ biến, và cả hai chỗ gọi
+  // vốn đã xử lý được mảng ngắn hơn (khu vực chưa ai khai giá là trạng thái bình thường
+  // mà hàm này luôn phải trả lời được).
+  if (SHOW_AGGREGATE_PRICE && stats.priceFromMin !== null) {
     cards.push({
       label: t('areaStats.priceRange'),
       value:
