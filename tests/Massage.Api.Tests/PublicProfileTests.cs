@@ -13,7 +13,7 @@ public class PublicProfileTests(PostgresFixture fixture)
     {
         // Cùng một context cho cả hai service, đúng như DI scope của một HTTP request.
         var db = fixture.CreateContext();
-        return new KtvProfileService(db, TestMedia.Urls, new CollaboratorService(db));
+        return new KtvProfileService(db, TestMedia.Urls, new CollaboratorService(db), TestNotifier.Instance);
     }
 
     [Fact]

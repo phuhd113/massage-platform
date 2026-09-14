@@ -26,7 +26,7 @@ public class CoverageProvinceLimitTests(PostgresFixture fixture)
     private KtvProfileService Service()
     {
         var db = fixture.CreateContext();
-        return new KtvProfileService(db, TestMedia.Urls, new CollaboratorService(db));
+        return new KtvProfileService(db, TestMedia.Urls, new CollaboratorService(db), TestNotifier.Instance);
     }
 
     /// <summary>Dựng <paramref name="count"/> quận thuộc cùng một tỉnh mới.</summary>

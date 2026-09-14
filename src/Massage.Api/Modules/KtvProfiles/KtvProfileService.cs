@@ -1,6 +1,8 @@
 using Massage.Api.Common;
+using Massage.Api.Common.Notifications;
 using Massage.Api.Common.Storage;
 using Massage.Api.Data;
+using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.Collaborators;
 using Massage.Api.Modules.KtvProfiles.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +11,7 @@ using NetTopologySuite.Geometries;
 namespace Massage.Api.Modules.KtvProfiles;
 
 public class KtvProfileService(
-    AppDbContext db, MediaUrls urls, CollaboratorService collaborators)
+    AppDbContext db, MediaUrls urls, CollaboratorService collaborators, AdminNotifier notifier)
 {
     private static Point ToPoint(double lon, double lat) =>
         new(lon, lat) { SRID = 4326 };
@@ -291,7 +293,59 @@ public class KtvProfileService(
         profile.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
+        await NotifyIfReadyForReviewAsync(profile, ct);
         return profile;
+    }
+
+    /// <summary>
+    /// Báo ban quản trị **một lần** khi KTV đã làm xong phần việc của mình: ký cam kết
+    /// đúng bản đang hiệu lực và đã gửi ảnh CCCD.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Gọi từ <b>cả hai</b> đường ghi (<see cref="AcceptCommitmentsAsync"/> và
+    /// <see cref="SubmitIdentityDocumentAsync"/>) vì hai điều kiện đó độc lập và đến theo
+    /// thứ tự bất kỳ — đặt ở một chỗ thì nửa số KTV làm theo thứ tự ngược lại sẽ không
+    /// bao giờ sinh thông báo nào.
+    /// </para>
+    /// <para>
+    /// Điều kiện ở đây là "KTV đã làm xong phần của họ", <b>không</b> phải điều kiện duyệt
+    /// đầy đủ của <c>AdminService.DecideProfileAsync</c> — cái sau đòi CCCD đã
+    /// <c>VERIFIED</c>, mà việc duyệt CCCD lại chính là việc email này mời admin đi làm.
+    /// Chờ nó là chờ chính mình.
+    /// </para>
+    /// <para>
+    /// Hồ sơ đã <c>VERIFIED</c> thì không báo: KTV đã lên sàn, và một lượt gửi lại CCCD ở
+    /// đó đi vào hàng đợi CCCD chứ không phải hàng đợi hồ sơ. Đổi lại,
+    /// <c>SubmissionNotifiedAt</c> vẫn được reset ở đường gửi CCCD nên hồ sơ bị gỡ xuống
+    /// sau này vẫn báo được.
+    /// </para>
+    /// </remarks>
+    private async Task NotifyIfReadyForReviewAsync(KtvProfile profile, CancellationToken ct)
+    {
+        if (profile.SubmissionNotifiedAt is not null) return;
+        if (profile.VerificationStatus == VerificationStatuses.Verified) return;
+        if (profile.CommitmentVersion != KtvCommitments.CurrentVersion) return;
+
+        var hasIdentityDoc = await db.IdentityDocuments
+            .AnyAsync(d => d.KtvId == profile.Id, ct);
+        if (!hasIdentityDoc) return;
+
+        var phone = await db.Users
+            .Where(u => u.Id == profile.UserId)
+            .Select(u => u.Phone)
+            .FirstOrDefaultAsync(ct) ?? "(không rõ)";
+
+        // Ghi mốc **trước** khi gửi, và commit ngay. Đảo lại thì một lượt gửi thành công
+        // mà lưu DB hỏng sẽ để cột NULL và mọi lượt chạm tiếp theo lại gửi thêm một email
+        // nữa. Mất một thông báo vì sự cố hiếm thì admin vẫn thấy hồ sơ trong hàng đợi;
+        // gửi lặp thì kênh thông báo tự làm mình mất tin cậy. Đây là chiều ngược với
+        // `OtpService` (gửi trước, ghi sau) và vì lý do ngược lại: ở đó thứ mất đi là khả
+        // năng đăng nhập của người đang chờ, ở đây chỉ là một dòng nhắc việc.
+        profile.SubmissionNotifiedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        await notifier.KtvProfileReadyForReviewAsync(profile, phone, ct);
     }
 
     /// <summary>
@@ -335,7 +389,17 @@ public class KtvProfileService(
         doc.VerifiedAt = null;
         doc.SubmittedAt = now;
 
+        // Gửi lại CCCD mở lại quyền được thông báo: lần gửi này cần admin xem lại từ đầu
+        // (thẻ khác, hoặc gửi lại sau khi bị từ chối), đúng lý do hàng đợi CCCD tách khỏi
+        // hàng đợi hồ sơ. Giữ mốc cũ thì lượt gửi lại không sinh thông báo nào và nằm im
+        // cho tới khi có người tình cờ mở trang duyệt.
+        //
+        // Cố ý **không** đụng `profile.UpdatedAt`: sitemap đọc cột đó làm `lastmod`, mà
+        // gửi CCCD không đổi một chữ nào trên trang công khai.
+        profile.SubmissionNotifiedAt = null;
+
         await db.SaveChangesAsync(ct);
+        await NotifyIfReadyForReviewAsync(profile, ct);
         return (doc, previous);
     }
 

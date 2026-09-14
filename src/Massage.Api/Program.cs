@@ -4,6 +4,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Hangfire;
 using Massage.Api.Common;
+using Massage.Api.Common.Notifications;
 using Massage.Api.Common.Storage;
 using Massage.Api.Data;
 using Massage.Api.Modules.Analytics;
@@ -227,6 +228,7 @@ builder.Services.AddAppRateLimiter();
 builder.Services.AddAppCors(builder.Configuration);
 
 builder.Services.AddOtpSender(builder.Configuration);
+builder.Services.AddAdminNotifications(builder.Configuration);
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<KtvProfileService>();
