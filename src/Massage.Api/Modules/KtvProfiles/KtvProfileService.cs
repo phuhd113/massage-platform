@@ -533,23 +533,65 @@ public class KtvProfileService(
 
 
     /// <summary>
-    /// Khu vực hoạt động phải tồn tại **và phải ở cấp quận/huyện**.
+    /// Số tỉnh/thành tối đa mà khu vực hoạt động của một hồ sơ được trải ra.
+    ///
+    /// KTV đi tới tận nơi khách ở, nên phạm vi trải khắp nhiều tỉnh là lời khai không
+    /// thực hiện được — và nó rơi thẳng vào con số quyết định trang nào được index
+    /// (<c>MinKtvForIndex</c>): vài hồ sơ khai bừa cả nước là đủ đẩy hàng loạt trang
+    /// quận qua ngưỡng bằng những cái tên không bao giờ nhận khách ở đó, đúng hình
+    /// dạng doorway page mà Google phạt lên cả tên miền.
+    ///
+    /// **Hai, chứ không phải một**: người ở giáp ranh hai tỉnh (Thủ Đức ↔ Dĩ An,
+    /// Đà Nẵng ↔ Hội An) đi lại qua ranh giới hằng ngày, và bắt họ chọn một bên là
+    /// buộc khai sai để dùng được sàn.
+    ///
+    /// **Cố ý KHÔNG kèm luật "hai tỉnh phải giáp nhau".** Đã đo trên chính dữ liệu
+    /// này: bảng chỉ có <c>centroid</c> chứ không có polygon ranh giới, nên "giáp
+    /// nhau" chỉ xấp xỉ được bằng khoảng cách tâm — mà cặp liền kề thật trải từ 37km
+    /// (Hà Nội–Bắc Ninh) tới 100km (Nghệ An–Thanh Hoá), trong khi ở ngưỡng 100km thì
+    /// Hà Nội ghép được với 12 tỉnh gồm cả Nam Định và Thái Bình, vốn không giáp nó.
+    /// Không có ngưỡng nào vừa cho hết cặp đúng vừa chặn hết cặp sai, và một luật
+    /// chặn oan ở đây đọc ra là "sàn bảo tôi khai sai" ngay lúc KTV đang lập hồ sơ.
+    /// Muốn có luật giáp ranh thật thì cần bảng cặp tỉnh liền kề, không phải một
+    /// ngưỡng khoảng cách khéo hơn.
+    /// </summary>
+    public const int MaxCoverageProvinces = 2;
+
+    /// <summary>
+    /// Khu vực hoạt động phải tồn tại, phải ở cấp quận/huyện, và không trải quá
+    /// <see cref="MaxCoverageProvinces"/> tỉnh.
     ///
     /// Kiểm cấp là bắt buộc chứ không thừa: đặt một tỉnh làm khu vực hoạt động sẽ
     /// khiến KTV được đếm hai lần ở rollup tỉnh, còn đặt một phường thì cộng vào cha
     /// của nó — tức vào một quận, như thể quận đó là tỉnh. Cả hai đều làm sai con số
     /// quyết định trang nào được index.
+    ///
+    /// Giới hạn tỉnh nằm ở đây chứ không chỉ ở giao diện: form dashboard là **một**
+    /// đường ghi, còn API thì nhận được từ bất cứ đâu — một luật chỉ sống trong React
+    /// là một luật không được thực thi.
     /// </summary>
     private async Task AssertAreasExistAsync(List<Guid>? areaIds, CancellationToken ct)
     {
         if (areaIds is null || areaIds.Count == 0) return;
 
         var distinct = areaIds.Distinct().ToList();
-        var found = await db.AdministrativeAreas
-            .CountAsync(a => distinct.Contains(a.Id) && a.Level == AreaLevels.District, ct);
 
-        if (found != distinct.Count)
+        // Lấy luôn ParentId thay vì chỉ đếm: cùng một lượt đi DB trả lời được cả hai
+        // câu hỏi ("có thật và đúng cấp không" + "thuộc mấy tỉnh"), nên thêm luật mới
+        // không thêm truy vấn nào.
+        var found = await db.AdministrativeAreas
+            .Where(a => distinct.Contains(a.Id) && a.Level == AreaLevels.District)
+            .Select(a => a.ParentId)
+            .ToListAsync(ct);
+
+        if (found.Count != distinct.Count)
             throw new BadRequestException("Khu vực hoạt động phải là quận/huyện có thật");
+
+        var provinces = found.Distinct().Count();
+        if (provinces > MaxCoverageProvinces)
+            throw new BadRequestException(
+                $"Khu vực hoạt động chỉ được thuộc tối đa {MaxCoverageProvinces} tỉnh/thành "
+                + $"(hiện đang chọn {provinces}). Gỡ bớt khu vực ở tỉnh không còn nhận khách.");
     }
 
     /// <summary>
