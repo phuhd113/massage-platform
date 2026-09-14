@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -15,6 +16,7 @@ import { INTL_LOCALE, localePath, normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { SHOW_AGGREGATE_PRICE } from '@/lib/pricing-display';
+import { alternatesFor } from '@/lib/seo';
 import { serviceName, serviceDescription } from '@/lib/service-i18n';
 import { SITE_NAME, absolute, areaPath, formatVnd } from '@/lib/site';
 
@@ -30,6 +32,30 @@ import { SITE_NAME, absolute, areaPath, formatVnd } from '@/lib/site';
 // Đừng thêm generateStaticParams để đổi nó thành `○`: xem ghi chú trong
 // .claude/rules/project-status.md.
 export const dynamic = 'force-dynamic';
+
+/**
+ * Canonical + hreflang cho trang chủ.
+ *
+ * **Bug đã đo trên production (2026-09-15):** `/` và `/en` là hai trang **duy nhất**
+ * trong site không có thẻ canonical lẫn `<link rel="alternate" hreflang>` — trang hồ sơ
+ * KTV, trang dịch vụ, trang khu vực và ba trang pháp lý đều có đủ. Nguyên nhân: title và
+ * description của trang chủ khai ở `[locale]/layout.tsx` nên trang này thừa hưởng và
+ * chưa bao giờ cần `generateMetadata` của riêng mình, mà layout thì không khai
+ * `alternates`. Cả hai bản vẫn nằm trong sitemap, nên Google nhận hai URL cùng nội dung
+ * mà không có gì nói chúng là bản dịch của nhau.
+ *
+ * **Khai ở page chứ KHÔNG ở layout**, dù chỗ hỏng bắt nguồn từ layout: metadata của
+ * layout merge **nông**, nên page nào khai `alternates.canonical` sẽ ghi đè trọn gói
+ * `alternates` — kể cả phần `languages`. Đặt ở layout tạo ra một giá trị trông như phủ
+ * mọi trang nhưng thật ra chỉ còn tác dụng ở đúng những trang chưa tự khai, tức là một
+ * nguồn sự thật thứ hai chỉ đúng một nửa.
+ *
+ * Title/description cố ý **không** khai lại ở đây: chúng vẫn thừa hưởng từ layout, và
+ * nhân bản sang file này là dựng hai bản sẽ trôi khỏi nhau.
+ */
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  return { alternates: alternatesFor(normalizeLocale(params.locale), '/') };
+}
 
 /** Ba bước duyệt hồ sơ — nội dung tĩnh, là chính sách chứ không phải dữ liệu. */
 const VERIFICATION_STEP_KEYS = ['step1', 'step2', 'step3'] as const;
