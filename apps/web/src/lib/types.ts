@@ -740,3 +740,15 @@ export interface AdminKtvRowList {
   page: number;
   limit: number;
 }
+
+/**
+ * Một quận/huyện trong danh sách chọn theo tỉnh (`/api/areas/districts`).
+ *
+ * Cố ý hẹp hơn `AreaNode`: ô tick chỉ cần id để gửi đi, tên để hiển thị và slug để
+ * đối chiếu. Route cắt bớt phần còn lại của payload backend — xem ghi chú ở đó.
+ */
+export interface DistrictOption {
+  id: string;
+  name: string;
+  slug: string;
+}
