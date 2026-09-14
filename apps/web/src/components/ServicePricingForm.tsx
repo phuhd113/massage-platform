@@ -7,6 +7,10 @@ import type { KtvServiceItem, ServiceItem } from '@/lib/types';
 
 const MAX_SERVICES = 20;
 
+/** Mức giá dùng cho dòng vừa tick. Xem ghi chú ở `toggle`. */
+const DEFAULT_PRICE = 300_000;
+const DEFAULT_DURATION = 60;
+
 interface Row {
   serviceId: string;
   priceFrom: number;
@@ -36,7 +40,7 @@ export function ServicePricingForm({
         ? prev.filter((r) => r.serviceId !== serviceId)
         : prev.length >= MAX_SERVICES
           ? prev
-          : [...prev, { serviceId, priceFrom: 300_000, durationMin: 60 }],
+          : [...prev, { serviceId, priceFrom: DEFAULT_PRICE, durationMin: DEFAULT_DURATION }],
     );
   }
 
@@ -84,6 +88,32 @@ export function ServicePricingForm({
 
   return (
     <div className="rounded-lg border border-ink-200 bg-white p-5">
+      {/* Ba câu hỏi KTV hay hiểu sai, trả lời trước khi họ chạm vào ô nhập. Đặt ở đây
+          chứ không ở page: form này render ở **hai** nơi (trang dịch vụ và section cũ
+          trong trang hồ sơ), nên hướng dẫn để ngoài form sẽ chỉ có ở một trong hai. */}
+      <div className="mb-5 rounded-md bg-ink-50 px-4 py-3 text-sm text-ink-700">
+        <p className="font-medium text-ink-900">Cách khai bảng giá</p>
+        <ul className="mt-2 space-y-1.5">
+          <li>
+            <strong>Giá từ</strong> là mức <em>thấp nhất</em> bạn nhận làm dịch vụ đó — khách hiểu
+            là &quot;từ mức này trở lên&quot;. Khai giá cao nhất sẽ khiến bạn bị lọc ra khỏi kết
+            quả của khách đang tìm theo tầm giá.
+          </li>
+          <li>
+            <strong>Thời lượng</strong> là buổi tiêu chuẩn ứng với mức giá trên. Cùng một dịch vụ
+            làm 60 phút và 90 phút thì khai theo buổi ngắn nhất.
+          </li>
+          <li>
+            Giá đã bao gồm việc bạn <strong>tới tận nơi khách</strong>. Nếu có phụ phí đi xa, nói
+            rõ khi khách gọi — đừng cộng sẵn vào đây, vì con số này là thứ khách dùng để so sánh.
+          </li>
+        </ul>
+        <p className="mt-2.5 text-ink-600">
+          Chỉ tick những dịch vụ bạn thật sự làm được. Khách lọc theo dịch vụ, nên tick thừa nghĩa
+          là nhận cuộc gọi cho việc mình không làm.
+        </p>
+      </div>
+
       <ul className="space-y-3">
         {catalog.map((service) => {
           const row = byId.get(service.id);
@@ -107,7 +137,7 @@ export function ServicePricingForm({
               </label>
 
               {on && row && (
-                <div className="mt-3 flex flex-wrap gap-4 pl-7">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-3 pl-7">
                   <label className="block text-sm">
                     <span className="text-ink-700">Giá từ (VND)</span>
                     <input
@@ -121,8 +151,11 @@ export function ServicePricingForm({
                       }
                       className="mt-1 w-40 rounded-md border border-ink-200 bg-white px-3 py-1.5 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
                     />
+                    {/* Đọc lại con số thành chữ tiền: ô number không có dấu phân cách
+                        nên "3000000" và "300000" nhìn gần như nhau — sai một số 0 ở đây
+                        là khai giá gấp mười, và không có gì khác trên màn hình bắt được. */}
                     <span className="mt-1 block text-xs text-ink-500">
-                      {formatVnd(row.priceFrom, 'vi')}
+                      Khách thấy: <strong>từ {formatVnd(row.priceFrom, 'vi')}</strong>
                     </span>
                   </label>
 
@@ -139,6 +172,7 @@ export function ServicePricingForm({
                       }
                       className="mt-1 w-32 rounded-md border border-ink-200 bg-white px-3 py-1.5 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 tabular-nums"
                     />
+                    <span className="mt-1 block text-xs text-ink-500">15–300 phút</span>
                   </label>
                 </div>
               )}

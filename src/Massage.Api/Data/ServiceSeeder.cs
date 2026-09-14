@@ -56,6 +56,13 @@ public static class ServiceSeeder
             "Dùng lực hút của cốc để tăng lưu thông máu tại chỗ, thường kết hợp cùng massage trị liệu.",
             "Cupping",
             "Suction cups used to increase local blood flow, usually combined with therapeutic massage."),
+        ("Cạo gió",
+            "Dùng dụng cụ cạo dọc lưng, vai và cổ theo y học cổ truyền, thường dùng khi người mệt mỏi, "
+            + "đau mỏi vai gáy hoặc cảm lạnh. Hay đi kèm massage hoặc giác hơi trong cùng buổi.",
+            "Gua sha",
+            "Scraping along the back, shoulders and neck with a smooth-edged tool, a traditional-medicine "
+            + "technique used for fatigue, stiff shoulders or the early signs of a cold. Often paired with "
+            + "massage or cupping in the same session."),
         ("Xông hơi thảo dược",
             "Xông hơi với thảo dược tại nhà, thường đi kèm gói massage để tăng hiệu quả thư giãn.",
             "Herbal steam therapy",
@@ -67,6 +74,7 @@ public static class ServiceSeeder
         short order = 0;
         var added = 0;
         var filled = 0;
+        var reordered = 0;
 
         foreach (var (name, description, nameEn, descriptionEn) in Data)
         {
@@ -81,6 +89,17 @@ public static class ServiceSeeder
                 // seeder báo "thêm mới 0/10" và trông y hệt một lượt chạy thành công.
                 if (existing.NameEn is null) { existing.NameEn = nameEn; filled++; }
                 existing.DescriptionEn ??= descriptionEn;
+
+                // SortOrder thì **ghi đè**, không phải chỉ điền khi trống: nó suy ra từ
+                // vị trí trong `Data`, nên chèn một dịch vụ vào giữa danh sách sẽ dịch
+                // thứ tự của mọi dịch vụ đứng sau. Bỏ qua như phần bản dịch ở trên thì
+                // dịch vụ mới nhận đúng số thứ tự mà một dịch vụ cũ đang giữ — hai hàng
+                // cùng bậc, và thứ tự giữa chúng rơi về `ThenBy(Name)`, tức không còn
+                // là thứ tự biên tập đã chọn.
+                //
+                // Ghi đè an toàn vì đây là dữ liệu biên tập thuần: `Data` là nguồn sự
+                // thật duy nhất cho thứ tự danh mục, không ai chỉnh cột này bằng tay.
+                if (existing.SortOrder != order) { existing.SortOrder = order; reordered++; }
                 continue;
             }
 
@@ -98,7 +117,8 @@ public static class ServiceSeeder
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
-            "Đã seed danh mục dịch vụ: thêm mới {Added}/{Total}, bổ sung bản dịch EN {Filled}",
-            added, Data.Length, filled);
+            "Đã seed danh mục dịch vụ: thêm mới {Added}/{Total}, bổ sung bản dịch EN {Filled}, "
+            + "sắp xếp lại {Reordered}",
+            added, Data.Length, filled, reordered);
     }
 }
