@@ -18,11 +18,20 @@ import { LEGAL_ENTITY, LEGAL_ENTITY_INCOMPLETE, legalEffectiveDate } from '@/lib
  * link tới nó — không phải đi sửa ba file.
  */
 
-/** Ba trang pháp lý, khai một lần. Thứ tự này là thứ tự hiển thị ở cụm liên kết chéo. */
+/**
+ * Các trang pháp lý và liên hệ, khai một lần. Thứ tự này là thứ tự hiển thị ở cụm
+ * liên kết chéo và ở hàng pháp lý dưới footer.
+ *
+ * `/lien-he` đứng **cuối** dù nó là trang được tìm nhiều nhất trong nhóm: ba trang
+ * trước là văn bản công bố nghĩa vụ, còn trang này là lối ra khi người đọc đã đọc
+ * xong và vẫn cần hỏi ai đó. Đặt nó trước là mời người ta gọi trước khi đọc, tức
+ * đẩy lên đường dây thật đúng những câu hỏi mà văn bản đã trả lời sẵn.
+ */
 export const LEGAL_PAGES = [
   { path: '/an-toan', labelKey: 'legal.navSafety' },
   { path: '/dieu-khoan', labelKey: 'legal.navTerms' },
   { path: '/chinh-sach-bao-mat', labelKey: 'legal.navPrivacy' },
+  { path: '/lien-he', labelKey: 'legal.navContact' },
 ] as const;
 
 export type LegalPath = (typeof LEGAL_PAGES)[number]['path'];

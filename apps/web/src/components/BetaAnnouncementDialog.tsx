@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { CheckIcon, PhoneIcon, ZaloIcon } from '@/components/icons';
+import { ADMIN_CONTACTS, prettyPhone, telHref, zaloHref } from '@/lib/contact';
 
 /**
  * Nội dung thông báo chương trình Beta, dùng chung cho **hai** chỗ mở nó:
@@ -23,13 +24,9 @@ import { CheckIcon, PhoneIcon, ZaloIcon } from '@/components/icons';
  * Chỉ có tiếng Việt, cùng lý do với dashboard KTV: người đọc đều là KTV người Việt.
  */
 
-/** Hai số của Ban quản trị, dùng chung cho cả link gọi lẫn link Zalo. */
-const CONTACTS = ['0905131368', '0354888765'] as const;
-
-/** Hiển thị `0905.131.368` — nhóm ba chữ số để đọc và đọc to qua điện thoại. */
-function prettyPhone(raw: string) {
-  return `${raw.slice(0, 4)}.${raw.slice(4, 7)}.${raw.slice(7)}`;
-}
+/* Hai số Ban quản trị và hàm định dạng đã chuyển sang `lib/contact.ts` khi trang
+   `/lien-he` trở thành chỗ thứ hai hiển thị chúng. Giữ bản chép ở đây là dựng hai
+   nguồn sự thật cho một đường dây thật — xem ghi chú ở file đó. */
 
 export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -177,7 +174,7 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
               qua số điện thoại hoặc Zalo:
             </p>
             <div className="mt-3 space-y-2">
-              {CONTACTS.map((phone) => (
+              {ADMIN_CONTACTS.map((phone) => (
                 <div
                   key={phone}
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2"
@@ -187,7 +184,7 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
                   </span>
                   <div className="ml-auto flex gap-2">
                     <a
-                      href={`tel:${phone}`}
+                      href={telHref(phone)}
                       className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-3.5 py-1.5 text-body-s font-semibold text-white transition hover:bg-brand-600"
                     >
                       <PhoneIcon className="h-4 w-4" />
@@ -197,7 +194,7 @@ export function BetaAnnouncementDialog({ open, onClose }: { open: boolean; onClo
                         là đá KTV ra khỏi chỗ họ đang làm việc — và ở màn hình đăng ký
                         thì còn là bỏ dở form họ đang điền dở. */}
                     <a
-                      href={`https://zalo.me/${phone}`}
+                      href={zaloHref(phone)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-full border border-brand-500 px-3.5 py-1.5 text-body-s font-semibold text-brand-600 transition hover:bg-brand-50"
