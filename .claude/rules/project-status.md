@@ -839,6 +839,36 @@ xứng; `BreadcrumbList` hợp lệ; footer có link ở cả `/` và `/en`; sit
 locale và hai neo đích (`#bao-cao`, `#muc-5`) có thật; robots.txt không chặn. Trang hồ sơ KTV
 vẫn render đúng chuỗi của namespace `contact` cũ sau lần đổi tên.
 
+**Thêm `lienhe@masgo.vn` vào trang liên hệ** (2026-09-15, `ADMIN_EMAIL` trong `lib/contact.ts`).
+Hộp thư thật trên Email Server P.A, tạo trên trang quản trị `:1000`. Bốn điều đừng vô tình
+đảo ngược:
+
+- **Điều kiện để đăng một địa chỉ là hộp thư có người đọc**, và đã kiểm bằng SMTP trước khi
+  thêm (`RCPT TO` trả 250, trong khi địa chỉ giả trả 550 — nên phép thử đáng tin). Một địa chỉ
+  không ai mở **tệ hơn không có**: khách viết vào đó rồi chờ, trong khi hai số Zalo bên cạnh
+  đang có người trực. Hộp thư ngừng được đọc thì **gỡ khỏi trang**, đừng để lại. Đây là cùng
+  một luật với lý do `/lien-he` **cố ý không có form**, chỉ khác ở chỗ email không cần dựng
+  đường đọc — nó đã có sẵn.
+- **Email là mục RIÊNG, đặt SAU hai số Zalo**, không phải thẻ thứ ba trong cùng lưới. Hai lý
+  do: tốc độ phản hồi khác nhau (Zalo trong ngày làm việc, email 2 ngày), và nó cần một đoạn
+  nói rõ *khi nào* nên dùng. Gộp chung lưới sẽ đọc ra như ba kênh tương đương, khiến người
+  đang cần gấp chọn đúng kênh chậm nhất.
+- **Hứa thời gian phản hồi tường minh** ("trong vòng 2 ngày làm việc"). Một hộp thư không hứa
+  gì thì người viết không biết nên chờ hay nên gọi — và họ sẽ làm cả hai.
+- **KHÔNG dùng `lienhe@` làm `Notifications:FromEmail`.** Người gửi thông báo tự động vẫn là
+  `thong-bao@masgo.vn`: trộn thư máy vào hộp thư khách hàng viết tới là cách chắc chắn để một
+  thư thật trôi mất giữa hàng chục thông báo hồ sơ chờ duyệt.
+
+Bản EN dẫn bằng vế ngôn ngữ chứ không bằng vế "cần văn bản" như bản VI: với người không nói
+tiếng Việt, email là kênh **thật sự dùng được**, vì chữ viết qua được công cụ dịch. Câu
+`channelsNote` của bản EN cũng sửa từ "write to us on Zalo" thành "on Zalo or by email".
+
+Đã kiểm chứng trên bản build production trong container (2026-09-15): `lienhe@masgo.vn` và
+`mailto:` có trong HTML thô của **cả hai** locale; chuỗi đúng bản ngôn ngữ ("Soạn email" /
+"Write to us", "2 ngày làm việc" / "2 working days"); 6/6 ca đo trong trình duyệt thật
+(2 locale × 360/390/768) **không tràn ngang**, địa chỉ nằm trong khung; đã gửi thư thật tới
+hộp thư và Resend nhận (id trả về). Typecheck và ESLint xanh.
+
 **Chứng chỉ hành nghề là TUỲ CHỌN** (2026-09-09). Điều kiện để hồ sơ sang VERIFIED chỉ có hai,
 và cả hai nằm ở `AdminService.DecideProfileAsync`: **CCCD đã xác minh + cam kết đúng phiên bản**.
 Chứng chỉ không phải điều kiện, `SearchService` cũng không lọc theo nó — hồ sơ 0 chứng chỉ vẫn

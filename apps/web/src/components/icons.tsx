@@ -146,6 +146,18 @@ export function PhoneIcon(props: IconProps) {
   );
 }
 
+// Email liên hệ Ban quản trị
+export function MailIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      {/* Nếp gấp vẽ tới khoảng giữa chiều cao, không tới đáy: ở cỡ 16px một chữ V
+          chạm đáy khung đọc ra như hai nét chéo rời chứ không như một phong bì. */}
+      <path d="M3.5 7 12 13l8.5-6" />
+    </Icon>
+  );
+}
+
 // Giờ nhận khách
 export function ClockIcon(props: IconProps) {
   return (

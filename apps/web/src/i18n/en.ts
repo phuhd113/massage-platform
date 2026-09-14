@@ -361,6 +361,7 @@ export const en: Dictionary = {
     navSafety: 'Safety and community rules',
     navTerms: 'Terms of use',
     navPrivacy: 'Personal data protection policy',
+    navContact: 'Contact us',
     placeholderWarning:
       'Developer warning: the operator details in lib/legal.ts have not been filled in. Do not ship this page to production while this warning is visible.',
   },
@@ -587,6 +588,69 @@ export const en: Dictionary = {
     s9Title: '9. Changes to this policy',
     s9p1:
       'When this policy changes, the effective date at the top of the page is updated. Where a change materially affects your rights, we will tell you directly.',
+  },
+
+  /**
+   * The /lien-he page. See the Vietnamese file for the reasoning behind each section.
+   *
+   * Note that the admin line is answered in Vietnamese only — say so plainly rather
+   * than inviting an English speaker to call a number where nobody can help them.
+   * The Zalo route is the honest recommendation here: written Vietnamese survives a
+   * translation tool, a phone call does not.
+   */
+  contactPage: {
+    metaTitle: 'Contact us',
+    metaDescription:
+      'Contact the MasGo team by phone or Zalo. How to report a profile, get help as a therapist, and make a personal data request.',
+    h1: 'Contact us',
+    lead:
+      'The MasGo team handles reports, feedback and support requests directly. Before you call, have a look below — most requests are resolved faster through the flow built for them.',
+
+    channelsTitle: 'Call or message on Zalo',
+    channelsBody:
+      'Both numbers below take calls and Zalo messages during business hours, Monday to Saturday. Outside those hours, send a Zalo message and we will reply on the next working day.',
+    channelCall: 'Call',
+    channelZalo: 'Zalo',
+    /* The language note is the difference from the Vietnamese copy, and it is the
+       useful part of this block for an English-speaking reader. */
+    channelsNote:
+      'Our team answers in Vietnamese. If you are more comfortable in English, write to us — on Zalo or by email — rather than calling. This is the platform team, not a booking line — to book a session, open a therapist profile and use the contact button there, which reveals their phone number.',
+
+    /* The English copy leads with the language point, unlike the Vietnamese: for a
+       reader who does not speak Vietnamese, email is the channel that actually
+       works, because writing survives translation and a phone call does not. */
+    channelEmailTitle: 'Email us',
+    channelEmailBody:
+      'Email is the best channel if you write in English, and the right one whenever something needs a screenshot or a written record — a complaint, a personal data request, or a partnership enquiry. We reply within 2 working days.',
+    channelEmailCta: 'Write to us',
+
+    routesTitle: 'What do you need?',
+    routesLead:
+      'Each of the four below has its own flow in the product, and each is faster than a phone call because we receive the full context straight away.',
+
+    routeBookTitle: 'Book a therapist',
+    routeBookBody:
+      'Pick a therapist and use the contact button on their profile. Their phone number appears so you can call or message them on Zalo directly. The platform team does not book on your behalf.',
+    routeBookCta: 'Find a therapist',
+
+    routeReportTitle: 'Report a profile',
+    routeReportBody:
+      'Every profile page has a report button and you do not need an account to use it. A report sent from there arrives with the profile attached, so it is quicker than describing it over the phone.',
+    routeReportCta: 'Community rules and how to report',
+
+    routeKtvTitle: 'Therapist support',
+    routeKtvBody:
+      'Profile not yet approved, ID document rejected, or questions about promotion packages and your wallet: sign in and open your profile page in the dashboard, where the status of each step and the reason for any rejection is shown. If you are still stuck, call us.',
+    routeKtvCta: 'Sign in as a therapist',
+
+    routeDataTitle: 'Personal data requests',
+    routeDataBody:
+      'Access, correction, deletion, or withdrawing your consent: your rights and how to exercise them are set out in our personal data protection policy. We respond within 72 hours of receiving a valid request.',
+    routeDataCta: 'Personal data protection policy',
+
+    urgentTitle: 'In an emergency',
+    urgentBody:
+      'If you are in danger or witnessing a crime, call 113 first. The MasGo team cannot intervene in something that is happening right now; once you are safe, tell us so we can act on the account involved.',
   },
 
   search: {
