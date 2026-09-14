@@ -163,6 +163,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // không bao giờ dùng để lọc hay so sánh dải — và một giá trị lạ từ proxy
             // làm hỏng lượt lưu hồ sơ thì tệ hơn hẳn việc thiếu một dòng bằng chứng.
             e.Property(x => x.CommittedIp).HasColumnName("committed_ip").HasMaxLength(45);
+            e.Property(x => x.SubmissionNotifiedAt).HasColumnName("submission_notified_at");
             e.Property(x => x.ReferredByCollaboratorId).HasColumnName("referred_by_collaborator_id");
             e.Property(x => x.ReferredAt).HasColumnName("referred_at");
             // Không khai navigation ngược: đường đọc duy nhất là "CTV này giới thiệu

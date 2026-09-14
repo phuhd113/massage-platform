@@ -1442,6 +1442,60 @@ trong đó là thứ duy nhất còn dùng được, xoá đi là tự khoá mì
 tức URL, header `secret_key`, dạng form body và cách đọc lỗi đều đúng — chỉ credential là giả.
 `ZaloZnsSenderTests` chạy trên HTTP giả nên không cần Postgres lẫn Zalo.
 
+**Email báo ban quản trị khi có hồ sơ KTV chờ duyệt** (2026-09-14, `Common/Notifications/` +
+cột `ktv_profiles.submission_notified_at`). Gửi qua Resend; để trống credential thì ghi ra log.
+Bảy điều đừng vô tình đảo ngược:
+
+- **Gửi ở thời điểm hồ sơ ĐỦ ĐIỀU KIỆN XEM XÉT, không phải ở mỗi thao tác của KTV.** Điều kiện
+  gồm hai thứ đến từ hai endpoint độc lập (`POST /ktv/profile/commitments` và
+  `PUT /ktv/profile/identity`) theo thứ tự bất kỳ, cách nhau có thể nhiều giờ. Gửi ở cả hai nơi
+  nghĩa là hai email cho cùng một người và cái đến trước báo một việc chưa làm được gì; gửi ở
+  một nơi thì đúng **một nửa** số KTV — nhóm làm theo thứ tự ngược lại — không sinh thông báo
+  nào. Vì vậy `NotifyIfReadyForReviewAsync` được gọi từ **cả hai** đường ghi và tự hỏi lại câu
+  "đã đủ chưa". Có test canh cả hai thứ tự.
+- **Điều kiện ở đây KHÁC điều kiện duyệt của `AdminService.DecideProfileAsync`.** Cái sau đòi
+  CCCD đã `VERIFIED`, mà việc duyệt CCCD lại chính là việc email này mời admin đi làm — chờ nó
+  là chờ chính mình. Ở đây chỉ cần "KTV đã làm xong phần của họ": cam kết đúng bản + đã gửi CCCD.
+- **`submission_notified_at` phải trả về NULL khi KTV gửi lại CCCD.** Lượt gửi lại (bị từ chối
+  rồi gửi lại, hoặc thay thẻ khác) cần admin xem từ đầu — đúng lý do hàng đợi CCCD tách khỏi
+  hàng đợi hồ sơ. Giữ mốc cũ thì lượt đó nằm im không ai biết.
+- **Ghi mốc TRƯỚC khi gửi, và commit ngay.** Đảo lại thì một lượt gửi thành công mà lưu DB hỏng
+  sẽ để cột NULL và mọi lượt chạm tiếp theo lại gửi thêm một email nữa. Đây là chiều **ngược**
+  với `OtpService` (gửi trước, ghi sau) và vì lý do ngược lại: ở đó thứ mất đi là khả năng đăng
+  nhập của người đang chờ, ở đây chỉ là một dòng nhắc việc — còn gửi lặp thì kênh thông báo tự
+  làm mình mất tin cậy.
+- **`AdminNotifier` nuốt MỌI lỗi gửi.** Người gây ra lượt gửi (KTV vừa nộp hồ sơ) không phải
+  người nhận email, nên để sự cố ở Resend chặn được onboarding của họ là đánh đổi sai chiều —
+  cùng nguyên tắc với beacon `profile_views` nuốt lỗi khoá ngoại. Ghi log mức **Error** (không
+  phải Warning): một kênh thông báo chết mà chỉ để lại Warning sẽ trôi qua mắt đúng lúc cần nhất.
+  Có test làm cho nhà cung cấp hỏng thật và khẳng định KTV vẫn nộp được hồ sơ.
+- **Không đụng `updated_at` của hồ sơ.** Sitemap đọc cột đó làm `lastmod`, mà gửi CCCD và gửi
+  email không đổi một chữ nào trên trang công khai. Có test canh riêng.
+- **Người nhận là CẤU HÌNH (`Notifications:AdminEmails`), không phải cột trong `users`.** Bảng
+  đó không có cột email — tài khoản đăng nhập bằng số điện thoại — nên hướng kia cần migration
+  cho một thứ đổi bằng cách sửa biến môi trường. Danh sách này cũng thay đổi theo **người vận
+  hành**, không theo tài khoản đăng nhập. Để trống thì không gửi cho ai và chỉ ghi log `Debug`:
+  đó là trạng thái bình thường trên máy dev, không đáng làm bẩn log mọi lượt nộp hồ sơ.
+
+Adapter chọn theo **credential** chứ không theo cờ riêng (`Resend:ApiKey` có thì gửi thật), và
+`Notifications:StubEnabled` **thắng** mọi credential — cùng luật và cùng lý do với
+`Otp:StubEnabled`: máy dev có key thật trong `.env` mà không có luật này sẽ gửi email thật, im
+lặng, vì lượt gửi vẫn thành công. Thiếu cấu hình **không** chặn app khởi động (khác `Jwt:Secret`):
+thiếu kênh thông báo chỉ làm chậm việc phát hiện hồ sơ mới, còn `/admin/duyet-ktv` vẫn là nguồn
+sự thật đầy đủ.
+
+`ResendEmailSender` đọc **body** chứ không chỉ status code, và đặt header `Authorization` trên
+**request** chứ không trên `client.DefaultRequestHeaders` — `IHttpClientFactory` tái sử dụng
+handler nên gán vào DefaultRequestHeaders là tích luỹ thêm một header mỗi lượt gửi.
+
+**Chưa làm, và cố ý: email cho chính KTV.** Hệ thống chưa thu thập email của người dùng, nên
+việc đó cần thêm cột + migration + sửa form đăng ký + xử lý hồ sơ cũ không có email.
+
+Đã kiểm chứng trên app thật trong container (2026-09-14): ký cam kết một mình → 0 email; gửi CCCD
+sau đó → **1** email đúng nội dung kèm số điện thoại và link tới `/admin/duyet-cccd` +
+`/admin/duyet-ktv`; gửi lại CCCD → email **thứ hai**; ký lại cam kết → **không** sinh thêm.
+Migration up → down → up trên Postgres thật. 452 test xanh.
+
 **Đăng nhập bằng số điện thoại + mật khẩu** (2026-09-07, `POST /auth/register`, `POST /auth/login`,
 `PATCH /auth/password`). Đây là lối vào **đang dùng**: Zalo ZNS đòi giấy phép kinh doanh mà dự án
 chưa có, nên đường OTP tuy còn nguyên ở backend nhưng không dùng được với người thật. Chín điều

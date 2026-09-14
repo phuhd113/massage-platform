@@ -236,6 +236,14 @@ services:
       # nghĩa là site không có HTTPS trong nhiều ngày.
       - caddydata:/data
       - caddyconfig:/config
+      # Access log (xem khối `log` trong snippet `(common)` của Caddyfile). Volume có
+      # tên chứ không phải lớp ghi của container: `docker compose up -d --build` tạo
+      # container mới, nên không có volume thì toàn bộ lịch sử truy cập biến mất đúng
+      # vào lúc deploy — tức mất dữ liệu ngay ở thời điểm dễ cần đối chiếu nhất.
+      #
+      # Không bind mount ra host: log đã băm IP nhưng vẫn là dữ liệu truy cập, để trong
+      # volume thì nó đi theo vòng đời của stack thay vì nằm lẫn trong repo trên VPS.
+      - caddylogs:/var/log/caddy
     networks:
       - internal
     environment:
@@ -313,5 +321,6 @@ volumes:
   uploads:
   caddydata:
   caddyconfig:
+  caddylogs:
   beszel_data:
   beszel_agent_data:

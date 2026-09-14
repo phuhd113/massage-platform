@@ -169,6 +169,32 @@ public class KtvProfile
     public string? CommittedIp { get; set; }
 
     /// <summary>
+    /// Lần cuối đã gửi email báo ban quản trị rằng hồ sơ này chờ duyệt. <c>NULL</c> nghĩa
+    /// là chưa báo lần nào cho **lượt nộp hiện tại**.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Tồn tại để chống gửi trùng: điều kiện "hồ sơ sẵn sàng duyệt" gồm hai thứ đến từ hai
+    /// endpoint độc lập (ký cam kết, gửi CCCD) theo thứ tự bất kỳ, nên cả hai đường ghi
+    /// đều phải hỏi lại câu "đã đủ chưa" sau khi ghi xong. Không có cột này thì KTV sửa
+    /// một trong hai thứ là sinh thêm một email cho cùng một hồ sơ.
+    /// </para>
+    /// <para>
+    /// <b>Phải trả về NULL khi KTV gửi lại CCCD.</b> Lần gửi lại (sau khi bị từ chối, hoặc
+    /// thay thẻ khác) cần được xem lại từ đầu — đúng lý do hàng đợi CCCD tách khỏi hàng đợi
+    /// hồ sơ. Giữ nguyên mốc cũ ở đó nghĩa là lượt gửi lại không sinh thông báo nào và nằm
+    /// im cho tới khi có người tình cờ mở trang duyệt.
+    /// </para>
+    /// <para>
+    /// Cột này **không** phải bằng chứng pháp lý và không ai đọc ngoài chính đường gửi —
+    /// khác <see cref="CommittedAt"/>. Nó cũng cố ý không đụng <c>updated_at</c>: gửi một
+    /// email không đổi một chữ nào trên trang công khai, mà sitemap đọc cột đó làm
+    /// <c>lastmod</c>.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? SubmissionNotifiedAt { get; set; }
+
+    /// <summary>
     /// Cộng tác viên đã giới thiệu KTV này, null khi hồ sơ tự đến (SEO là nguồn chính,
     /// nên đa số hồ sơ sẽ null — xem <c>Collaborator</c>).
     ///

@@ -55,6 +55,11 @@ public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = 
                 // vậy nó kiểm luôn cả hai endpoint auth.
                 ["Otp:StubEnabled"] = "true",
                 ["Upload:Dir"] = UploadDir,
+                // Phải có người nhận, nếu không `AdminNotifier` trả về sớm và
+                // `EmailSender` bên dưới không bao giờ nhận được gì — test sẽ xanh
+                // trong khi không có gì được kiểm.
+                ["Notifications:AdminEmails"] = "admin@test.local",
+                ["Notifications:FromEmail"] = "no-reply@test.local",
             }));
 
         // Không dùng Development: môi trường đó bật Swagger và route "/" chuyển
@@ -91,8 +96,24 @@ public class ApiFactory(string connectionString, NpgsqlDataSource? dataSource = 
             });
         }
 
+        if (EmailSender is not null)
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<Massage.Api.Common.Notifications.IEmailSender>();
+                services.AddSingleton(EmailSender);
+            });
+        }
+
         return base.CreateHost(builder);
     }
+
+    /// <summary>
+    /// Thay adapter gửi email, để đọc lại thứ đã gửi — hoặc để mô phỏng nhà cung cấp
+    /// hỏng. Mặc định <c>null</c> nên app dùng <c>LogEmailSender</c> như mọi test khác
+    /// (không có Resend:ApiKey trong cấu hình test).
+    /// </summary>
+    public Massage.Api.Common.Notifications.IEmailSender? EmailSender { get; init; }
 
     /// <summary>
     /// Thay adapter gửi OTP, để kiểm luồng HTTP khi nhà cung cấp hỏng. Mặc định là

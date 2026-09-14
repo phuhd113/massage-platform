@@ -1,6 +1,7 @@
 using Massage.Api.Common;
 using Massage.Api.Common.Storage;
 using Massage.Api.Data;
+using Massage.Api.Modules.Areas;
 using Massage.Api.Modules.Auth.Entities;
 using Massage.Api.Modules.KtvProfiles;
 using Massage.Api.Modules.KtvProfiles.Entities;
@@ -466,6 +467,68 @@ public class AdminController(
         return Ok(new RevenueReportDto(
             start, end, rows.Sum(r => r.NetRevenue), rows, daily));
     }
+
+    /// <summary>
+    /// Khu vực kèm nội dung biên tập, để admin biết trang nào còn thiếu gì.
+    ///
+    /// **Vì sao endpoint này tồn tại:** <c>editorial_note</c> là một trong hai điều kiện
+    /// để trang khu vực được index (vế kia là <see cref="AreaService.MinKtvForIndex"/>), nhưng trước
+    /// đợt này cột đó chỉ **được đọc** — không endpoint ghi, không trang admin, không
+    /// đường nhập nào ngoài UPDATE bằng SQL tay. Đo trên production ngày 2026-09-14:
+    /// **0/759** khu vực có nội dung, nên **không trang khu vực nào index được**, kể cả
+    /// khu vực đủ KTV. Đây là dạng nặng hơn của lỗi "endpoint không có đường vào giao
+    /// diện" đã cắn bốn lần: ở đây đến endpoint cũng chưa có, và nó im lặng y hệt — mọi
+    /// test xanh, API trả 200, chỉ là ~760 trang nằm ngoài index vĩnh viễn.
+    /// </summary>
+    /// <param name="onlyReady">Chỉ khu vực đủ KTV mà chưa có nội dung — danh sách việc cần làm.</param>
+    /// <param name="q">Tìm theo tên, không dấu cũng khớp.</param>
+    [HttpGet("areas")]
+    public async Task<IActionResult> ListAreasForEditorial(
+        [FromServices] AreaService areas,
+        CancellationToken ct,
+        [FromQuery] bool onlyReady = false,
+        [FromQuery] string? q = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 50)
+    {
+        if (page < 1 || limit is < 1 or > 200)
+            throw new BadRequestException("page ≥ 1 và limit trong khoảng 1 – 200");
+
+        var (items, total) = await areas.ListForEditorialAsync(onlyReady, q, page, limit, ct);
+
+        return Ok(new
+        {
+            items,
+            total,
+            page,
+            limit,
+            // Gửi kèm hai ngưỡng để trang admin hiển thị đúng con số mà backend đang
+            // dùng, thay vì ghi cứng lại ở frontend. Ngưỡng nằm ở API là có chủ ý: hai
+            // tầng hiểu khác nhau thì trang gần rỗng lọt vào index.
+            minKtv = AreaService.MinKtvForIndex,
+            minNoteLength = AreaService.MinEditorialNoteLength,
+        });
+    }
+
+    /// <summary>
+    /// Ghi nội dung biên tập cho một khu vực.
+    ///
+    /// Gửi chuỗi rỗng để **gỡ** nội dung — đó là đường đưa một trang ra khỏi index khi
+    /// nội dung hoá ra sai, và nó phải tồn tại vì thiếu nó thì việc mở index là một chiều.
+    ///
+    /// Trang khu vực là ISR 600 giây nên lời gọi này **phải** đi qua route xoá cache của
+    /// Next (<c>/api/admin-area</c>), không phải <c>/api/proxy</c> — cùng cái bẫy
+    /// `revalidatePath` đã ghi lại bốn lần. Ở đây nó còn đổi cả <c>sitemap.xml</c>: nội
+    /// dung mới làm trang chuyển từ `noindex` sang được index, và sitemap phải nói cùng
+    /// một điều với thẻ robots, nếu không site tự mâu thuẫn với chính mình trước Google.
+    /// </summary>
+    [HttpPatch("areas/{id:guid}/editorial")]
+    public async Task<ActionResult<AreaEditorialUpdatedDto>> SetAreaEditorial(
+        Guid id,
+        SetEditorialNoteDto dto,
+        [FromServices] AreaService areas,
+        CancellationToken ct) =>
+        await areas.SetEditorialNoteAsync(id, dto.EditorialNote, ct);
 
     /// <summary>
     /// Giờ Việt Nam là UTC+7 cố định — không có DST, nên một hằng số là đủ và tránh

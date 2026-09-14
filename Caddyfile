@@ -43,6 +43,52 @@
 		# Không quảng cáo phiên bản server.
 		-Server
 	}
+
+	# Access log. **Caddy mặc định KHÔNG ghi request thành công** — chỉ lỗi và ACME —
+	# nên trước khi có khối này, lưu lượng trang chủ / trang khu vực / trang dịch vụ
+	# không để lại dấu vết nào. Đã đo trước khi thêm: 41 dòng trong 24 giờ, toàn bộ là
+	# ACME và warning.
+	#
+	# Đây là nguồn **duy nhất** thấy được Googlebot: GA4 không đếm bot, và
+	# `analytics_events` chỉ ghi sự kiện gắn với một KTV cụ thể (cột `ktv_id` NOT NULL)
+	# nên một lượt vào trang chủ rồi thoát không sinh dòng nào ở đâu cả.
+	log {
+		output file /var/log/caddy/access.log {
+			# **Bắt buộc có xoay vòng.** VPS 4GB / 45GB đĩa, và thứ chết trước khi đĩa
+			# đầy là Postgres — tức chính DB mà mọi thứ khác dựa vào. Ba số này là trần
+			# cứng ~300MB, không phụ thuộc lưu lượng tăng bao nhiêu.
+			roll_size 30MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+
+		# JSON để `jq` đọc được. `console` dễ nhìn bằng mắt hơn nhưng phải parse bằng
+		# regex, và tools/traffic-report.sh cần trích từng trường.
+		format filter {
+			wrap json
+
+			# IP khách **băm**, không ghi thô. Hai lý do, lý do thứ hai mới là ràng buộc
+			# thật: (1) IP là dữ liệu cá nhân theo Nghị định 13; (2) mục 8 của
+			# /chinh-sach-bao-mat khai rõ phạm vi lưu IP là "khi bạn bấm liên hệ hoặc báo
+			# cáo" — access log ghi IP thô của **mọi** request rộng hơn hẳn lời đã khai,
+			# tức biến trang chính sách thành một lời khai sai.
+			#
+			# Băm vẫn giữ nguyên giá trị đếm: cùng một khách cho cùng một chuỗi trong
+			# ngày, nên vẫn tính được số khách phân biệt. Thứ mất đi chỉ là khả năng lần
+			# ngược ra một người cụ thể — thứ không dùng tới ở đây.
+			request>remote_ip hash
+			request>client_ip hash
+
+			# Cookie chứa JWT phiên. Caddy có ghi đè sẵn thành REDACTED, nhưng xoá hẳn
+			# thì không phụ thuộc vào mặc định đó giữ nguyên qua các bản nâng cấp.
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+
+			# User-Agent phải GIỮ: đây là cách duy nhất phân biệt Googlebot với khách
+			# thật, mà đó chính là câu hỏi access log sinh ra để trả lời.
+			request>headers>Set-Cookie delete
+		}
+	}
 }
 
 # ---------------------------------------------------------------------------

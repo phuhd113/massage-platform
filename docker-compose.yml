@@ -71,6 +71,15 @@ services:
       VnPay__HashSecret: ${VNPAY_HASH_SECRET:-}
       VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       VnPay__ReturnUrl: ${VNPAY_RETURN_URL:-http://localhost:3000/nap-tien/ket-qua}
+      # Thông báo cho ban quản trị khi có hồ sơ KTV chờ duyệt. Mặc định stub: ghi email
+      # ra log thay vì gửi thật, nên máy dev có RESEND_API_KEY trong .env vẫn không đốt
+      # quota — cùng luật với Otp__StubEnabled.
+      Notifications__AdminEmails: ${NOTIFICATIONS_ADMIN_EMAILS:-}
+      Notifications__FromEmail: ${NOTIFICATIONS_FROM_EMAIL:-}
+      Notifications__FromName: ${NOTIFICATIONS_FROM_NAME:-MasGo}
+      Notifications__AdminBaseUrl: ${NOTIFICATIONS_ADMIN_BASE_URL:-http://localhost:3000}
+      Notifications__StubEnabled: ${NOTIFICATIONS_STUB_ENABLED:-true}
+      Resend__ApiKey: ${RESEND_API_KEY:-}
     ports:
       - '5080:8080'
     volumes:

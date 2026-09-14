@@ -1,10 +1,29 @@
 using Massage.Api.Common;
 using Microsoft.AspNetCore.Hosting;
+using Massage.Api.Common.Notifications;
 using Massage.Api.Common.Storage;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Massage.Api.Tests;
+
+/// <summary>
+/// <see cref="AdminNotifier"/> cho test dựng service trực tiếp (không qua DI của app).
+///
+/// Không khai người nhận nào, nên <c>AdminNotifier</c> trả về sớm và không gửi gì —
+/// đúng thứ những test này cần: chúng kiểm nghiệp vụ hồ sơ, không kiểm thông báo.
+/// Test của chính đường thông báo đi qua HTTP với <c>FakeEmailSender</c>
+/// (xem <c>ApiKtvSubmissionNotifyTests</c>), vì thứ đáng kiểm ở đó — gửi mấy lần, theo
+/// thứ tự thao tác nào — chỉ quan sát được khi đi qua đúng hai endpoint thật.
+/// </summary>
+public static class TestNotifier
+{
+    public static AdminNotifier Instance { get; } = new(
+        new LogEmailSender(NullLogger<LogEmailSender>.Instance),
+        Options.Create(new NotificationOptions()),
+        NullLogger<AdminNotifier>.Instance);
+}
 
 /// <summary>
 /// <see cref="MediaUrls"/> cho test dựng service trực tiếp (không qua DI của app).
