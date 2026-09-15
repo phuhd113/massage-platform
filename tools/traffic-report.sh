@@ -133,20 +133,41 @@ echo
 # chưa có.
 if docker exec masgo_caddy test -f /var/log/caddy/access.log 2>/dev/null; then
   TOTAL=$(docker exec masgo_caddy sh -c "wc -l < /var/log/caddy/access.log" 2>/dev/null || echo 0)
-  echo "Tổng số dòng log hiện có: ${TOTAL}"
+
+  # **Tách theo host trước khi đếm bất cứ thứ gì.** Đo ngày 2026-09-15: 1287/1844 dòng
+  # là bot quét `status.masgo.vn` (Beszel) — dò `.env`, `.git/config`, đường dẫn của một
+  # app khác hẳn. Gộp chung thì tổng số dòng đọc ra như lưu lượng website, trong khi
+  # phần thật chỉ bằng non một phần ba. Không rò rỉ gì (mọi lượt dò nhận đúng trang đăng
+  # nhập HTML của Beszel), nhưng nó làm hỏng phép đo nếu để lẫn.
+  echo "Tổng số dòng log (mọi host): ${TOTAL}"
+  docker exec masgo_caddy sh -c "cat /var/log/caddy/access.log" 2>/dev/null \
+    | jq -r '.request.host // "?"' 2>/dev/null | sort | uniq -c | sort -rn \
+    | sed 's/^/  /' || true
+  echo
+  echo "▸ Từ đây chỉ tính host của website (bỏ status./api.):"
+  echo
+
+  # Dùng lại ở nhiều khối bên dưới. Khai một lần để các con số không bao giờ lệch nhau
+  # vì một chỗ quên lọc host.
+  site_log() {
+    docker exec masgo_caddy sh -c "cat /var/log/caddy/access.log" 2>/dev/null \
+      | jq -c 'select(.request.host == "'"${DOMAIN:-masgo.vn}"'")' 2>/dev/null
+  }
+
+  echo "Khách phân biệt (theo IP đã băm): $(site_log | jq -r '.request.client_ip // empty' 2>/dev/null | sort -u | wc -l)"
   echo
   echo "Top 15 đường dẫn (bỏ asset tĩnh):"
   # Lọc /_next/, /api/ và file có đuôi: chúng lấn át danh sách mà không nói gì về trang
   # nào được đọc. `jq -r` im lặng bỏ qua dòng không parse được thay vì làm hỏng pipe.
-  docker exec masgo_caddy sh -c "cat /var/log/caddy/access.log" 2>/dev/null \
+  site_log \
     | jq -r 'select(.request.uri != null) | .request.uri' 2>/dev/null \
-    | grep -vE '^/(_next|api)/|\.(js|css|png|jpg|jpeg|webp|avif|svg|ico|woff2?)(\?|$)' \
+    | grep -vE '^/(_next|api)/|\.(js|css|png|jpg|jpeg|webp|avif|svg|ico|woff2?|xml|txt)(\?|$)' \
     | sed 's/?.*//' | sort | uniq -c | sort -rn | head -15 || true
   echo
   echo "Bot vs khách thật (theo User-Agent):"
   # Câu hỏi quan trọng nhất của cả khối này: Googlebot đã bò vào chưa. Nếu số này bằng 0
   # sau nhiều ngày thì vấn đề nằm ở index chứ không ở lưu lượng.
-  docker exec masgo_caddy sh -c "cat /var/log/caddy/access.log" 2>/dev/null \
+  site_log \
     | jq -r '.request.headers["User-Agent"][0] // "?"' 2>/dev/null \
     | awk '{
         if (/Googlebot/)        print "Googlebot";
@@ -157,8 +178,7 @@ if docker exec masgo_caddy test -f /var/log/caddy/access.log 2>/dev/null; then
     | sort | uniq -c | sort -rn || true
   echo
   echo "Mã trạng thái:"
-  docker exec masgo_caddy sh -c "cat /var/log/caddy/access.log" 2>/dev/null \
-    | jq -r '.status // empty' 2>/dev/null | sort -n | uniq -c | sort -rn | head -10 || true
+  site_log | jq -r '.status // empty' 2>/dev/null | sort -n | uniq -c | sort -rn | head -10 || true
 else
   echo "Chưa có access log."
   echo
