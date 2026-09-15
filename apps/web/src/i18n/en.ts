@@ -299,6 +299,18 @@ export const en: Dictionary = {
       'Find identity-verified therapists offering {nameLower} in your own home.',
     h1: '{name} at home',
     byArea: 'Find {nameLower} by area',
+    imageAlt: {
+      'massage-tri-lieu': 'Therapist applying deep pressure to a client\'s leg during a therapeutic massage session',
+      'massage-co-vai-gay': 'Therapist working on a client\'s neck and shoulder, both modestly dressed',
+      'bam-huyet': 'Therapist applying acupressure to a client\'s wrist',
+      'massage-thai': 'Therapist in traditional Thai attire stretching a client\'s leg on a floor mat',
+      'massage-body': 'Therapist in white uniform performing a full-body massage, client modestly draped with a towel',
+      'massage-chan': 'Therapist massaging a client\'s foot',
+      'massage-ba-bau': 'Therapist gently massaging the shoulder of a pregnant client resting on her side',
+      'tri-lieu-cot-song': 'Physical therapist working on a client\'s shoulder and upper spine',
+      'giac-hoi': 'Cupping therapy cups on a client\'s back, most of the body covered by a white towel',
+      'cao-gio': 'Close-up of a therapist\'s hand holding a wooden gua sha scraping tool',
+    },
   },
 
   ktvProfile: {

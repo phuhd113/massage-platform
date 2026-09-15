@@ -25,8 +25,15 @@ export function ServicePricingForm({
   mine: KtvServiceItem[];
 }) {
   const router = useRouter();
+  const catalogIds = new Set(catalog.map((s) => s.id));
   const [rows, setRows] = useState<Row[]>(
-    mine.map((m) => ({ serviceId: m.serviceId, priceFrom: m.priceFrom, durationMin: m.durationMin })),
+    // Lọc theo `catalog` (chỉ dịch vụ đang bán): một dịch vụ KTV từng khai giá rồi
+    // bị ngừng bán (`Service.IsActive = false`) không còn checkbox nào trong danh
+    // sách bên dưới để hiện/bỏ tick nó — giữ nguyên trong `rows` sẽ âm thầm gửi lại
+    // dòng đó mỗi lần bấm Lưu mà KTV không thấy và không chủ động giữ.
+    mine
+      .filter((m) => catalogIds.has(m.serviceId))
+      .map((m) => ({ serviceId: m.serviceId, priceFrom: m.priceFrom, durationMin: m.durationMin })),
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

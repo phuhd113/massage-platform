@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
@@ -8,6 +9,7 @@ import { localePath, normalizeLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
 import { alternatesFor } from '@/lib/seo';
+import { SERVICE_IMAGES } from '@/lib/service-images';
 import { serviceDescription, serviceName, serviceNameInSentence } from '@/lib/service-i18n';
 import { absolute, areaPath } from '@/lib/site';
 
@@ -25,10 +27,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = createTranslator(getDictionary(locale), locale);
   const name = serviceName(service, locale);
 
+  // Chỉ đoạn đầu tiên: mô tả biên tập nhiều đoạn (xem ServiceSeeder.cs) cách
+  // nhau bằng "\n\n", và thẻ <meta description> phải là một đoạn ngắn, không
+  // chứa ký tự xuống dòng thô.
+  const firstParagraph = serviceDescription(service, locale)?.split('\n\n')[0];
+
   return {
     title: t('servicePage.metaTitle', { name }),
     description:
-      serviceDescription(service, locale) ??
+      firstParagraph ??
       t('servicePage.metaDescriptionFallback', {
         nameLower: serviceNameInSentence(service, locale),
       }),
@@ -52,6 +59,11 @@ export default async function ServicePage({ params }: Props) {
   const t = createTranslator(getDictionary(locale), locale);
   const name = serviceName(service, locale);
   const description = serviceDescription(service, locale);
+  const image = SERVICE_IMAGES[service.slug];
+
+  // Mô tả biên tập tách đoạn bằng "\n\n" (xem ServiceSeeder.cs) — cần bọc từng
+  // đoạn trong <p> riêng, một <p> chứa "\n\n" thô sẽ không xuống dòng trong HTML.
+  const paragraphs = description?.split('\n\n') ?? [];
 
   return (
     <>
@@ -63,8 +75,28 @@ export default async function ServicePage({ params }: Props) {
         ]}
       />
 
-      <h1 className="text-h1 text-ink-900 sm:text-display">{t('servicePage.h1', { name })}</h1>
-      {description && <p className="mt-3 max-w-2xl text-ink-600">{description}</p>}
+      <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-start">
+        <div>
+          <h1 className="text-h1 text-ink-900 sm:text-display">{t('servicePage.h1', { name })}</h1>
+          {paragraphs.map((paragraph, i) => (
+            <p key={i} className="mt-3 max-w-2xl text-ink-600">
+              {paragraph}
+            </p>
+          ))}
+        </div>
+
+        {image && (
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-ink-200 bg-brand-50 shadow-card lg:aspect-square">
+            <Image
+              src={image}
+              alt={t(`servicePage.imageAlt.${service.slug}`)}
+              fill
+              sizes="(max-width: 1024px) 100vw, 40vw"
+              className="object-cover"
+            />
+          </div>
+        )}
+      </div>
 
       <section className="mt-10">
         <h2 className="text-h2 text-ink-900">

@@ -470,8 +470,21 @@ export default async function HomePage({ params }: { params: { locale: string } 
                     {serviceName(s, locale)}
                   </span>
                   {serviceDescription(s, locale) && (
-                    <span className="mt-1 line-clamp-2 block text-body leading-[22px] text-ink-600">
-                      {serviceDescription(s, locale)}
+                    // `block` bị bỏ có chủ ý: `line-clamp-2` cần `display: -webkit-box`
+                    // để hoạt động, và Tailwind cũng phát ra một utility `block`
+                    // (display: block) — hai class cùng khai `display`, và thứ tự
+                    // trong file CSS build ra (không phải thứ tự trong className)
+                    // quyết định ai thắng. Có cả hai từng khiến clamp im lặng vô
+                    // hiệu: nội dung tràn hết thay vì cắt gọn 2 dòng, bug có sẵn chỉ
+                    // lộ ra khi mô tả đủ dài để vượt quá 2 dòng.
+                    <span className="mt-1 line-clamp-2 text-body leading-[22px] text-ink-600">
+                      {/* Chỉ đoạn đầu tiên: mô tả biên tập nhiều đoạn (xem
+                          ServiceSeeder.cs) cách nhau bằng "\n\n", và ký tự xuống
+                          dòng thô cũng phá vỡ line-clamp theo cách riêng — CSS clamp
+                          theo số dòng bao gồm cả dòng trống từ "\n\n". Thẻ tóm tắt ở
+                          trang chủ không cần toàn bộ mô tả chi tiết — bản đầy đủ nằm
+                          ở trang dịch vụ phía sau link này. */}
+                      {serviceDescription(s, locale)?.split('\n\n')[0]}
                     </span>
                   )}
                   {/*

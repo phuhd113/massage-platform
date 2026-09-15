@@ -66,12 +66,15 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
     }
 
     /// <remarks>
-    /// Nội dung tiếng Việt là thứ đang chạy trên trang sống nhờ SEO. Seeder được chạy
-    /// lại mỗi lần bổ sung dịch vụ mới, nên nếu nó ghi đè thì một lượt seed thường lệ
-    /// sẽ lặng lẽ nuốt mọi chỉnh sửa biên tập đã làm trực tiếp trên DB.
+    /// Đảo ngược từ quyết định ban đầu (2026-09-15): mô tả VI+EN giờ được **ghi đè**,
+    /// cùng lý do với SortOrder — <c>Data</c> trong <see cref="ServiceSeeder"/> là
+    /// nguồn sự thật duy nhất cho nội dung biên tập, không còn sửa tay trực tiếp trên
+    /// DB. Lý do đảo: bản mô tả một câu ban đầu cần thay bằng bản mở rộng, và giữ
+    /// <c>??=</c> sẽ khiến mọi môi trường đã seed trước đó không bao giờ nhận được
+    /// nội dung mới — seeder báo "thêm mới 0" và trông y hệt một lượt chạy thành công.
     /// </remarks>
     [Fact]
-    public async Task Không_ghi_đè_nội_dung_tiếng_Việt_đang_có()
+    public async Task Ghi_đè_nội_dung_tiếng_Việt_đã_lỗi_thời()
     {
         await using var db = fixture.CreateContext();
         await db.Services.Where(s => s.Slug == "massage-thai").ExecuteDeleteAsync();
@@ -79,7 +82,7 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
         {
             Name = "Massage Thái",
             Slug = "massage-thai",
-            Description = "Mô tả đã được biên tập viên sửa tay.",
+            Description = "Mô tả cũ trước đợt mở rộng nội dung.",
             SortOrder = 4,
         });
         await db.SaveChangesAsync();
@@ -88,16 +91,16 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
 
         await using var đọc = fixture.CreateContext();
         var dịchVụ = await đọc.Services.SingleAsync(s => s.Slug == "massage-thai");
-        dịchVụ.Description.Should().Be("Mô tả đã được biên tập viên sửa tay.");
+        dịchVụ.Description.Should().NotBe("Mô tả cũ trước đợt mở rộng nội dung.");
         dịchVụ.NameEn.Should().Be("Thai massage");
     }
 
     /// <remarks>
-    /// Bản dịch cũng là nội dung biên tập, nên nó phải được bảo vệ giống bản tiếng
-    /// Việt: đã có giá trị thì seeder không đụng vào.
+    /// Bản dịch cũng là nội dung biên tập, nên nó theo cùng luật ghi đè với bản
+    /// tiếng Việt — xem <see cref="Ghi_đè_nội_dung_tiếng_Việt_đã_lỗi_thời"/>.
     /// </remarks>
     [Fact]
-    public async Task Không_ghi_đè_bản_dịch_đã_được_sửa_tay()
+    public async Task Ghi_đè_bản_dịch_đã_lỗi_thời()
     {
         await using var db = fixture.CreateContext();
         await db.Services.Where(s => s.Slug == "massage-chan").ExecuteDeleteAsync();
@@ -105,8 +108,8 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
         {
             Name = "Massage chân",
             Slug = "massage-chan",
-            NameEn = "Reflexology",
-            DescriptionEn = "Bản dịch do biên tập viên chọn.",
+            NameEn = "Foot and leg massage",
+            DescriptionEn = "Bản dịch cũ trước đợt mở rộng nội dung.",
             SortOrder = 6,
         });
         await db.SaveChangesAsync();
@@ -115,8 +118,8 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
 
         await using var đọc = fixture.CreateContext();
         var dịchVụ = await đọc.Services.SingleAsync(s => s.Slug == "massage-chan");
-        dịchVụ.NameEn.Should().Be("Reflexology");
-        dịchVụ.DescriptionEn.Should().Be("Bản dịch do biên tập viên chọn.");
+        dịchVụ.NameEn.Should().Be("Foot and leg massage");
+        dịchVụ.DescriptionEn.Should().NotBe("Bản dịch cũ trước đợt mở rộng nội dung.");
     }
 
     [Fact]
@@ -128,6 +131,38 @@ public class ServiceCatalogLocaleTests(PostgresFixture fixture)
         await using var đọc = fixture.CreateContext();
         var số = await đọc.Services.CountAsync(s => s.Slug == "massage-tri-lieu");
         số.Should().Be(1);
+    }
+
+    /// <remarks>
+    /// Dịch vụ ngừng bán 2026-09-15. Tắt <c>IsActive</c> chứ không xoá hàng — kiểm cả
+    /// việc hàng vẫn còn tồn tại (không mất dữ liệu KTV đã tham chiếu) lẫn việc nó
+    /// không lọt ra đường đọc công khai nữa.
+    /// </remarks>
+    [Fact]
+    public async Task Dịch_vụ_ngừng_bán_bị_tắt_IsActive_nhưng_không_bị_xoá()
+    {
+        await using var db = fixture.CreateContext();
+        await db.Services.Where(s => s.Slug == "xong-hoi-thao-duoc").ExecuteDeleteAsync();
+        db.Services.Add(new Service
+        {
+            Name = "Xông hơi thảo dược",
+            Slug = "xong-hoi-thao-duoc",
+            SortOrder = 99,
+            IsActive = true,
+        });
+        await db.SaveChangesAsync();
+
+        await using (var chạy = fixture.CreateContext()) await SeedAsync(chạy);
+
+        await using var đọc = fixture.CreateContext();
+        var dịchVụ = await đọc.Services.SingleAsync(s => s.Slug == "xong-hoi-thao-duoc");
+        dịchVụ.IsActive.Should().BeFalse();
+
+        await using var api = new ApiFactory(fixture.ConnectionString, fixture.DataSource);
+        var res = await api.CreateClient().GetAsync("/api/v1/services");
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        json.EnumerateArray().Any(s => s.GetProperty("slug").GetString() == "xong-hoi-thao-duoc")
+            .Should().BeFalse();
     }
 
     /// <remarks>

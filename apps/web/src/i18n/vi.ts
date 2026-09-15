@@ -363,6 +363,18 @@ export const vi = {
       'Tìm kỹ thuật viên {nameLower} nhận đến tận nhà, danh tính đã đối chiếu.',
     h1: '{name} tận nơi',
     byArea: 'Tìm {nameLower} theo khu vực',
+    imageAlt: {
+      'massage-tri-lieu': 'Kỹ thuật viên dùng lực tay tác động sâu vào vùng chân khách trong buổi massage trị liệu',
+      'massage-co-vai-gay': 'Kỹ thuật viên bấm vào vùng cổ và vai khách, cả hai đều mặc trang phục kín đáo',
+      'bam-huyet': 'Kỹ thuật viên bấm huyệt vào cổ tay khách',
+      'massage-thai': 'Kỹ thuật viên trong trang phục truyền thống Thái thực hiện kéo giãn chân khách trên nệm sàn',
+      'massage-body': 'Kỹ thuật viên mặc đồng phục trắng thực hiện massage body cho khách, khách được phủ khăn kín đáo',
+      'massage-chan': 'Kỹ thuật viên xoa bóp bàn chân cho khách',
+      'massage-ba-bau': 'Kỹ thuật viên nhẹ nhàng massage vùng vai cho thai phụ đang nằm thư giãn',
+      'tri-lieu-cot-song': 'Kỹ thuật viên vật lý trị liệu tác động vào vùng vai và cột sống trên của khách',
+      'giac-hoi': 'Cốc giác hơi đặt trên lưng khách, phủ khăn trắng phần lớn cơ thể',
+      'cao-gio': 'Cận cảnh tay kỹ thuật viên cầm dụng cụ cạo gió bằng gỗ',
+    },
   },
 
   ktvProfile: {
