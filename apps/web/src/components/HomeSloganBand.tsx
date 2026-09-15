@@ -73,23 +73,41 @@ function BrandDomain({ value }: { value: string }) {
       {parts.map((part, i) => (
         <Fragment key={i}>
           {i > 0 && (
-            /* Cắt bớt đúng phần ô thừa hai bên dấu chấm. Dùng `em` chứ không `px`: cỡ
-               chữ đổi giữa mobile (48px) và desktop (60px), nên một giá trị px sẽ siết
-               đúng ở một cỡ và sai ở cỡ kia.
+            /* **TUYỆT ĐỐI KHÔNG thêm `inline-block` vào span này** — dù nó trông như
+               thứ đương nhiên phải có để margin âm ăn, và dù mọi trình duyệt desktop
+               đều vẽ đúng với nó.
 
-               Nhưng `em` một mình vẫn **chưa đủ**, và đây là lỗi đã thấy trên máy thật
-               (iPhone, 2026-09-14): ở mobile dấu chấm **biến mất hẳn** — "MasGo.vn" đọc
-               ra "MasGo vn". Lý do là hai lượt siết cộng dồn, còn phần mực thì không co
-               theo cùng tỉ lệ. Ở 48px: `tracking-[-0.045em]` của span cha lấy đi 2,16px
-               mỗi khe, `-mx-[0.12em]` lấy thêm 5,76px mỗi bên — tổng ~15,8px siết quanh
-               một glyph chỉ có ~6,4px mực, nên chữ "o" và "v" phủ kín lên nó. Ở 60px
-               cùng công thức đó còn chừa lại đủ chỗ, nên desktop trông vẫn đúng và lỗi
-               chỉ lộ ra trên điện thoại.
+               Lỗi đã cắn trên iPhone thật (2026-09-14): dấu chấm **biến mất hẳn** trên
+               iOS, "MasGo.vn" đọc ra "MasGo vn" — trong khi Chrome desktop hiển thị
+               đúng ở mọi bề rộng, kể cả khi thu về 390px. Đây là lỗi chỉ trình duyệt
+               mới tái hiện được: cả `getComputedStyle` lẫn `getBoundingClientRect` đều
+               **giống hệt nhau** ở bản hỏng và bản đúng (dấu chấm vẫn rộng 17,44px, vẫn
+               đúng vị trí), vì khác biệt nằm ở tầng **vẽ**, không ở tầng layout hay
+               style. Số đo và typecheck đều xanh với bản sai.
 
-               Vì vậy giá trị gate theo cỡ chữ: nửa biên độ ở mobile, giữ nguyên ở `sm:`.
-               Đừng gộp lại thành một giá trị duy nhất "cho gọn" — một trong hai cỡ sẽ
-               sai, và cỡ sai là cỡ phần lớn khách đang xem. */
-            <span className="-mx-[0.06em] inline-block sm:-mx-[0.12em]">.</span>
+               Nguyên nhân là tương tác giữa `inline-block` con và `bg-clip-text` của
+               span cha: cha tô chữ bằng gradient cắt theo hình glyph
+               (`background-clip: text` + `text-transparent`), và WebKit không cắt
+               background của cha vào chữ nằm trong hộp `inline-block` con — dấu chấm
+               giữ nguyên `color: transparent` và không có gì vẽ vào chỗ nó. "MasGo" và
+               "vn" là text thuần của chính span cha nên vẫn được tô, vì vậy chỉ mỗi dấu
+               chấm biến mất.
+
+               Đã cô lập trên WebKit thật (Playwright, iPhone 14, trang production), ba
+               trạng thái, chỉ khác nhau một thuộc tính:
+                 - `inline-block` + clip  → "MasGo vn"  (mất dấu chấm)
+                 - đổi sang `inline`      → "MasGo.vn" (hiện, gradient còn nguyên)  ← bản này
+                 - tắt clip, giữ ib       → "MasGo.vn" (hiện, nhưng mất gradient)
+               Bỏ margin âm **không** chữa được — đã thử, dấu chấm vẫn vô hình, chỉ là
+               khoảng trống rộng ra. Nên đừng đi sửa ở hướng margin.
+
+               `inline` không mất gì: margin **ngang** áp dụng đầy đủ cho element inline
+               (chỉ margin dọc mới bị bỏ qua), và đã đo — bỏ `inline-block` đi thì bề
+               rộng tổng của tên miền không đổi một pixel.
+
+               Đơn vị là `em` chứ không `px` vì cỡ chữ đổi giữa mobile (48px) và desktop
+               (60px); một giá trị px sẽ siết đúng ở một cỡ và sai ở cỡ kia. */
+            <span className="-mx-[0.12em]">.</span>
           )}
           {part}
         </Fragment>
