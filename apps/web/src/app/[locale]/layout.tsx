@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Analytics } from '@/components/Analytics';
 import { LOCALES, OG_LOCALE, isLocale } from '@/i18n/config';
 import { getDictionary } from '@/i18n/dictionaries';
 import { createTranslator } from '@/i18n/t';
@@ -52,7 +53,13 @@ export default function LocaleLayout({
 
   return (
     <html lang={params.locale} className={fontVariables}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Đặt ở layout `[locale]` chứ không ở root layout: root cố ý KHÔNG render
+            <html>/<body> (xem ghi chú ở đó), và nó cũng không phủ /dashboard lẫn /admin —
+            đúng như mong muốn, lưu lượng nội bộ không được trộn vào số liệu website. */}
+        <Analytics />
+      </body>
     </html>
   );
 }

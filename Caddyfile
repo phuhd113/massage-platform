@@ -164,3 +164,17 @@ status.{$DOMAIN} {
 	import common
 	reverse_proxy beszel:8090
 }
+
+# ---------------------------------------------------------------------------
+# Web analytics (Umami) — lưu lượng website theo thời gian thực.
+#
+# Đăng nhập bằng tài khoản Umami riêng (mặc định admin/umami lúc chạy lần đầu — **đổi
+# ngay**). KHÔNG dùng chung với ADMIN của app: ba hệ thống auth độc lập (app, Beszel,
+# Umami), và vai ADMIN của app không tự có quyền ở đây.
+#
+# `import common` là bắt buộc, cùng lý do đã ghi ở khối status: thiếu nó là mất HSTS,
+# nosniff và frame-options cho đúng trang đang hiển thị số liệu truy cập.
+analytics.{$DOMAIN} {
+	import common
+	reverse_proxy umami:3000
+}

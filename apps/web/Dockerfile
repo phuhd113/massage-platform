@@ -38,10 +38,24 @@ ARG NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 # khách. Nút "Gọi ngay" — đường doanh thu chính — chết hoàn toàn, và chết lặng lẽ:
 # trang render 200, nút hiện ra, bấm vào không có gì xảy ra.
 ARG NEXT_PUBLIC_API_BASE_URL="http://localhost:5080/api/v1"
+
+# Umami (web analytics tự host). Mặc định **rỗng** và `components/Analytics.tsx` không
+# render gì khi thiếu — máy dev và CI không nên gửi lượt truy cập về số liệu production,
+# và một thẻ script trỏ tới host không tồn tại sẽ hỏng im lặng ở console của mọi người.
+#
+# Phải là ARG chứ không chỉ ENV lúc chạy, cùng bẫy đã cắn ba lần với
+# NEXT_PUBLIC_MEDIA_BASE_URL và NEXT_PUBLIC_SITE_URL: Next inline mọi `NEXT_PUBLIC_*` vào
+# bundle trình duyệt **lúc build**. Khai muộn thì script biến mất khỏi HTML trong khi
+# build vẫn xanh và trang vẫn 200.
+ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID=""
+ARG NEXT_PUBLIC_UMAMI_SRC=""
+
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_MEDIA_BASE_URL=$NEXT_PUBLIC_MEDIA_BASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID \
+    NEXT_PUBLIC_UMAMI_SRC=$NEXT_PUBLIC_UMAMI_SRC
 RUN npm run build
 
 FROM node:20-alpine AS runner

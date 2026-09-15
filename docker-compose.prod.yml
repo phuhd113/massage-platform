@@ -216,6 +216,11 @@ services:
         NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL_PUBLIC}
         NEXT_PUBLIC_MEDIA_BASE_URL: ${R2_PUBLIC_BASE_URL}
         NEXT_PUBLIC_SITE_URL: ${SITE_URL}
+        # Umami: cũng là build arg, cùng lý do với ba biến trên. Để trống thì
+        # `components/Analytics.tsx` không render gì — đó là trạng thái đúng cho một bản
+        # build không phải production.
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+        NEXT_PUBLIC_UMAMI_SRC: ${UMAMI_SRC:-}
     container_name: masgo_web
     restart: unless-stopped
     depends_on:
@@ -282,6 +287,41 @@ services:
       DOMAIN: ${DOMAIN}
       API_DOMAIN: ${API_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
+
+  # Web analytics (Umami) — xem qua https://analytics.{$DOMAIN}.
+  #
+  # Vì sao self-host thay vì GA4: script ~2KB thay vì ~50KB trên trang đang đo LCP (chỉ
+  # số xếp hạng, xem ghi chú về `sharp` và icon inline SVG), **không đặt cookie** nên
+  # không cần banner đồng ý và không phải kê thêm chỗ lưu trữ vào mục 8 của
+  # /chinh-sach-bao-mat, và dữ liệu khách Việt không rời VPS. Đổi lại là ~150MB RAM và
+  # tự lo backup — chấp nhận được khi còn 2,4GB trống.
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: masgo_umami
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # **Database RIÊNG (`umami`), không dùng chung `massage_platform`.** Umami tự chạy
+      # migration Prisma lúc khởi động và tự tạo bảng của nó; để chung schema nghĩa là
+      # `dotnet ef migrations add` sau này sinh diff rác cho hàng chục bảng không thuộc
+      # app, và `pg_dump` của tools/backup-db.sh kéo theo cả dữ liệu analytics vào bản
+      # sao lưu nghiệp vụ. Dùng chung *instance* Postgres thì vẫn tiết kiệm được RAM.
+      DATABASE_URL: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/umami'
+      DATABASE_TYPE: postgresql
+
+      # Khoá ký session của dashboard. Đổi giá trị này là đăng xuất mọi phiên đang mở.
+      APP_SECRET: ${UMAMI_APP_SECRET}
+
+      # Tắt kênh gửi số liệu ẩn danh về nhà sản xuất. Đây là công cụ đặt ra để dữ liệu
+      # khách không rời VPS; để nó gửi đi là mâu thuẫn với chính lý do chọn nó.
+      DISABLE_TELEMETRY: '1'
+
+    # Không publish cổng ra host: Caddy tới được qua mạng nội bộ, cùng luật với mọi
+    # service khác trong file này (xem ghi chú ở khối `postgres`).
+    networks:
+      - internal
 
   # Giám sát hạ tầng (CPU/RAM/disk/uptime container) — xem qua https://status.{$DOMAIN},
   # bảo vệ bằng tài khoản Beszel riêng (KHÔNG dùng chung với ADMIN của app). Hub và agent
