@@ -64,6 +64,34 @@ export const en: Dictionary = {
     switchToVietnamese: 'Tiếng Việt',
   },
 
+  /* Popup thông báo giai đoạn thử nghiệm. Dịch đầy đủ chứ không để nguyên tiếng Việt:
+     popup này nói với **khách** (bản EN đã có đủ hero, footer và ba trang pháp lý bằng
+     tiếng Anh), khác khối Beta ở `/dang-ky-ktv` vốn chỉ nhắm vào KTV người Việt. Một
+     hộp thoại tiếng Việt nguyên vẹn bật lên giữa trang EN là đúng lỗi `heroGeoPromise`
+     đã phải sửa.
+
+     Giọng bám bản vi nhưng KHÔNG dịch sát vế "thời điểm vàng": ở tiếng Anh câu đó
+     đọc như quảng cáo bán hàng, đúng thứ ngữ điệu phải tránh trong ngành này. */
+  betaNotice: {
+    badge: 'Notice',
+    title: 'MasGo is in its operational trial phase',
+    summary:
+      '{siteName} is currently in an operational trial phase, building the safest, most transparent and most convenient link between massage therapists and clients, area by area.',
+    dismiss: 'Dismiss notice',
+    intro: 'During this phase, profiles and activity on the platform grow every day:',
+    forCustomersLabel: 'For clients',
+    forCustomers:
+      'If there are not many therapists listed in your area yet, we are actively verifying and adding profiles every day. You can contact the therapists currently shown, or tell us which area you need so we can help you sooner.',
+    forKtvLabel: 'For therapists',
+    forKtv:
+      'Now is the best time to join. Every early therapist gets their profile maintained free of charge, complimentary priority top placement, and a special discounted rate once the platform launches officially.',
+    closing:
+      'Your presence and your first suggestions are what help {siteName} improve every day.',
+    ctaKtv: 'Join as a therapist',
+    ctaCustomer: 'Find a therapist',
+    close: 'Maybe later',
+  },
+
   home: {
     /* "certified" ở đây từng là một khẳng định về **từng** therapist, mạnh hơn hẳn vế
        tiếng Việt vốn chỉ là cụm từ khoá danh mục. Điều kiểm được là danh tính đã đối
@@ -601,8 +629,9 @@ export const en: Dictionary = {
     s8Title: '8. Cookies and browser storage',
     s8p1:
       'We use a technical cookie to keep you signed in. It is not used for advertising and is not shared with third parties.',
+    /* Bốn chỗ, đối xứng với bản vi — xem ghi chú ở đó về lý do kê đúng từng chỗ. */
     s8p2:
-      'Your browser stores a few display preferences on your own device: the area you last chose, whether you have read the notice for therapists, and whether the filter prompt has appeared during this session. This data is never sent to our servers, and you can remove it by clearing site data in your browser.',
+      'Your browser stores a few display preferences on your own device: the area you last chose, whether you have read the notice for therapists, whether you have seen the trial-phase notice, and whether the filter prompt has appeared during this session. This data is never sent to our servers, and you can remove it by clearing site data in your browser.',
 
     s9Title: '9. Changes to this policy',
     s9p1:

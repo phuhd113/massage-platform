@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { BetaNoticeDialog } from '@/components/BetaNoticeDialog';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LEGAL_PAGES } from '@/components/LegalPage';
@@ -33,6 +34,24 @@ export function PublicShell({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/*
+          Thông báo giai đoạn thử nghiệm, tự hiện một lần cho khách.
+
+          Đặt ở shell nên nó có mặt trên **mọi** trang công khai, kể cả trang hồ sơ và
+          trang quận — nơi phần lớn traffic từ Google đáp xuống, và cũng đúng nơi câu
+          "danh sách ở khu vực của bạn đang được bổ sung" có nghĩa. Gắn ở riêng trang
+          chủ là bỏ sót đúng những lối vào đông nhất, cùng lý do `KtvAnnouncement` nằm
+          ở `dashboard/layout.tsx` chứ không ở một page.
+
+          Dashboard KTV và trang admin không dùng shell này nên không thấy popup, đúng
+          ý: KTV đã có `KtvAnnouncement` với nội dung dành riêng cho họ, và hai popup
+          chồng nhau ở cùng một lần đăng nhập là hai lớp phủ phải bấm qua.
+
+          Vị trí trong cây DOM không quan trọng (nó là `fixed`), nhưng đặt trước header
+          để thứ tự đọc của trình đọc màn hình khớp thứ tự nhìn thấy.
+      */}
+      <BetaNoticeDialog locale={locale} />
+
       {/* Header dính: trên trang kết quả dài, khách cuộn giữa chừng vẫn quay
           lại đổi khu vực được mà không phải cuộn ngược lên đầu.
           backdrop-blur giữ chữ đọc được khi nội dung trôi phía dưới. */}

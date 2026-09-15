@@ -79,6 +79,56 @@ export const vi = {
     switchToVietnamese: 'Tiếng Việt',
   },
 
+  /**
+   * Popup thông báo giai đoạn thử nghiệm, tự hiện một lần cho khách vào trang công khai.
+   *
+   * **Sửa bất kỳ chuỗi nào ở đây phải tăng `BETA_NOTICE_VERSION`** trong
+   * `lib/beta-notice.ts` — người đã đóng bản cũ sẽ không bao giờ thấy bản mới, mà lý
+   * do duy nhất để sửa một thông báo là muốn người ta đọc phần đã đổi.
+   *
+   * Hai đoạn "Dành cho…" cố ý mang **nhãn đối tượng** ở đầu. Popup này nói với hai
+   * nhóm có nhu cầu trái ngược nhau trong cùng một hộp; không gắn nhãn thì khách đọc
+   * mất đoạn dành cho KTV rồi mới biết nó không dành cho mình.
+   *
+   * Khác `BetaAnnouncementDialog` (chỉ tiếng Việt, nói với KTV về chính sách thu phí):
+   * bản này song ngữ vì người đọc là khách, và trang EN đã có đủ hero, footer và ba
+   * trang pháp lý bằng tiếng Anh.
+   */
+  betaNotice: {
+    /* Nhãn loại thông báo, đứng trên tiêu đề trong đầu hộp thoại. Có chữ thì trình đọc
+       màn hình và người không nhận ra ký hiệu đều hiểu đây là loại thông tin gì. */
+    badge: 'Thông báo',
+    /* Tiêu đề nói **trạng thái**, không nói lời chào: người vừa bị một lớp phủ chắn
+       đường cần biết ngay đây là chuyện gì mới quyết định được có đọc tiếp hay không. */
+    title: 'MasGo đang trong giai đoạn thử nghiệm vận hành',
+    summary:
+      '{siteName} hiện đang trong giai đoạn thử nghiệm vận hành nhằm xây dựng cầu nối an toàn, minh bạch và tiện lợi nhất giữa Kỹ thuật viên trị liệu và Khách hàng theo từng khu vực.',
+    dismiss: 'Đóng thông báo',
+    intro:
+      'Trong giai đoạn này, dữ liệu hồ sơ và lượt tương tác trên sàn đang được hoàn thiện từng ngày:',
+    forCustomersLabel: 'Dành cho Khách hàng',
+    forCustomers:
+      'Nếu danh sách kỹ thuật viên tại khu vực của bạn chưa nhiều, chúng tôi đang tích cực kiểm định và bổ sung hồ sơ mỗi ngày. Bạn có thể liên hệ trực tiếp với các KTV đang hiển thị hoặc gửi yêu cầu khu vực để được hỗ trợ nhanh nhất.',
+    forKtvLabel: 'Dành cho Kỹ thuật viên (KTV)',
+    forKtv:
+      'Đây là thời điểm vàng để bạn đăng ký tham gia! Toàn bộ KTV tiên phong sẽ được miễn phí 100% chi phí duy trì hồ sơ, tặng lượt đẩy Top ưu tiên và nhận chính sách trợ giá đặc biệt khi sàn chính thức vận hành.',
+    closing:
+      'Sự hiện diện và những góp ý đầu tiên của bạn là nguồn động lực rất lớn giúp {siteName} hoàn thiện hơn mỗi ngày.',
+    /* Hai lối đi ra, mỗi nhóm một lối — popup nói với hai đối tượng nên kết bằng một
+       nút chung là bỏ rơi một trong hai. Đích đều là trang đã có, không dựng luồng mới.
+
+       Lối của khách là `/tim-kiem` chứ không `/lien-he`: việc họ tới sàn để làm là
+       **tìm KTV**, và đoạn ngay trên vừa khuyên "liên hệ trực tiếp với các KTV đang
+       hiển thị". Đẩy họ sang trang liên hệ là mời gọi Ban quản trị thay cho việc tự
+       tìm được — đúng thứ `/lien-he` cố ý tránh. */
+    ctaKtv: 'Đăng ký làm KTV',
+    ctaCustomer: 'Tìm kỹ thuật viên',
+    /* Lối ra thứ ba, chữ nhạt dưới hai nút: người không thuộc nhóm nào vẫn phải đóng
+       được mà không phải bấm một nút đưa mình đi đâu đó. Nút X ở góc cũng làm việc
+       này, nhưng nó nhỏ và nằm xa ngón cái trên điện thoại. */
+    close: 'Để sau',
+  },
+
   home: {
     metaTitle: '{siteName} — massage thư giãn tận nơi, hồ sơ đã xác thực',
     metaDescription:
@@ -699,12 +749,15 @@ export const vi = {
       'Nền tảng không dành cho người dưới 18 tuổi. Chúng tôi không chủ ý thu thập dữ liệu của trẻ em và sẽ xoá ngay khi phát hiện.',
 
     s8Title: '8. Cookie và lưu trữ trên trình duyệt',
-    /* Ba chỗ dùng browser storage đã được ghi lại trong rules — nói đúng ba chỗ
-       đó thay vì một câu chung chung về cookie. */
+    /* **Bốn** chỗ dùng browser storage — `lib/saved-area.ts`, `lib/ktv-announcement.ts`,
+       cờ popup lọc trong `sessionStorage`, và `lib/beta-notice.ts` (popup thông báo
+       giai đoạn thử nghiệm, thêm 2026-09-15). Kê đúng từng chỗ thay vì một câu chung
+       chung về cookie; thêm chỗ thứ năm mà quên sửa đoạn này thì chính sách kê thiếu,
+       tức kê sai — và đây là lời khai chủ động với khách, không phải ghi chú nội bộ. */
     s8p1:
       'Chúng tôi dùng cookie kỹ thuật để giữ phiên đăng nhập. Cookie này không dùng cho quảng cáo và không chia sẻ với bên thứ ba.',
     s8p2:
-      'Trình duyệt của bạn lưu một vài tuỳ chọn hiển thị ngay trên máy: khu vực bạn đã chọn gần nhất, việc bạn đã đọc thông báo dành cho kỹ thuật viên, và việc gợi ý bộ lọc đã hiện trong phiên này. Những dữ liệu này không được gửi về máy chủ và bạn có thể xoá bằng cách xoá dữ liệu trang trong trình duyệt.',
+      'Trình duyệt của bạn lưu một vài tuỳ chọn hiển thị ngay trên máy: khu vực bạn đã chọn gần nhất, việc bạn đã đọc thông báo dành cho kỹ thuật viên, việc bạn đã xem thông báo về giai đoạn thử nghiệm, và việc gợi ý bộ lọc đã hiện trong phiên này. Những dữ liệu này không được gửi về máy chủ và bạn có thể xoá bằng cách xoá dữ liệu trang trong trình duyệt.',
 
     s9Title: '9. Thay đổi chính sách',
     s9p1:
