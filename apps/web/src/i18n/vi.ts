@@ -391,6 +391,14 @@ export const vi = {
     certsTitle: 'Chứng chỉ hành nghề đã duyệt',
     certChecked: 'Đã đối chiếu',
     photosTitle: 'Hình ảnh',
+
+    /* Nhãn cho lightbox (bấm ảnh để xem to). Dùng chung cho ảnh đại diện và lưới
+       ảnh — hai chỗ gọi cùng một component nên một bộ nhãn là đủ. */
+    photoOpen: 'Xem ảnh lớn',
+    photoClose: 'Đóng ảnh',
+    photoPrev: 'Ảnh trước',
+    photoNext: 'Ảnh sau',
+    photoCounter: '{current}/{total}',
     areasTitle: 'Khu vực nhận khách',
     priceFrom: 'giá từ',
     minutes: 'phút',

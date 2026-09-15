@@ -327,6 +327,12 @@ export const en: Dictionary = {
     certsTitle: 'Verified practising certificates',
     certChecked: 'Checked',
     photosTitle: 'Photos',
+
+    photoOpen: 'View larger photo',
+    photoClose: 'Close photo',
+    photoPrev: 'Previous photo',
+    photoNext: 'Next photo',
+    photoCounter: '{current}/{total}',
     areasTitle: 'Areas covered',
     priceFrom: 'from',
     minutes: 'min',

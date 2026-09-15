@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { ContactButtons } from '@/components/ContactButtons';
 import { JsonLd } from '@/components/JsonLd';
+import { PhotoLightbox } from '@/components/PhotoLightbox';
 import { CertifiedIcon } from '@/components/icons';
 import { ProfileViewBeacon } from '@/components/ProfileViewBeacon';
 import { ReportProfileButton } from '@/components/ReportProfileButton';
@@ -114,6 +115,21 @@ export default async function KtvPage({ params }: Props) {
     (url): url is string => url !== null && /^https?:\/\//.test(url),
   );
 
+  // Lọc ảnh hỏng URL **một lần** ở đây thay vì `return null` giữa map: lightbox đếm
+  // ảnh theo chỉ số (`{current}/{total}` và hai mũi tên), nên một phần tử null giữa
+  // danh sách sẽ làm bộ đếm nói dối và mũi tên nhảy vào ô trống.
+  const galleryPhotos = profile.photos
+    .map((p) => ({ ...p, src: mediaUrl(p.url) }))
+    .filter((p): p is typeof p & { src: string } => p.src !== null);
+
+  const lightboxLabels = {
+    open: t('ktvProfile.photoOpen'),
+    close: t('ktvProfile.photoClose'),
+    prev: t('ktvProfile.photoPrev'),
+    next: t('ktvProfile.photoNext'),
+    counter: t('ktvProfile.photoCounter'),
+  };
+
   return (
     <>
       {/* Đếm lượt xem từ trình duyệt — trang này được cache nên đếm ở server sẽ
@@ -145,18 +161,33 @@ export default async function KtvPage({ params }: Props) {
               vọng sai về người sẽ đến nhà, vừa kéo trang về phía cảm giác nhạy cảm
               mà định vị thương hiệu đang tránh. */}
           {avatar ? (
-            <Image
-              src={avatar}
-              // Ảnh này là ứng viên LCP của trang, nên `priority` để trình duyệt
-              // không phải chờ đọc xong CSS mới biết cần tải nó.
-              priority
-              alt={t('ktvProfile.avatarAlt', { name: profile.fullName })}
-              width={112}
-              height={112}
-              sizes="112px"
-              className="h-24 w-24 shrink-0 rounded-xl border border-ink-200 object-cover sm:h-28 sm:w-28"
-              unoptimized={!isOptimizable(avatar)}
-            />
+            // Lightbox riêng cho ảnh đại diện, tách khỏi lưới ảnh bên dưới: gộp
+            // chung thì mũi tên ở avatar sẽ đi tiếp vào cả gallery, tức bấm vào ảnh
+            // chân dung lại trôi sang ảnh phòng — hai thứ khách xem vì hai lý do
+            // khác nhau. Ở đây chỉ có một ảnh nên không có mũi tên nào.
+            <PhotoLightbox
+              className="shrink-0"
+              labels={lightboxLabels}
+              items={[
+                { src: avatar, alt: t('ktvProfile.avatarAlt', { name: profile.fullName }) },
+              ]}
+            >
+              {[
+                <Image
+                  key="avatar"
+                  src={avatar}
+                  // Ảnh này là ứng viên LCP của trang, nên `priority` để trình duyệt
+                  // không phải chờ đọc xong CSS mới biết cần tải nó.
+                  priority
+                  alt={t('ktvProfile.avatarAlt', { name: profile.fullName })}
+                  width={112}
+                  height={112}
+                  sizes="112px"
+                  className="h-24 w-24 rounded-xl border border-ink-200 object-cover transition group-hover:border-brand-300 sm:h-28 sm:w-28"
+                  unoptimized={!isOptimizable(avatar)}
+                />,
+              ]}
+            </PhotoLightbox>
           ) : (
             <span
               aria-hidden
@@ -262,21 +293,36 @@ export default async function KtvPage({ params }: Props) {
               không. Chỉ ảnh đã duyệt tới được đây — backend lọc, frontend không tự
               lọc lại để hai nơi không thể lệch nhau.
             */}
-            {profile.photos.length > 0 && (
+            {galleryPhotos.length > 0 && (
               <section className="mt-8">
                 <h2 className="text-h2 text-ink-900">{t('ktvProfile.photosTitle')}</h2>
-                <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {profile.photos.map((p) => {
-                    const src = mediaUrl(p.url);
-                    if (!src) return null;
-
-                    return (
-                      <li
-                        key={p.id}
-                        className="overflow-hidden rounded-xl border border-ink-200 bg-ink-50"
+                {/*
+                  Lưới bọc trong `PhotoLightbox` để bấm vào là xem bản to. Các thẻ
+                  `<Image>` vẫn do server render và được truyền xuống làm children,
+                  nên chúng có đủ trong HTML thô — xem ghi chú ở đầu component.
+                */}
+                <PhotoLightbox
+                  className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
+                  labels={lightboxLabels}
+                  items={galleryPhotos.map((p) => ({
+                    src: p.src,
+                    alt: photoAlt(profile.fullName, p.caption),
+                    caption: p.caption,
+                  }))}
+                >
+                  {galleryPhotos.map((p) => (
+                    <div
+                      key={p.id}
+                      className="rounded-xl border border-ink-200 bg-ink-50 transition group-hover:border-brand-300"
+                    >
+                      {/* Lớp cắt riêng cho ảnh, KHÔNG bọc cả caption: `overflow-hidden`
+                          phải ôm đúng thứ đang phóng to khi hover, còn caption nằm
+                          ngoài thì nó không bị ảnh nở ra đè lên. */}
+                      <div
+                        className={`overflow-hidden ${p.caption ? 'rounded-t-xl' : 'rounded-xl'}`}
                       >
                         <Image
-                          src={src}
+                          src={p.src}
                           alt={photoAlt(profile.fullName, p.caption)}
                           width={400}
                           height={300}
@@ -286,18 +332,18 @@ export default async function KtvPage({ params }: Props) {
                           // Khung 4:3 cố định: ảnh KTV chụp bằng điện thoại có đủ
                           // mọi tỉ lệ, để nguyên thì lưới nhảy lởm chởm và mỗi tấm
                           // tải xong lại đẩy nội dung bên dưới (CLS).
-                          className="aspect-[4/3] w-full object-cover"
-                          unoptimized={!isOptimizable(src)}
+                          className="aspect-[4/3] w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                          unoptimized={!isOptimizable(p.src)}
                         />
-                        {p.caption && (
-                          <p lang="vi" className="px-3 py-2 text-body-s text-ink-600">
-                            {p.caption}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                      </div>
+                      {p.caption && (
+                        <p lang="vi" className="px-3 py-2 text-body-s text-ink-600">
+                          {p.caption}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </PhotoLightbox>
               </section>
             )}
 
